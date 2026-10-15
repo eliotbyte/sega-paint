@@ -1,0 +1,69 @@
+{
+  "game": "Skitchin'",
+  "layers": {
+    "L0": {
+      "name": "Bass",
+      "role": "bass",
+      "color": "#ffb020"
+    },
+    "L1": {
+      "name": "Guitars",
+      "role": "sample",
+      "color": "#ff5d8f"
+    },
+    "L2": {
+      "name": "Drums",
+      "role": "sample",
+      "color": "#a06bff"
+    },
+    "L3": {
+      "name": "FM Drums",
+      "role": "perc",
+      "color": "#5a7bff"
+    }
+  },
+  "samples": [
+    {
+      "name": "Guitar chug",
+      "sprite": "skull"
+    },
+    {
+      "name": "Chord",
+      "sprite": "bolt"
+    },
+    {
+      "name": "Pad 1",
+      "sprite": "star"
+    },
+    {
+      "name": "Pad 2",
+      "sprite": "guitar"
+    },
+    {
+      "name": "Kick",
+      "sprite": "drum",
+      "drumRow": 31
+    },
+    {
+      "name": "Snare",
+      "sprite": "snare",
+      "drumRow": 35
+    }
+  ],
+  "info": {
+    "pages": [
+      {
+        "picture": "../_games/skitchin/detroit.png",
+        "caption": "Race 9 · Detroit"
+      },
+      {
+        "title": "Caffeine Dream",
+        "text": "Race 9: Detroit, 6.4 miles. Password: CARS, for the Motor City. Skitchin' (EA, 1994), Mega Drive / Genesis. Music by Jeff van Dyck."
+      },
+      {
+        "title": "Know your drivers",
+        "text": "The TV host warns you about each city's traffic: drunk drivers, granny drivers, cabbies, lead foots, paranoid drivers. Some pop the trunk to throw you off; grannies brake when they see you."
+      }
+    ]
+  }
+}

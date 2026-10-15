@@ -1,0 +1,83 @@
+{
+  "game": "Skitchin'",
+  "layers": {
+    "L0": {
+      "name": "Bass",
+      "role": "bass",
+      "color": "#ffb020"
+    },
+    "L1": {
+      "name": "FM Lead",
+      "role": "lead",
+      "color": "#ff5d8f"
+    },
+    "L2": {
+      "name": "Guitars",
+      "role": "sample",
+      "color": "#a06bff"
+    },
+    "L3": {
+      "name": "Drums",
+      "role": "sample",
+      "color": "#5a7bff"
+    },
+    "L4": {
+      "name": "FM Drums 1",
+      "role": "perc",
+      "color": "#4cc24c"
+    },
+    "L5": {
+      "name": "FM Drums 2",
+      "role": "perc",
+      "color": "#ff6a3d"
+    }
+  },
+  "samples": [
+    {
+      "name": "Guitar chug",
+      "sprite": "skull"
+    },
+    {
+      "name": "Chord",
+      "sprite": "bolt"
+    },
+    {
+      "name": "Pad 1",
+      "sprite": "star"
+    },
+    {
+      "name": "Pad 2",
+      "sprite": "guitar"
+    },
+    {
+      "name": "Kick",
+      "sprite": "drum",
+      "drumRow": 31
+    },
+    {
+      "name": "Snare",
+      "sprite": "snare",
+      "drumRow": 35
+    }
+  ],
+  "info": {
+    "pages": [
+      {
+        "picture": "../_games/skitchin/los-angeles.png",
+        "caption": "Race 6 · Los Angeles"
+      },
+      {
+        "title": "Crunchy Bumpkin",
+        "text": "Race 6: Los Angeles, 4.8 miles. Password: STARS. One of three songs with an FM lead on top of the band; the others are Loser and the Title Screen. Skitchin' (EA, 1994), Mega Drive / Genesis. Music by Jeff van Dyck."
+      },
+      {
+        "title": "The craze",
+        "text": "Inline skates were the craze of the day: US sales grew from $22 million in 1989 to over $70 million in 1990. Emergency rooms saw 37,000 skaters in 1993 and expected 83,000 in 1994."
+      },
+      {
+        "title": "What's the worst?",
+        "text": "Programmer Brian Plank, in this game's credits too, is why FIFA Soccer sounds techno: the producer wanted TV-sports horns, Brian told Jeff to do what he felt was right."
+      }
+    ]
+  }
+}

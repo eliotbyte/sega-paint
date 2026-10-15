@@ -1,0 +1,73 @@
+{
+  "game": "Skitchin'",
+  "layers": {
+    "L0": {
+      "name": "Bass",
+      "role": "bass",
+      "color": "#ffb020"
+    },
+    "L1": {
+      "name": "Guitars",
+      "role": "sample",
+      "color": "#ff5d8f"
+    },
+    "L2": {
+      "name": "Drums",
+      "role": "sample",
+      "color": "#a06bff"
+    },
+    "L3": {
+      "name": "FM Drums",
+      "role": "perc",
+      "color": "#5a7bff"
+    }
+  },
+  "samples": [
+    {
+      "name": "Guitar chug",
+      "sprite": "skull"
+    },
+    {
+      "name": "Chord",
+      "sprite": "bolt"
+    },
+    {
+      "name": "Pad 1",
+      "sprite": "star"
+    },
+    {
+      "name": "Pad 2",
+      "sprite": "guitar"
+    },
+    {
+      "name": "Kick",
+      "sprite": "drum",
+      "drumRow": 31
+    },
+    {
+      "name": "Snare",
+      "sprite": "snare",
+      "drumRow": 35
+    }
+  ],
+  "info": {
+    "pages": [
+      {
+        "picture": "../_games/skitchin/cover-2.png",
+        "caption": "Skitchin' · the box"
+      },
+      {
+        "title": "Benign Fluff",
+        "text": "Not tied to a race: one of the 16 songs of the game's CD Player. Between races the menu reads Next Race, Shop, CD Player. Skitchin' (EA, 1994), Mega Drive / Genesis. Music by Jeff van Dyck."
+      },
+      {
+        "title": "Pick a tune",
+        "text": "Mean Machines Sega noted EA made 'quite a big deal' of the 16 tunes to choose from, and was not impressed: 'the concept isn't exactly new'."
+      },
+      {
+        "title": "Graffiti",
+        "text": "For the graffiti the team photographed walls around Toronto and called a number found on one. The painters, Carlos Zelaya, Zack Benwell and Nelson Garcia, were too young to drive, so they met at a train station."
+      }
+    ]
+  }
+}

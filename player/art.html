@@ -1,0 +1,212 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sega Paint · Art</title>
+<style>
+  :root { --bg: #b6b6b6; --face: #ffffff; --ink: #000000; --dim: #494949; --sel: #924924; --selInk: #ffffff; --line: #6d6d6d; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--ink); font: 12px/1.3 ui-monospace, Consolas, monospace; }
+  body { display: grid; grid-template-rows: auto 1fr; }
+  header { display: flex; gap: 6px; align-items: center; padding: 6px 8px; background: var(--face); border-bottom: 2px solid var(--ink); flex-wrap: wrap; }
+  header h1 { font-size: 13px; margin: 0 10px 0 0; text-transform: uppercase; letter-spacing: 1px; }
+  button, select, input[type=text] { font: inherit; background: var(--face); color: var(--ink); border: 1px solid var(--ink); padding: 3px 8px; }
+  button { cursor: pointer; }
+  button.on { background: var(--sel); color: var(--selInk); }
+  button:disabled { color: #929292; border-color: #929292; cursor: default; }
+  button.primary { background: var(--sel); color: var(--selInk); }
+  button.small { padding: 0 5px; font-size: 11px; }
+  #status { margin-left: auto; color: var(--dim); }
+  main { display: grid; grid-template-columns: 230px 1fr 250px; min-height: 0; }
+  aside { background: var(--face); border-right: 2px solid var(--ink); overflow: auto; padding: 6px; }
+  aside.right { border-right: 0; border-left: 2px solid var(--ink); }
+  h2 { font-size: 11px; text-transform: uppercase; color: var(--dim); margin: 10px 0 4px; display: flex; align-items: center; gap: 6px; }
+  h2 button { margin-left: auto; }
+  .item { display: flex; align-items: center; gap: 6px; width: 100%; text-align: left; margin: 0 0 1px; border: 1px solid transparent; padding: 1px 4px; background: none; }
+  .item:hover { border-color: var(--ink); }
+  .item.on { background: var(--sel); color: var(--selInk); }
+  .item canvas { image-rendering: pixelated; flex: none; background: #fff; }
+  .item .sw { width: 20px; height: 14px; flex: none; }
+  #center { display: grid; grid-template-rows: auto 1fr auto; min-height: 0; }
+  #timeline { background: var(--face); border-top: 2px solid var(--ink); padding: 4px 6px; }
+  #timeline .ctl { display: flex; gap: 4px; align-items: center; flex-wrap: wrap; margin-bottom: 4px; }
+  #timeline .ctl .hint { color: var(--dim); margin-left: 6px; }
+  #frames { display: flex; gap: 2px; overflow-x: auto; padding-bottom: 2px; }
+  .cel { flex: none; border: 1px solid var(--ink); background: var(--face); cursor: pointer; padding: 0; text-align: center; }
+  .cel .num { display: block; font-size: 11px; border-bottom: 1px solid var(--ink); padding: 0 4px; }
+  .cel canvas { display: block; image-rendering: pixelated; margin: 3px auto; background: repeating-conic-gradient(#e6e6e6 0 25%, #fff 0 50%) 0 0 / 6px 6px; }
+  .cel.on { outline: 2px solid var(--sel); outline-offset: -1px; }
+  .cel.on .num { background: var(--sel); color: var(--selInk); }
+  .cel.drop { border-left: 4px solid var(--sel); }
+  #bar { display: flex; gap: 6px; align-items: center; padding: 4px 6px; background: var(--face); border-bottom: 1px solid var(--ink); flex-wrap: wrap; min-height: 31px; }
+  #bar .hint { color: var(--dim); }
+  #wrap { overflow: hidden; position: relative; background: #929292; }
+  #view { image-rendering: pixelated; display: block; cursor: crosshair; }
+  #view.pan { cursor: grabbing; }
+  .tools { display: flex; flex-wrap: wrap; gap: 3px; }
+  .swatches { display: grid; grid-template-columns: repeat(6, 1fr); gap: 3px; margin: 4px 0; }
+  .sw { height: 22px; border: 1px solid var(--ink); cursor: pointer; }
+  .sw.on { outline: 2px solid var(--sel); outline-offset: 1px; }
+  .sw.clear { background: repeating-conic-gradient(#ccc 0 25%, #fff 0 50%) 0 0 / 8px 8px; }
+  .levels { display: grid; grid-template-columns: 14px 1fr 14px; gap: 2px 4px; align-items: center; }
+  .levels input { width: 100%; }
+  .big { height: 30px; border: 2px solid var(--ink); }
+  .note { color: var(--dim); font-size: 11px; margin: 4px 0; }
+  .tones td { padding: 1px; }
+  .tones .sw { width: 22px; height: 18px; }
+  #preview canvas { image-rendering: pixelated; border: 1px solid var(--line); margin: 1px; vertical-align: top; }
+  .item img { image-rendering: pixelated; flex: none; border: 1px solid var(--line); }
+  #photoTools canvas { image-rendering: pixelated; display: block; border: 1px solid var(--ink); }
+  #phBig { width: 100%; height: auto; }
+  #photoTools input[type=text], #photoTools select { width: 100%; margin-bottom: 4px; }
+  .sliders { display: grid; grid-template-columns: 62px 1fr 34px; gap: 2px 4px; align-items: center; }
+  .sliders input { width: 100%; }
+  #pagesView { position: absolute; inset: 0; overflow: auto; padding: 10px; display: flex; flex-wrap: wrap; align-content: flex-start; gap: 10px; background: #929292; }
+  #pagesView .cel.page canvas { margin: 0; background: none; }
+  #pagesView .cel.page .num { text-align: left; }
+  #pagesView .note { color: var(--ink); }
+  #pageTools textarea { width: 100%; min-height: 160px; font: inherit; border: 1px solid var(--ink); padding: 3px; resize: vertical; }
+  #pageTools input[type=text] { width: 100%; }
+  .picgrid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 3px; margin-bottom: 6px; }
+  .picgrid .pic { padding: 1px; border: 2px solid transparent; background: none; line-height: 0; }
+  .picgrid .pic img { width: 100%; image-rendering: pixelated; }
+  .picgrid .pic:hover { border-color: var(--ink); }
+  .picgrid .pic.on { border-color: var(--sel); }
+  .hidden { display: none !important; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Sega Paint · Art</h1>
+  <button id="tabPictures" class="on">Pictures</button>
+  <button id="tabTones">Track colours</button>
+  <button id="tabTheme">Interface</button>
+  <button id="tabPages" title="The pages of a song's Description panel">Song pages</button>
+  <button id="tabPhotos" title="Pictures for a song's Description panel: screenshots, photos">Song pictures</button>
+  <span style="width:12px"></span>
+  <button id="undo" title="Undo · Ctrl+Z">Undo</button>
+  <button id="redo" title="Redo · Ctrl+Y">Redo</button>
+  <button id="anim" title="Pause / play the animated previews · Space">Pause animation</button>
+  <button id="save" class="primary" title="Save to the project · Ctrl+S">Save</button>
+  <a href="./" style="color:inherit">← player</a>
+  <span id="status"></span>
+</header>
+<main>
+  <aside id="left"></aside>
+  <div id="center">
+    <div id="bar"></div>
+    <div id="wrap"><canvas id="view"></canvas><div id="pagesView" class="hidden"></div></div>
+    <div id="timeline">
+      <div class="ctl">
+        <b>Frames</b>
+        <button id="fNew" title="New empty frame after this one · Alt+N">+ New</button>
+        <button id="fDup" title="Copy of this frame after it · Alt+D">Duplicate</button>
+        <button id="fDel" title="Delete this frame · Alt+Delete">Delete</button>
+        <button id="fLeft" title="Move this frame left · Alt+←">◀</button>
+        <button id="fRight" title="Move this frame right · Alt+→">▶</button>
+        <span style="width:8px"></span>
+        <button id="fPlay" title="Play the frames · Enter">Play</button>
+        <input id="fFps" type="number" min="1" max="30" value="6" style="width:46px" title="Frames per second"> fps
+        <label title="The frame before this one, faint under it"><input type="checkbox" id="fOnion" checked> onion skin</label>
+        <span id="fHint" class="hint"></span>
+      </div>
+      <div id="frames"></div>
+    </div>
+  </div>
+  <aside class="right">
+    <div id="paintTools">
+      <h2>Tool</h2>
+      <div class="tools">
+        <button data-tool="pen" class="on" title="Pencil · B">Pencil</button>
+        <button data-tool="erase" title="Eraser: clears to empty · E">Eraser</button>
+        <button data-tool="fill" title="Fill · G">Fill</button>
+        <button data-tool="pick" title="Pipette · I (or right click)">Pipette</button>
+        <button data-tool="pivot" title="Pivot: the pointer's real point · P (cursors)">Pivot</button>
+      </div>
+      <div class="note">Middle button: move the canvas · wheel: zoom.</div>
+      <h2>Colour</h2>
+      <div id="cur" class="big"></div>
+      <div class="levels">
+        <span>R</span><input type="range" min="0" max="7" id="lr"><span id="vr"></span>
+        <span>G</span><input type="range" min="0" max="7" id="lg"><span id="vg"></span>
+        <span>B</span><input type="range" min="0" max="7" id="lb"><span id="vb"></span>
+      </div>
+      <div class="note">Mega Drive colours: 8 levels per channel.</div>
+      <div id="swatches" class="swatches"></div>
+      <div id="palNote" class="note"></div>
+      <h2>Background</h2>
+      <label title="See-through checks under the picture, or one solid colour"><input type="checkbox" id="bgChecks" checked> checks</label>
+      <div class="levels" id="bgLevels">
+        <span>R</span><input type="range" min="0" max="7" id="bgr"><span id="bgvr"></span>
+        <span>G</span><input type="range" min="0" max="7" id="bgg"><span id="bgvg"></span>
+        <span>B</span><input type="range" min="0" max="7" id="bgb"><span id="bgvb"></span>
+      </div>
+      <div id="kindNote" class="note"></div>
+      <h2>Preview</h2>
+      <div id="preview"></div>
+    </div>
+    <div id="pageTools" class="hidden">
+      <h2 id="pgKind">Page</h2>
+      <div id="pgNone" class="note"></div>
+      <div id="pgPicture">
+        <div class="note">Caption (under the picture)</div>
+        <input type="text" id="pgCaption" spellcheck="false">
+        <h2>Picture</h2>
+        <div class="note">Click one. New pictures: the Song pictures tab.</div>
+        <div id="pgPics"></div>
+      </div>
+      <div id="pgText">
+        <div class="note">Title</div>
+        <input type="text" id="pgTitle" spellcheck="false">
+        <div class="note">Text (an empty line: a new paragraph). If it does not fit, the card turns red: the player cuts it.</div>
+        <textarea id="pgBody" spellcheck="false"></textarea>
+      </div>
+    </div>
+    <div id="photoTools" class="hidden">
+      <h2>Picture · 124×86</h2>
+      <canvas id="phBig" width="124" height="86"></canvas>
+      <div class="note">Actual size, as in the Description panel:</div>
+      <canvas id="phReal" width="124" height="86"></canvas>
+      <div id="phUsed" class="note"></div>
+      <h2>Colours</h2>
+      <div class="tools">
+        <button id="phShot" title="Keep the screenshot's own colours">Screenshot</button>
+        <button id="phPhoto" title="Pick the picture's main colours on the Mega Drive's grid">Photo</button>
+        <button id="phReset" class="small" title="The settings this kind of image starts with">Reset</button>
+      </div>
+      <div id="phModeNote" class="note"></div>
+      <div class="sliders">
+        <span id="phColorsRow" style="display:contents"><span>Colours</span><input type="range" id="phColors" min="2" max="15"><span id="phColorsV"></span></span>
+        <span>Dither</span><input type="range" id="phDither" min="0" max="100"><span id="phDitherV"></span>
+        <span>Brightness</span><input type="range" id="phBright" min="50" max="150"><span id="phBrightV"></span>
+        <span>Contrast</span><input type="range" id="phContrast" min="50" max="200"><span id="phContrastV"></span>
+        <span>Saturation</span><input type="range" id="phSat" min="0" max="200"><span id="phSatV"></span>
+      </div>
+      <h2>Save</h2>
+      <div id="phTarget" class="note"></div>
+      <div class="note">Game folder</div>
+      <select id="phGame"></select>
+      <div class="note">Name (small letters, digits, -)</div>
+      <input type="text" id="phName" placeholder="e.g. seattle" spellcheck="false">
+      <div class="tools">
+        <button id="phSave" class="primary" title="Save to songs/_games/&lt;game&gt;/&lt;name&gt;.png · Ctrl+S">Save picture</button>
+        <button id="phReplace" title="Open another image for this picture: it keeps its name">Replace image…</button>
+        <button id="phDelete" title="Delete this picture">Delete</button>
+      </div>
+    </div>
+    <div id="colourTools" class="hidden">
+      <h2 id="colourTitle">Colour</h2>
+      <div id="colourCur" class="big"></div>
+      <div class="levels">
+        <span>R</span><input type="range" min="0" max="7" id="cr"><span id="vcr"></span>
+        <span>G</span><input type="range" min="0" max="7" id="cg"><span id="vcg"></span>
+        <span>B</span><input type="range" min="0" max="7" id="cb"><span id="vcb"></span>
+      </div>
+      <div id="colourNote" class="note"></div>
+    </div>
+  </aside>
+</main>
+<script type="module" src="art.js"></script>
+</body>
+</html>

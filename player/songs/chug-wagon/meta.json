@@ -1,0 +1,69 @@
+{
+  "game": "Skitchin'",
+  "layers": {
+    "L0": {
+      "name": "Bass",
+      "role": "bass",
+      "color": "#ffb020"
+    },
+    "L1": {
+      "name": "Guitars",
+      "role": "sample",
+      "color": "#ff5d8f"
+    },
+    "L2": {
+      "name": "Drums",
+      "role": "sample",
+      "color": "#a06bff"
+    },
+    "L3": {
+      "name": "FM Drums",
+      "role": "perc",
+      "color": "#5a7bff"
+    }
+  },
+  "samples": [
+    {
+      "name": "Guitar chug",
+      "sprite": "skull"
+    },
+    {
+      "name": "Chord",
+      "sprite": "bolt"
+    },
+    {
+      "name": "Pad 1",
+      "sprite": "star"
+    },
+    {
+      "name": "Pad 2",
+      "sprite": "guitar"
+    },
+    {
+      "name": "Kick",
+      "sprite": "drum",
+      "drumRow": 31
+    },
+    {
+      "name": "Snare",
+      "sprite": "snare",
+      "drumRow": 35
+    }
+  ],
+  "info": {
+    "pages": [
+      {
+        "picture": "../_games/skitchin/washington.png",
+        "caption": "Race 7 · Washington, D.C."
+      },
+      {
+        "title": "Chug Wagon",
+        "text": "Race 7: Washington, D.C., 5.9 miles. Password: CAPITAL. A chug is what guitarists call a palm-muted riff, the sound of this song's guitar sample. Skitchin' (EA, 1994), Mega Drive / Genesis. Music by Jeff van Dyck."
+      },
+      {
+        "title": "Toned down",
+        "text": "In December 1993 the US Senate held hearings on violent video games. EA cut Skitchin's violence several times. Warfield: had it gone through Nintendo, 'I'm pretty sure we wouldn't have passed'."
+      }
+    ]
+  }
+}

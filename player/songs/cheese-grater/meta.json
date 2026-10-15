@@ -1,0 +1,96 @@
+{
+  "game": "Skitchin'",
+  "layers": {
+    "L0": {
+      "name": "Cheese Riff",
+      "role": "bass",
+      "color": "#ffb020"
+    },
+    "L1": {
+      "name": "Melody",
+      "role": "psg",
+      "color": "#ff5d8f"
+    },
+    "L2": {
+      "name": "Echo 1",
+      "role": "echo",
+      "color": "#a06bff"
+    },
+    "L3": {
+      "name": "Echo 2",
+      "role": "echo",
+      "color": "#5a7bff"
+    },
+    "L4": {
+      "name": "Guitars & Pads",
+      "role": "sample",
+      "color": "#4cc24c"
+    },
+    "L5": {
+      "name": "Kick/Snare",
+      "role": "sample",
+      "color": "#ff6a3d"
+    },
+    "L6": {
+      "name": "Hats/Toms",
+      "role": "perc",
+      "color": "#2fb8e8"
+    }
+  },
+  "samples": [
+    {
+      "name": "Guitar chug",
+      "sprite": "skull"
+    },
+    {
+      "name": "Chord",
+      "sprite": "bolt"
+    },
+    {
+      "name": "Pad 1",
+      "sprite": "star"
+    },
+    {
+      "name": "Pad 2",
+      "sprite": "guitar"
+    },
+    {
+      "name": "Kick",
+      "sprite": "drum",
+      "drumRow": 31
+    },
+    {
+      "name": "Snare",
+      "sprite": "snare",
+      "drumRow": 35
+    }
+  ],
+  "info": {
+    "pages": [
+      {
+        "picture": "../_games/skitchin/vancouver.png",
+        "caption": "Race 1 · Vancouver"
+      },
+      {
+        "title": "Cheese Grater",
+        "text": "Race 1 of 12: Vancouver, 7.2 km. At about 177 beats a minute, the fastest song in the game. Secret password to start here: TOTEM, for the totem poles of Stanley Park. Skitchin' (EA, 1994), Mega Drive / Genesis. Music by Jeff van Dyck."
+      },
+      {
+        "title": "Home track",
+        "text": "Skitchin' was made here, at EA Canada in Burnaby, once Distinctive Software. Designer Dave Warfield remembers inline skaters crowding the Stanley Park seawall in 1994."
+      },
+      {
+        "title": "Learner's lane",
+        "text": "A tip hidden in the game: Vancouver is the best place to learn skitching, as the cars always keep to the left lane. Skate on the centre line and grab one as it passes."
+      },
+      {
+        "picture": "../_games/skitchin/jeff-van-dyck.png",
+        "caption": "Jeff van Dyck"
+      },
+      {
+        "title": "Age 13",
+        "text": "Jeff grew up here. His father, a studio musician and a Roland engineer, brought home prototype synths and drum machines, then left his son a whole 8-track studio in his bedroom, at 13."
+      }
+    ]
+  }
+}

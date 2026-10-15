@@ -1,0 +1,69 @@
+{
+  "game": "Skitchin'",
+  "layers": {
+    "L0": {
+      "name": "Bass",
+      "role": "bass",
+      "color": "#ffb020"
+    },
+    "L1": {
+      "name": "Guitars",
+      "role": "sample",
+      "color": "#ff5d8f"
+    },
+    "L2": {
+      "name": "Drums",
+      "role": "sample",
+      "color": "#a06bff"
+    },
+    "L3": {
+      "name": "FM Drums",
+      "role": "perc",
+      "color": "#5a7bff"
+    }
+  },
+  "samples": [
+    {
+      "name": "Guitar chug",
+      "sprite": "skull"
+    },
+    {
+      "name": "Chord",
+      "sprite": "bolt"
+    },
+    {
+      "name": "Pad 1",
+      "sprite": "star"
+    },
+    {
+      "name": "Pad 2",
+      "sprite": "guitar"
+    },
+    {
+      "name": "Kick",
+      "sprite": "drum",
+      "drumRow": 31
+    },
+    {
+      "name": "Snare",
+      "sprite": "snare",
+      "drumRow": 35
+    }
+  ],
+  "info": {
+    "pages": [
+      {
+        "picture": "../_games/skitchin/miami.png",
+        "caption": "Race 11 · Miami"
+      },
+      {
+        "title": "Eat My Junk",
+        "text": "Race 11: Miami, 8.7 miles. Password: PALMS. About two minutes before it repeats: the longest song in the game. Skitchin' (EA, 1994), Mega Drive / Genesis. Music by Jeff van Dyck."
+      },
+      {
+        "title": "Bring a friend",
+        "text": "Two can race in split screen, take turns, or go Head to Head, and up to eight can play a tournament. The modes are called Solo Skitch, Skitch 'n Switch, Grand Slam Jam and Double Trouble."
+      }
+    ]
+  }
+}

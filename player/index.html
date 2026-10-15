@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#b6b6b6">
+<title>Sega Paint</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="splash"><canvas id="splashCv" width="320" height="224"></canvas></div>
+<canvas id="screen" aria-label="Sega Paint: score editor"></canvas>
+<input id="ti" aria-label="Text" autocomplete="off" spellcheck="false">
+<input type="file" id="importFile" accept=".json,application/json" hidden>
+<input type="file" id="anyFile" multiple hidden>
+<script type="module" src="app.js"></script>
+</body>
+</html>

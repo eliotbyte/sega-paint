@@ -1,0 +1,89 @@
+{
+  "game": "Skitchin'",
+  "layers": {
+    "L0": {
+      "name": "Bass",
+      "role": "bass",
+      "color": "#ffb020"
+    },
+    "L1": {
+      "name": "Melody",
+      "role": "psg",
+      "color": "#ff5d8f"
+    },
+    "L2": {
+      "name": "PSG 2",
+      "role": "echo",
+      "color": "#a06bff"
+    },
+    "L3": {
+      "name": "PSG 3",
+      "role": "echo",
+      "color": "#5a7bff"
+    },
+    "L4": {
+      "name": "Guitars",
+      "role": "sample",
+      "color": "#4cc24c"
+    },
+    "L5": {
+      "name": "Drums",
+      "role": "sample",
+      "color": "#ff6a3d"
+    },
+    "L6": {
+      "name": "FM Drums",
+      "role": "perc",
+      "color": "#2fb8e8"
+    }
+  },
+  "samples": [
+    {
+      "name": "Guitar chug",
+      "sprite": "skull"
+    },
+    {
+      "name": "Chord",
+      "sprite": "bolt"
+    },
+    {
+      "name": "Pad 1",
+      "sprite": "star"
+    },
+    {
+      "name": "Pad 2",
+      "sprite": "guitar"
+    },
+    {
+      "name": "Kick",
+      "sprite": "drum",
+      "drumRow": 31
+    },
+    {
+      "name": "Snare",
+      "sprite": "snare",
+      "drumRow": 35
+    }
+  ],
+  "info": {
+    "edited": true,
+    "pages": [
+      {
+        "picture": "../_games/skitchin/cover-6.png",
+        "caption": "Skitchin' · the box"
+      },
+      {
+        "title": "Smog Dog",
+        "text": "One of the 16 CD Player songs. Its melody is on the PSG chip, as in the songs of San Diego, Seattle, Toronto and Chicago. Skitchin' (EA, 1994), Mega Drive / Genesis. Music by Jeff van Dyck."
+      },
+      {
+        "picture": "../_games/skitchin/jeff-van-dyck.png",
+        "caption": "Jeff van Dyck"
+      },
+      {
+        "title": "From CD to 8 bits",
+        "text": "Jeff wrote the songs on a Mac, with MOTU Performer and CD-quality samples on a SampleCell card. For the cartridge the guitars and drums went down to 11 kHz, mono, 8 bit; here they play at the game's own 11,331 Hz."
+      }
+    ]
+  }
+}

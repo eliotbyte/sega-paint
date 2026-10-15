@@ -1,0 +1,88 @@
+{
+  "game": "Skitchin'",
+  "layers": {
+    "L0": {
+      "name": "Bass",
+      "role": "bass",
+      "color": "#ffb020"
+    },
+    "L1": {
+      "name": "Melody",
+      "role": "psg",
+      "color": "#ff5d8f"
+    },
+    "L2": {
+      "name": "PSG 2",
+      "role": "echo",
+      "color": "#a06bff"
+    },
+    "L3": {
+      "name": "PSG 3",
+      "role": "echo",
+      "color": "#5a7bff"
+    },
+    "L4": {
+      "name": "Guitars",
+      "role": "sample",
+      "color": "#4cc24c"
+    },
+    "L5": {
+      "name": "Drums",
+      "role": "sample",
+      "color": "#ff6a3d"
+    },
+    "L6": {
+      "name": "FM Drums",
+      "role": "perc",
+      "color": "#2fb8e8"
+    }
+  },
+  "samples": [
+    {
+      "name": "Guitar chug",
+      "sprite": "skull"
+    },
+    {
+      "name": "Chord",
+      "sprite": "bolt"
+    },
+    {
+      "name": "Pad 1",
+      "sprite": "star"
+    },
+    {
+      "name": "Pad 2",
+      "sprite": "guitar"
+    },
+    {
+      "name": "Kick",
+      "sprite": "drum",
+      "drumRow": 31
+    },
+    {
+      "name": "Snare",
+      "sprite": "snare",
+      "drumRow": 35
+    }
+  ],
+  "info": {
+    "pages": [
+      {
+        "picture": "../_games/skitchin/seattle.png",
+        "caption": "Race 4 · Seattle"
+      },
+      {
+        "title": "Silken Liver Slipper",
+        "text": "Race 4: Seattle, 4.6 miles, the home town of grunge. Password: AIRPORT. Skitchin' (EA, 1994), Mega Drive / Genesis. Music by Jeff van Dyck."
+      },
+      {
+        "title": "Grunge",
+        "text": "Grunge was not the plan: the graffiti artists, visiting EA Canada, suggested it. Jeff had written few rock songs, so he shut himself in with a pile of Seattle grunge CDs."
+      },
+      {
+        "title": "Rave reviews",
+        "text": "GamePro gave the game 19.5 out of 20 and praised its 16-track soundtrack of 'mind-blowing heavy metal'. Australia's Hyper gave 89% and liked how the music, the graffiti and the spray-can art hang together."
+      }
+    ]
+  }
+}

@@ -1,0 +1,415 @@
+{
+ "version": 95,
+ "tools": {
+  "undo": {
+   "frames": 1
+  },
+  "redo": {
+   "frames": 1
+  },
+  "pen": {
+   "frames": 1
+  },
+  "eraser": {
+   "frames": 1
+  },
+  "bucket": {
+   "frames": 1
+  },
+  "pipette": {
+   "frames": 1
+  },
+  "select": {
+   "frames": 1
+  },
+  "hand": {
+   "frames": 1
+  },
+  "slide": {
+   "frames": 1
+  },
+  "speaker": {
+   "frames": 1
+  },
+  "phones": {
+   "frames": 1
+  },
+  "gear": {
+   "frames": 1
+  },
+  "zoomout": {
+   "frames": 1
+  },
+  "zoomin": {
+   "frames": 1
+  },
+  "eye": {
+   "frames": 1
+  },
+  "tailpen": {
+   "frames": 1
+  },
+  "fist": {
+   "frames": 1
+  },
+  "eyeShut": {
+   "frames": 1
+  },
+  "menu": {
+   "frames": 1
+  },
+  "sharp": {
+   "frames": 1
+  },
+  "repeat": {
+   "frames": 1
+  },
+  "play": {
+   "frames": 1
+  },
+  "pause": {
+   "frames": 1
+  },
+  "start": {
+   "frames": 1
+  },
+  "next": {
+   "frames": 1
+  },
+  "loop": {
+   "frames": 1
+  },
+  "plus": {
+   "frames": 1
+  },
+  "minus": {
+   "frames": 1
+  },
+  "arrow": {
+   "frames": 1
+  },
+  "more": {
+   "frames": 1
+  },
+  "panels": {
+   "frames": 1
+  }
+ },
+ "small": {
+  "eye": {
+   "frames": 1
+  },
+  "eyeShut": {
+   "frames": 1
+  },
+  "plus": {
+   "frames": 1
+  },
+  "trash": {
+   "frames": 1
+  },
+  "lock": {
+   "frames": 1
+  },
+  "close": {
+   "frames": 1
+  },
+  "vol": {
+   "frames": 1
+  },
+  "gear": {
+   "frames": 1
+  },
+  "mute": {
+   "frames": 1
+  },
+  "solo": {
+   "frames": 1
+  },
+  "minus": {
+   "frames": 1
+  },
+  "left": {
+   "frames": 1
+  },
+  "right": {
+   "frames": 1
+  }
+ },
+ "notes": [
+  {
+   "name": "cheese",
+   "frames": 2
+  },
+  {
+   "name": "ufo",
+   "frames": 2
+  },
+  {
+   "name": "bolt",
+   "frames": 2
+  },
+  {
+   "name": "guitar",
+   "frames": 2
+  },
+  {
+   "name": "star",
+   "frames": 2
+  },
+  {
+   "name": "cat",
+   "frames": 2
+  },
+  {
+   "name": "ghost",
+   "frames": 2
+  },
+  {
+   "name": "cymbal",
+   "frames": 2
+  },
+  {
+   "name": "drum",
+   "frames": 2
+  },
+  {
+   "name": "mushroom",
+   "frames": 2
+  },
+  {
+   "name": "coin",
+   "frames": 2
+  },
+  {
+   "name": "ring",
+   "frames": 2
+  },
+  {
+   "name": "heart",
+   "frames": 2
+  },
+  {
+   "name": "bomb",
+   "frames": 2
+  },
+  {
+   "name": "skull",
+   "frames": 2
+  },
+  {
+   "name": "fly",
+   "frames": 2
+  },
+  {
+   "name": "hihat",
+   "frames": 2
+  },
+  {
+   "name": "plane",
+   "frames": 2
+  },
+  {
+   "name": "frog",
+   "frames": 2
+  },
+  {
+   "name": "diamond",
+   "frames": 2
+  },
+  {
+   "name": "moon",
+   "frames": 2
+  },
+  {
+   "name": "snare",
+   "frames": 2
+  },
+  {
+   "name": "tom",
+   "frames": 2
+  },
+  {
+   "name": "bat",
+   "frames": 2
+  },
+  {
+   "name": "bell",
+   "frames": 2
+  },
+  {
+   "name": "key",
+   "frames": 2
+  }
+ ],
+ "cursors": {
+  "arrow": {
+   "frames": 1,
+   "hot": [
+    0,
+    0
+   ]
+  },
+  "pointer": {
+   "frames": 1,
+   "hot": [
+    5,
+    0
+   ]
+  },
+  "pen": {
+   "frames": 1,
+   "hot": [
+    3,
+    14
+   ]
+  },
+  "tailpen": {
+   "frames": 1,
+   "hot": [
+    3,
+    14
+   ]
+  },
+  "eraser": {
+   "frames": 1,
+   "hot": [
+    1,
+    12
+   ]
+  },
+  "bucket": {
+   "frames": 1,
+   "hot": [
+    5,
+    14
+   ]
+  },
+  "pipette": {
+   "frames": 1,
+   "hot": [
+    2,
+    14
+   ]
+  },
+  "hand": {
+   "frames": 1,
+   "hot": [
+    8,
+    7
+   ]
+  },
+  "fist": {
+   "frames": 1,
+   "hot": [
+    8,
+    7
+   ]
+  },
+  "slide": {
+   "frames": 1,
+   "hot": [
+    2,
+    13
+   ]
+  },
+  "speaker": {
+   "frames": 1,
+   "hot": [
+    8,
+    7
+   ]
+  },
+  "phones": {
+   "frames": 1,
+   "hot": [
+    8,
+    7
+   ]
+  },
+  "repeat": {
+   "frames": 1,
+   "hot": [
+    8,
+    7
+   ]
+  },
+  "cross": {
+   "frames": 1,
+   "hot": [
+    7,
+    7
+   ]
+  },
+  "select": {
+   "frames": 1,
+   "hot": [
+    0,
+    0
+   ]
+  }
+ },
+ "clefs": {
+  "treble": {
+   "frames": 1,
+   "dx": 0,
+   "dy": -28
+  },
+  "bass": {
+   "frames": 1,
+   "dx": 0,
+   "dy": -2
+  },
+  "treble15": {
+   "frames": 1,
+   "dx": 0,
+   "dy": -16
+  },
+  "bass15": {
+   "frames": 1,
+   "dx": 0,
+   "dy": -2
+  }
+ },
+ "pictures": {
+  "sonicIdle": {
+   "frames": 2
+  },
+  "sonicWalk": {
+   "frames": 4
+  },
+  "segaLogo": {
+   "frames": 28,
+   "ticks": [
+    55,
+    3,
+    3,
+    3,
+    3,
+    3,
+    3,
+    3,
+    3,
+    3,
+    3,
+    3,
+    3,
+    3,
+    3,
+    3,
+    3,
+    3,
+    3,
+    3,
+    42,
+    2,
+    2,
+    2,
+    2,
+    2,
+    2,
+    1
+   ]
+  }
+ }
+}

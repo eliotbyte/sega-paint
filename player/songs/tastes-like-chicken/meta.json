@@ -1,0 +1,88 @@
+{
+  "game": "Skitchin'",
+  "layers": {
+    "L0": {
+      "name": "Bass",
+      "role": "bass",
+      "color": "#ffb020"
+    },
+    "L1": {
+      "name": "Melody",
+      "role": "psg",
+      "color": "#ff5d8f"
+    },
+    "L2": {
+      "name": "PSG 2",
+      "role": "echo",
+      "color": "#a06bff"
+    },
+    "L3": {
+      "name": "PSG 3",
+      "role": "echo",
+      "color": "#5a7bff"
+    },
+    "L4": {
+      "name": "Guitars",
+      "role": "sample",
+      "color": "#4cc24c"
+    },
+    "L5": {
+      "name": "Drums",
+      "role": "sample",
+      "color": "#ff6a3d"
+    },
+    "L6": {
+      "name": "FM Drums",
+      "role": "perc",
+      "color": "#2fb8e8"
+    }
+  },
+  "samples": [
+    {
+      "name": "Guitar chug",
+      "sprite": "skull"
+    },
+    {
+      "name": "Chord",
+      "sprite": "bolt"
+    },
+    {
+      "name": "Pad 1",
+      "sprite": "star"
+    },
+    {
+      "name": "Pad 2",
+      "sprite": "guitar"
+    },
+    {
+      "name": "Kick",
+      "sprite": "drum",
+      "drumRow": 31
+    },
+    {
+      "name": "Snare",
+      "sprite": "snare",
+      "drumRow": 35
+    }
+  ],
+  "info": {
+    "pages": [
+      {
+        "picture": "../_games/skitchin/toronto.png",
+        "caption": "Race 8 · Toronto"
+      },
+      {
+        "title": "Tastes Like Chicken",
+        "text": "Race 8: Toronto, 10.3 km. Password: JAYS, for the Blue Jays, baseball's champions of 1992 and 1993, the two years the game was made in. Skitchin' (EA, 1994), Mega Drive / Genesis. Music by Jeff van Dyck."
+      },
+      {
+        "title": "The stuntman",
+        "text": "At Toronto's Skate Ranch the team asked for the best skater around and met Troy Mannering. In a warehouse he was towed behind a programmer's car to hit the ramps, and the film was traced into the game."
+      },
+      {
+        "title": "TROY",
+        "text": "There is a secret password with his name: TROY, for 'improved fighting'. The whole team, says Warfield, felt the car's carbon monoxide for the rest of that day."
+      }
+    ]
+  }
+}

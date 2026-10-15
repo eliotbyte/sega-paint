@@ -1,0 +1,84 @@
+{
+  "game": "Skitchin'",
+  "layers": {
+    "L0": {
+      "name": "Bass",
+      "role": "bass",
+      "color": "#ffb020"
+    },
+    "L1": {
+      "name": "Melody",
+      "role": "psg",
+      "color": "#ff5d8f"
+    },
+    "L2": {
+      "name": "PSG 2",
+      "role": "echo",
+      "color": "#a06bff"
+    },
+    "L3": {
+      "name": "PSG 3",
+      "role": "echo",
+      "color": "#5a7bff"
+    },
+    "L4": {
+      "name": "Guitars",
+      "role": "sample",
+      "color": "#4cc24c"
+    },
+    "L5": {
+      "name": "Drums",
+      "role": "sample",
+      "color": "#ff6a3d"
+    },
+    "L6": {
+      "name": "FM Drums",
+      "role": "perc",
+      "color": "#2fb8e8"
+    }
+  },
+  "samples": [
+    {
+      "name": "Guitar chug",
+      "sprite": "skull"
+    },
+    {
+      "name": "Chord",
+      "sprite": "bolt"
+    },
+    {
+      "name": "Pad 2",
+      "sprite": "guitar"
+    },
+    {
+      "name": "Kick",
+      "sprite": "drum",
+      "drumRow": 31
+    },
+    {
+      "name": "Snare",
+      "sprite": "snare",
+      "drumRow": 35
+    }
+  ],
+  "info": {
+    "pages": [
+      {
+        "picture": "../_games/skitchin/san-diego.png",
+        "caption": "Race 3 · San Diego"
+      },
+      {
+        "title": "Psycho Deep Fry",
+        "text": "Race 3: San Diego, 4.6 miles. Password: BEACH. The tune on top is not a guitar: it is the Mega Drive's PSG, the square-wave chip, in the Melody track. Skitchin' (EA, 1994), Mega Drive / Genesis. Music by Jeff van Dyck."
+      },
+      {
+        "title": "Lead on the PSG",
+        "text": "Jeff wrote the lead guitar as a sample, but it did not fit next to the band, so it went to the PSG chip. That beepy lead, he says, is what makes the game sound 'Genesis'."
+      },
+      {
+        "title": "Three at once",
+        "text": "The Mega Drive has one sample channel, and most games play one sample at a time. Kevin Pickell's EA sound driver mixed three on it, so a kick, a snare and a guitar can sound together."
+      }
+    ]
+  }
+}

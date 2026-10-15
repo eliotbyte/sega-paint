@@ -1,0 +1,74 @@
+{
+  "game": "Skitchin'",
+  "layers": {
+    "L0": {
+      "name": "Bass",
+      "role": "bass",
+      "color": "#ffb020"
+    },
+    "L1": {
+      "name": "Guitars",
+      "role": "sample",
+      "color": "#ff5d8f"
+    },
+    "L2": {
+      "name": "Drums",
+      "role": "sample",
+      "color": "#a06bff"
+    },
+    "L3": {
+      "name": "FM Drums",
+      "role": "perc",
+      "color": "#5a7bff"
+    }
+  },
+  "samples": [
+    {
+      "name": "Guitar chug",
+      "sprite": "skull"
+    },
+    {
+      "name": "Chord",
+      "sprite": "bolt"
+    },
+    {
+      "name": "Pad 1",
+      "sprite": "star"
+    },
+    {
+      "name": "Pad 2",
+      "sprite": "guitar"
+    },
+    {
+      "name": "Kick",
+      "sprite": "drum",
+      "drumRow": 31
+    },
+    {
+      "name": "Snare",
+      "sprite": "snare",
+      "drumRow": 35
+    }
+  ],
+  "info": {
+    "edited": true,
+    "pages": [
+      {
+        "picture": "../_games/skitchin/cover-7.png",
+        "caption": "Skitchin' · the box"
+      },
+      {
+        "title": "Blowout!",
+        "text": "Plays when worn-out skates give way mid-race: a blowout, and the race is over. Skitchin' (EA, 1994), Mega Drive / Genesis. Music by Jeff van Dyck."
+      },
+      {
+        "title": "Your gear",
+        "text": "Six things wear out: skates, wheels, knee pads, elbow pads, wrist guards and gloves. Each comes in five grades: Economy, Beginner, Standard, Quality and Professional."
+      },
+      {
+        "title": "Face Plant",
+        "text": "EA also planned a snow version, Face Plant: Road Rash on skis and snowboards, with 15 rivals and a no-rules Free Ride. Sega Zone put it on a cover in December 1993; it was quietly cancelled."
+      }
+    ]
+  }
+}

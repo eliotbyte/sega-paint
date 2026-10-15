@@ -1,0 +1,73 @@
+{
+  "game": "Skitchin'",
+  "layers": {
+    "L0": {
+      "name": "Bass",
+      "role": "bass",
+      "color": "#ffb020"
+    },
+    "L1": {
+      "name": "Guitars",
+      "role": "sample",
+      "color": "#ff5d8f"
+    },
+    "L2": {
+      "name": "Drums",
+      "role": "sample",
+      "color": "#a06bff"
+    },
+    "L3": {
+      "name": "FM Drums",
+      "role": "perc",
+      "color": "#5a7bff"
+    }
+  },
+  "samples": [
+    {
+      "name": "Guitar chug",
+      "sprite": "skull"
+    },
+    {
+      "name": "Chord",
+      "sprite": "bolt"
+    },
+    {
+      "name": "Pad 1",
+      "sprite": "star"
+    },
+    {
+      "name": "Pad 2",
+      "sprite": "guitar"
+    },
+    {
+      "name": "Kick",
+      "sprite": "drum",
+      "drumRow": 31
+    },
+    {
+      "name": "Snare",
+      "sprite": "snare",
+      "drumRow": 35
+    }
+  ],
+  "info": {
+    "pages": [
+      {
+        "picture": "../_games/skitchin/san-francisco.png",
+        "caption": "Race 5 · San Francisco"
+      },
+      {
+        "title": "Jerky Curtains",
+        "text": "Race 5: San Francisco, 5.1 miles. Password: HILLS. Skitchin' (EA, 1994), Mega Drive / Genesis. Music by Jeff van Dyck."
+      },
+      {
+        "title": "Odd names",
+        "text": "Jeff: 'I tried to make up the most bizarre names possible.' Most of them are about food: deep fry, liver, jerky, chicken, caffeine, junk, tuna, a cheese grater and a spicy placenta."
+      },
+      {
+        "title": "Not new",
+        "text": "Skitching was older than the game: Marty McFly does it on a skateboard in Back to the Future (1985), and a courier in Snow Crash (1992) harpoons cars for a ride. Tony Hawk's Pro Skater 4 added it in 2002."
+      }
+    ]
+  }
+}

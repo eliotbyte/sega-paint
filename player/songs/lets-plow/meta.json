@@ -1,0 +1,73 @@
+{
+  "game": "Skitchin'",
+  "layers": {
+    "L0": {
+      "name": "Bass",
+      "role": "bass",
+      "color": "#ffb020"
+    },
+    "L1": {
+      "name": "Guitars",
+      "role": "sample",
+      "color": "#ff5d8f"
+    },
+    "L2": {
+      "name": "Drums",
+      "role": "sample",
+      "color": "#a06bff"
+    },
+    "L3": {
+      "name": "FM Drums",
+      "role": "perc",
+      "color": "#5a7bff"
+    }
+  },
+  "samples": [
+    {
+      "name": "Guitar chug",
+      "sprite": "skull"
+    },
+    {
+      "name": "Chord",
+      "sprite": "bolt"
+    },
+    {
+      "name": "Pad 1",
+      "sprite": "star"
+    },
+    {
+      "name": "Pad 2",
+      "sprite": "guitar"
+    },
+    {
+      "name": "Kick",
+      "sprite": "drum",
+      "drumRow": 31
+    },
+    {
+      "name": "Snare",
+      "sprite": "snare",
+      "drumRow": 35
+    }
+  ],
+  "info": {
+    "pages": [
+      {
+        "picture": "../_games/skitchin/denver.png",
+        "caption": "Race 2 · Denver"
+      },
+      {
+        "title": "Let's Plow",
+        "text": "Race 2: Denver, 4.5 miles, the shortest race. Password: BRONCOS. Here the cars do not keep to one side of the road, warns the game, so keep an eye on the rear-view mirror. Skitchin' (EA, 1994), Mega Drive / Genesis. Music by Jeff van Dyck."
+      },
+      {
+        "title": "Roller Rash",
+        "text": "Early in 1994 a reader asked Mean Machines Sega when Road Rash III: Roller Rash was due. The answer: it's called Skitchin and is out in March. It ran on the Road Rash II engine."
+      },
+      {
+        "title": "How hard?",
+        "text": "Before each race the TV host sizes up the course, from 'a cake walk' and 'easy, even for Handbags' to 'a donor skate' and 'the pinnacle of pain'."
+      }
+    ]
+  }
+}

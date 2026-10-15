@@ -1,0 +1,19 @@
+# Only the app (player/), its resources and the dev server go to GitHub.
+# Everything below stays local: game rips, research, conversion tools, sources of pictures.
+roms/
+rof/
+out/
+re/
+art-src/
+docs/
+tools/*
+!tools/serve.py
+package.json
+.claude/
+# original rips next to each converted song (the app plays song.json + samples.bin)
+player/songs/*/original.vgz
+# art editor auto-backups
+player/art/backup/
+__pycache__/
+*.pyc
+node_modules/
