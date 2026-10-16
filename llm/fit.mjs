@@ -9,7 +9,7 @@ import os from 'node:os';
 import { Worker, isMainThread, parentPort, workerData } from 'node:worker_threads';
 import { RATE, UserError, noteName } from './core.mjs';
 import { renderPatch, soundRecord, carrierOps, SLOT_OF_OP, OPF, ALIAS, dtRaw, dtShown, ssgRaw, ssgShown } from './patch.mjs';
-import { features, distance, isWav, loadTarget, prepareTarget, renderLike, compareWords } from './hear.mjs';
+import { features, distance, isWav, loadTarget, prepareTarget, renderLike, closestHold, withHold, compareWords } from './hear.mjs';
 import { summarize } from './analyze.mjs';
 
 // ---------- the parameters: where each one lives in the registers (shown values, as in the .spp) ----------
@@ -111,7 +111,8 @@ export async function fit(rec, targetRef, { free = 'tl,env', budget = 2000, time
   const t0 = performance.now(), secs = () => (performance.now() - t0) / 1000;
   const params = parseFree(free);
   const tx = isWav(targetRef) ? loadTarget(targetRef) : (() => { const r = soundRecord(targetRef); return renderPatch(r, note ?? r.p, { hold: hold ?? 1, release: 0.6 }); })();
-  const T = prepareTarget(tx, { note, hold });
+  // the target's key-up: --hold, else the one of those seen in it that suits the start patch best
+  const T0 = prepareTarget(tx, { note, hold: isWav(targetRef) ? hold : hold ?? 1 }), T = withHold(T0, closestHold(rec, T0, note).hold);
   const { p: pc, x: x0 } = renderLike(rec, T, note);
   // the note to play. compare measures how far the patch sounds from the note it plays, but a spoilt patch can sound
   // an octave off; the operators' frequencies (mul) tell it from the structure: the patch sounds at their common
@@ -223,8 +224,10 @@ export async function fit(rec, targetRef, { free = 'tl,env', budget = 2000, time
       const [dl] = await evalAll([lv]);
       if (dl <= dBest + 0.005) { if (dl < dBest) path.push({ d: dl, evals, t: secs() }); level = { from: diff, to: cache.get(key(lv, p)).top - T.f.top }; best = lv; dBest = dl; regs = withValues(rec.ins.regs, params, best); }
     }
-    const xs = renderPatch({ ...rec, ins: { ...rec.ins, regs } }, p, { hold: job.hold, release: job.release });
-    const words = compareWords(summarize(xs, { hold: T.hold }), T.sum, features(xs, T.x.length).top - T.f.top);
+    // the result at each key-up seen in the target, as compare plays it: the closest one counts
+    const fin = closestHold({ ...rec, ins: { ...rec.ins, regs } }, T0, p), T1 = withHold(T0, fin.hold);
+    if (fin.d < dBest - 1e-9) { dBest = fin.d; path.push({ d: dBest, evals, t: secs() }); }
+    const words = compareWords(summarize(fin.x, { hold: T1.hold }), T1.sum, features(fin.x, T1.x.length).top - T1.f.top);
     const moved = params.map((P1, i) => ({ name: P1.name, from: start[i], to: best[i] })).filter((m) => m.from !== m.to);
     return { rec: { ...rec, ins: { ...rec.ins, regs }, key: undefined, file: undefined }, p, p0, dStart, d: dBest, path, moved, evals, restarts, secs: secs(), threads, params, level, words };
   } finally { await P.close(); }

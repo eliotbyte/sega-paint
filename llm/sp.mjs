@@ -33,6 +33,13 @@ const num = (o, k, def) => {
   if (!Number.isFinite(v)) throw new UserError(`--${k}: a number, not "${o[k]}"`);
   return v;
 };
+// a duration in seconds: 1, 1s, 1.5s or 300ms
+const secs = (o, k, def) => {
+  if (o[k] == null) return def;
+  const m = /^\s*(\d*\.?\d+)\s*(s|ms)?\s*$/i.exec(String(o[k]));
+  if (!m) throw new UserError(`--${k}: a duration (1, 1s, 300ms), not "${o[k]}"`);
+  return m[2]?.toLowerCase() === 'ms' ? m[1] / 1000 : +m[1];
+};
 const list = (v) => (v == null || v === true ? null : String(v).split(',').map((x) => x.trim()).filter(Boolean));
 // a song.json, or a .sps built on the fly
 export const loadAny = (file) => (/\.sps$/i.test(file) ? loadSongObject(buildFile(file), file) : loadSongFile(file));
@@ -162,43 +169,50 @@ export const COMMANDS = {
     },
   },
   hear: {
-    usage: 'sp hear x.spp|<key>|x.spsound|target.wav [--notes A2,A4] [--hold 1] [--png] [--wav]',
+    usage: 'sp hear x.spp|<key>|x.spsound|target.wav [--notes A2,A4] [--hold 1s] [--png] [--wav]',
     help: 'One sound in numbers: attack, peak, decay, sustain, release, brightness over time, harmonics, noise.',
     more: 'A patch is played on FM1 through the engine at each note (default: its note and an octave each way; a drum\n' +
-      'at its own), held --hold seconds, then released. A WAV is summed to mono, its leading silence cut.\n' +
+      'at its own), held --hold seconds (1, 1s, 300ms; default 1 s), then released. A WAV is summed to mono, its\n' +
+      'leading silence cut.\n' +
       '--png: a spectrogram per note in llm/out/; --wav: the rendered notes as WAV files in llm/out/.',
     bool: ['png', 'wav'],
     run(a) {
       const ref = a._[0];
       if (!ref) throw new UserError('what to hear? sp hear bass.spp  (or a library key, or a .wav)');
       const notes = list(a.notes)?.map((t) => { const p = parseNote(t); if (p == null) throw new UserError(`--notes: "${t}" is not a note`); return p; });
-      const hold = num(a, 'hold', isWav(ref) ? null : 1);
+      const hold = secs(a, 'hold', isWav(ref) ? null : 1);
       console.log(hear(ref, { notes, hold, png: !!a.png, wav: !!a.wav, out: (n) => outPath(`${slugName(stem(ref))}-${n.replace('#', 's')}.png`) }));
     },
   },
   compare: {
-    usage: 'sp compare x.spp|<key> target.wav|<key> [--note A2] [--hold 1]',
+    usage: 'sp compare x.spp|<key> target.wav|<key> [--note A2] [--hold 1s]',
     help: 'How a patch differs from a target, in words and one distance (0 = the same, ~1 = clearly different).',
-    more: 'The patch plays at the target\'s pitch (or --note), as long as the target (its last 0.6 s taken as the\n' +
-      'release; --hold sets the held part). Levels are matched before the distance (a log spectrogram at three\n' +
-      'resolutions + the envelope); a level difference is reported in words only.',
+    more: 'The patch plays at the target\'s pitch (or --note), as long as the target, its key going up where the\n' +
+      'target\'s level starts falling clearly faster (the release): when a WAV shows a few such points, each is\n' +
+      'tried and the closest kept; the first line says which. --hold 0.75 (or 0.75s, 750ms) sets the key-up instead.\n' +
+      'Levels are matched before the distance (a log spectrogram at three resolutions + the envelope); a level\n' +
+      'difference is reported in words only.',
     run(a) {
       const [x, t] = a._;
       if (!x || !t) throw new UserError('sp compare patch.spp target.wav');
       const note = a.note ? parseNote(a.note) : null;
       if (a.note && note == null) throw new UserError(`--note: "${a.note}" is not a note`);
-      console.log(compare(x, t, { note, hold: num(a, 'hold', null) }).text);
+      console.log(compare(x, t, { note, hold: secs(a, 'hold', null) }).text);
     },
   },
   nearest: {
-    usage: 'sp nearest target.wav|x.spp|<key> [--n 5] [--kit my.spkit] [--note A2]',
+    usage: 'sp nearest target.wav|x.spp|<key> [--n 5] [--kit my.spkit] [--note A2] [--hold 1s]',
     help: 'The FM sounds of the library (and of a My sounds export) closest to a target: a good patch to start from.',
+    more: 'Each sound plays as in compare: at the target\'s pitch (or --note), its key going up where the target\'s\n' +
+      'release starts (found in the WAV; the first line says where). --hold 0.75 (or 0.75s, 750ms) sets the\n' +
+      'key-up when that guess is wrong (a slow fade, a recording with reverb). --n: how many; --kit: the sounds of\n' +
+      'a My sounds export too.',
     run(a) {
       const t = a._[0];
       if (!t) throw new UserError('sp nearest target.wav');
       const note = a.note ? parseNote(a.note) : null;
-      const { target, list: res } = nearest(t, { n: num(a, 'n', 5), kits: list(a.kit) || [], note, hold: num(a, 'hold', null) });
-      console.log(`nearest to ${t}${target.note != null ? ` (pitch ${noteName(target.note)})` : ' (no clear pitch)'}:`);
+      const { target, list: res } = nearest(t, { n: num(a, 'n', 5), kits: list(a.kit) || [], note, hold: secs(a, 'hold', null) });
+      console.log(`nearest to ${t} (${target.note != null ? `pitch ${noteName(target.note)}` : 'no clear pitch'}, key-up ${target.holds.length > 1 ? 'tried at ' : 'at '}${target.holds.join(' or ')} s):`);
       res.forEach((r, i) => console.log(`  ${i + 1}. ${r.key.padEnd(20)} "${r.rec.name}"  distance ${r.d.toFixed(3)}  (played at ${noteName(r.p)})`));
       console.log('next: sp patch get <key>, then sp compare it with the target');
     },
@@ -218,7 +232,7 @@ export const COMMANDS = {
       const note = a.note ? parseNote(a.note) : null;
       if (a.note && note == null) throw new UserError(`--note: "${a.note}" is not a note`);
       const rec = soundRecord(x);
-      const r = await fit(rec, t, { free: a.free ?? 'tl,env', budget: num(a, 'budget', 2000), time: num(a, 'time', 60), note, hold: num(a, 'hold', null), seed: num(a, 'seed', 1), threads: num(a, 'threads', 0) });
+      const r = await fit(rec, t, { free: a.free ?? 'tl,env', budget: num(a, 'budget', 2000), time: secs(a, 'time', 60), note, hold: secs(a, 'hold', null), seed: num(a, 'seed', 1), threads: num(a, 'threads', 0) });
       const out = out0 || outPath(slugName(rec.name) + '-fit.spp');
       fs.writeFileSync(out, writeSpp(r.rec));
       console.log(formatFit(r, t) + `\nsaved ${out}; next: sp compare ${out} ${t}`);

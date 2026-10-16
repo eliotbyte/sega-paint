@@ -53,8 +53,36 @@ export function distance(a, b) {
 
 // ---------- a sound to hear: a patch (key, .spp, .spsound) or a WAV ----------
 export const isWav = (x) => /\.wav$/i.test(x);
-// the hold of a patch render matched to a target of `len` samples (its last 0.6 s taken as the release)
+// the hold of a patch render matched to a target of `len` samples, its last 0.6 s taken as the release (as hear
+// renders a WAV): one more guess at the key-up
 export const holdFor = (len) => Math.max(0.2, Math.min(2, len / RATE - 0.6));
+// Where the key went up in a target (t, in seconds), the likeliest first: the points where its level starts falling
+// faster than before (the sustain or the decay giving way to the release; a cymbal's release can fade slowly at first,
+// then drop). Up to 2, the second at least a sixth as clear; none when the sound only dies away (then any hold after
+// its end sounds the same). s: how clear (dB per hop the fall speeds up by; a held note's key-up: 2 and more).
+export function keyUps(x) {
+  const HOP = 256, SM = 4, W = 8; // the envelope's hop; smoothing (± 23 ms); the slopes before and after (46 ms each)
+  // the envelope smoothed (a low note's waves ripple it by a few dB)
+  const e0 = envelope(x), n = e0.length, e = new Float64Array(n), s = new Float64Array(n);
+  for (let i = 0; i < n; i++) { let p = 0, c = 0; for (let j = Math.max(0, i - SM); j <= Math.min(n - 1, i + SM); j++, c++) p += 10 ** (e0[j] / 10); e[i] = 10 * Math.log10(p / c + 1e-12); }
+  const top = Math.max(...e), a0 = e.findIndex((v) => v >= top - 6);
+  // how much the fall speeds up, from 70 ms after the attack (before that: the attack giving way to the decay)
+  for (let i = a0 + 12; i + W < n && e[i] > top - 50; i++) s[i] = (e[i] - e[i - W]) / W - (e[i + W] - e[i]) / W;
+  const k = [];
+  for (let i = 1; i < n - 1; i++) if (s[i] >= 0.15 && s[i] >= s[i - 1] && s[i] > s[i + 1]) k.push({ i, s: s[i] });
+  k.sort((p, q) => q.s - p.s);
+  const out = [];
+  for (const c of k) if (out.length < 2 && c.s >= k[0].s / 6 && out.every((o) => Math.abs(o.i - c.i) > 9)) out.push(c);
+  // a clear one is placed on the steepest drop of the envelope as measured (± 35 ms); else - 1 hop: the smoothing
+  // shows the drop a little late
+  const at = (c) => {
+    if (c.s < 1.5) return c.i - 1;
+    let bi = c.i, bd = -Infinity;
+    for (let i = Math.max(0, c.i - 6); i <= Math.min(n - 3, c.i + 6); i++) if (e0[i] - e0[i + 2] > bd) { bd = e0[i] - e0[i + 2]; bi = i; }
+    return bi + 0.5;
+  };
+  return out.map((c) => ({ t: +(at(c) * HOP / RATE).toFixed(3), s: c.s }));
+}
 export function sourceOf(ref) {
   if (isWav(ref)) return { wav: true, name: ref, x: loadTarget(ref) };
   const rec = soundRecord(ref);
@@ -78,7 +106,7 @@ export function hear(ref, { notes = null, hold = 1, png = false, wav = false, ou
   lines.push(`"${rec.name}" (${rec.type === 'drums' ? `FM drum ${KIT[rec.gm]?.name || rec.gm}` : 'FM'}), held ${hold} s then released:`);
   for (const p of ps) {
     const x = renderPatch(rec, p, { hold, release: 0.6 });
-    lines.push(formatSummary(noteName(p).padEnd(4), summarize(x, { hold })));
+    lines.push(formatSummary(noteName(p).padEnd(4), summarize(x, { hold }), { hold }));
     if (png) lines.push(`      picture: ${spectrogramPng(x, out(noteName(p)))}`);
     if (wav) { const f = out(noteName(p)).replace(/\.png$/, '.wav'); writeMono(f, x); lines.push(`      wav: ${f}`); }
   }
@@ -118,26 +146,40 @@ export function pitchShift(rec) {
   }
   return offsets.get(rec);
 }
-export function renderLike(rec, target, note = null) {
+export function renderLike(rec, target, note = null, hold = target.hold) {
   const p = note ?? (rec.type === 'drums' || target.note == null ? rec.p : target.note - pitchShift(rec));
-  const hold = target.hold;
   return { p, x: renderPatch(rec, p, { hold, release: Math.max(0.1, target.x.length / RATE - hold) }) };
 }
+// holds: the key-ups to try (--hold, else those seen in the target and the guess of holdFor); hold: the first of them
 export function prepareTarget(x, { note = null, hold = null } = {}) {
-  const h = hold ?? holdFor(x.length);
-  return { x, note: note ?? noteOfWav(x), hold: h, f: features(x), sum: summarize(x, { hold: h }) };
+  // the guess too unless a key-up is clear (a held note cut by the release); a key-up within 30 ms of it is taken as
+  // the guess (a WAV of hear: held exactly that long)
+  const ups = keyUps(x), guess = +holdFor(x.length).toFixed(3), near = (u) => Math.abs(u.t - guess) < 0.03;
+  const ts = ups.map((u) => (near(u) ? guess : u.t));
+  const holds = hold != null ? [hold] : ups.some((u) => u.s >= 1.5 || near(u)) ? ts : [...ts, guess];
+  return { x, note: note ?? noteOfWav(x), hold: holds[0], holds, f: features(x), sum: summarize(x, { hold: holds[0] }) };
 }
+// The patch rendered like the target at each of its key-ups: the closest one (p, x, hold, d)
+export function closestHold(rec, T, note = null) {
+  let best = null;
+  for (const hold of T.holds) {
+    const { p, x } = renderLike(rec, T, note, hold), d = distance(features(x, T.x.length), T.f);
+    if (!best || d < best.d) best = { p, x, hold, d };
+  }
+  return best;
+}
+// the target taken as released at `hold`
+export const withHold = (T, hold) => (hold === T.hold ? T : { ...T, hold, sum: summarize(T.x, { hold }) });
 export function compare(ref, targetRef, { note = null, hold = null } = {}) {
   const s = sourceOf(ref);
   if (s.wav) fail('compare: the first sound is the patch (a key, .spp or .spsound), the second the target');
   const tx = isWav(targetRef) ? loadTarget(targetRef) : (() => { const r = soundRecord(targetRef); return renderPatch(r, note ?? r.p, { hold: hold ?? 1, release: 0.6 }); })();
-  const T = prepareTarget(tx, { note, hold });
-  const { p, x } = renderLike(s.rec, T, note);
+  const T0 = prepareTarget(tx, { note, hold: isWav(targetRef) ? hold : hold ?? 1 });
+  const { p, x, hold: h, d } = closestHold(s.rec, T0, note), T = withHold(T0, h);
   const F = features(x, T.x.length);
-  const d = distance(F, T.f);
   const sa = summarize(x, { hold: T.hold });
   const words = compareWords(sa, T.sum, F.top - T.f.top);
-  return { d, p, words, text: `"${s.rec.name}" at ${noteName(p)} vs ${targetRef}: distance ${d.toFixed(3)}${d < 0.05 ? ' (the same sound)' : d < 0.3 ? ' (close)' : d < 0.8 ? ' (related)' : ' (different)'}\n` + (words.length ? words.map((x2) => '  - ' + x2).join('\n') : '  - no clear difference in envelope, brightness or harmonics') };
+  return { d, p, hold: h, words, text: `"${s.rec.name}" at ${noteName(p)}, key-up at ${h} s, vs ${targetRef}: distance ${d.toFixed(3)}${d < 0.05 ? ' (the same sound)' : d < 0.3 ? ' (close)' : d < 0.8 ? ' (related)' : ' (different)'}\n` + (words.length ? words.map((x2) => '  - ' + x2).join('\n') : '  - no clear difference in envelope, brightness or harmonics') };
 }
 
 // ---------- nearest: the FM sounds of the library (and of a .spkit / .spsound of My sounds) closest to a target ----------
@@ -154,11 +196,11 @@ export function nearest(targetRef, { n = 5, kits = [], note = null, hold = null 
   let tx;
   if (isWav(targetRef)) tx = loadTarget(targetRef);
   else { const r = soundRecord(targetRef); tx = renderPatch(r, note ?? r.p, { hold: hold ?? 1, release: 0.6 }); }
-  const T = prepareTarget(tx, { note, hold });
+  const T = prepareTarget(tx, { note, hold: isWav(targetRef) ? hold : hold ?? 1 });
   const res = [];
   for (const c of candidates(kits)) {
-    const { p, x } = renderLike(c.rec, T, note);
-    res.push({ ...c, p, d: distance(features(x, T.x.length), T.f) });
+    const { p, hold: h, d } = closestHold(c.rec, T, note);
+    res.push({ ...c, p, hold: h, d });
   }
   res.sort((a, b) => a.d - b.d);
   return { target: T, list: res.slice(0, n) };

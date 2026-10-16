@@ -45,9 +45,9 @@ All four DAC voices are mixed into FM6; samples have no volume and no pan.
 | `sp patch get <key\|x.spsound> [out.spp]` | a library FM sound as a `.spp` text patch |
 | `sp patch explain x.spp\|<key>` | a patch in words: who modulates whom, depth, envelopes, measured sound |
 | `sp patch save x.spp [--name N] [out.spsound]` | a `.spsound` the human drops on Sega Paint (goes to My sounds) |
-| `sp hear x.spp\|<key>\|x.spsound\|target.wav [--notes A2,A4] [--hold 1] [--png] [--wav]` | one sound in numbers: attack, decay, release, brightness, harmonics |
-| `sp compare x.spp\|<key> target.wav\|<key> [--note A2] [--hold 1]` | differences in words + one distance (0 = same, ~1 = clearly different) |
-| `sp nearest target.wav\|x.spp\|<key> [--n 5] [--kit my.spkit] [--note A2]` | the library FM sounds closest to a target |
+| `sp hear x.spp\|<key>\|x.spsound\|target.wav [--notes A2,A4] [--hold 1s] [--png] [--wav]` | one sound in numbers: attack, decay, release, brightness, harmonics |
+| `sp compare x.spp\|<key> target.wav\|<key> [--note A2] [--hold 1s]` | differences in words + one distance (0 = same, ~1 = clearly different) |
+| `sp nearest target.wav\|x.spp\|<key> [--n 5] [--kit my.spkit] [--note A2] [--hold 1s]` | the library FM sounds closest to a target |
 | `sp fit x.spp\|<key> target.wav\|<key> [out.spp] [--free tl,env] [--budget N] [--time S]` | search the free numbers of a patch towards a target |
 
 Default outputs: `build` writes the `.json` next to the `.sps`; `render`, `import`, `patch get/save`, `fit`
@@ -172,6 +172,9 @@ icon star
 3. Edit the `.spp`: you decide the structure (`alg`, `mul`, `dt`, `fb`). Then measure:
    `sp hear llm/out/bass.spp --notes A1,A2` (what it is) or `sp compare llm/out/bass.spp target.wav`
    (how it differs from a target, and a distance).
+   `nearest`, `compare` and `fit` find where the key went up in a target WAV (where its level starts falling
+   clearly faster); `nearest` and `compare` say where (`key-up at 0.75 s`). If that is wrong (a slow fade, a recording with reverb),
+   set it: `--hold 0.75` (or `0.75s`, `750ms`). In `hear`, `--hold` is how long each note is held (default 1 s).
 4. Optional: `sp fit llm/out/bass.spp target.wav llm/out/bass-fit.spp --free op2.tl,op4.dr,fb --time 30`
    moves the free numbers (default `tl,env`: every TL and envelope) while you keep the structure.
    `--free` takes `op1.tl`, `op3.dr`, `op2` (its TL and envelope), `tl` / `env` / `ar` ... (all operators), `fb ams fms`.
