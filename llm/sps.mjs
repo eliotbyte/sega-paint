@@ -3,9 +3,9 @@
 // addCatalogSample, libSound), so the file needs nothing but its base example and the library.
 import fs from 'node:fs';
 import path from 'node:path';
-import { stepTime, MELODIC_VOICE } from '../player/engine/song.js';
+import { stepTime, timeToStep, MELODIC_VOICE } from '../player/engine/song.js';
 import { readSoundFile } from '../player/soundfile.js';
-import { findSound, fetchRef, fetchBank, refList, baseRef, parseNote, voiceSpec, KIT, soundName, spriteName, spritePool, STEPS_PER_BAR, UserError } from './core.mjs';
+import { findSound, fetchRef, fetchBank, refList, baseRef, parseNote, voiceSpec, voiceOf, KIT, soundName, spriteName, spritePool, macroPitch, STEPS_PER_BAR, UserError } from './core.mjs';
 
 export class SpsError extends UserError {
   constructor(file, line, col, msg, hint = '') {
@@ -17,7 +17,7 @@ export class SpsError extends UserError {
 // ---------- parsing ----------
 const SCALE_WORDS = { major: 'major', maj: 'major', minor: 'minor', min: 'minor', 'major-pent': 'mpent', 'minor-pent': 'npent', blues: 'blues', dorian: 'dorian', mixolydian: 'mixo', phrygian: 'phryg', 'harmonic-minor': 'harmin' };
 const ATTRS = ['vol', 'pan', 'slide'];
-const EXACT = ['d', 'n', 'm', 'i', 'smp', 'md', 'gm', 'p', 'e'];
+const EXACT = ['d', 'n', 'm', 'i', 'smp', 'md', 'gm', 'p', 'e', 's', 'S'];
 
 // Words of a line with their columns (1-based); a quoted string is one word (q: true); # after a space starts a comment.
 function words(text) {
@@ -63,7 +63,7 @@ export function parseSps(text, file = 'song.sps') {
       try { ast.exact = JSON.parse(rest); } catch (e) { throw E(L, 1, `exact: is not JSON (${e.message})`); }
       break;
     }
-    if (k === 'song' || k === 'bpm' || k === 'grid' || k === 'base' || k === 'bars' || k === 'key' || /^\d+\/\d+$/.test(k)) { parseHeader(ast, w, L, E); continue; }
+    if (['song', 'bpm', 'grid', 'base', 'bars', 'key', 'offset'].includes(k) || /^\d+\/\d+$/.test(k)) { parseHeader(ast, w, L, E); continue; }
     if (k === 'sound') { parseSound(ast, w, L, E); continue; }
     if (k === 'track') {
       const v = w[1] && voiceSpec(w[1].t);
@@ -112,7 +112,8 @@ function parseHeader(ast, w, L, E) {
     const t = w[i].t;
     const val = () => { const x = w[++i]; if (!x) throw E(L, w[i - 1].col, `${t} needs a value`); return x; };
     if (t === 'song') { const x = val(); ast.title = x.t; }
-    else if (t === 'bpm') { const x = val(); ast.bpm = +x.t; if (!(ast.bpm >= 20 && ast.bpm <= 400)) throw E(L, x.col, `bpm ${x.t}: 20..400`); }
+    else if (t === 'offset') { const x = val(); ast.offset = +x.t; if (!(ast.offset >= 0 && ast.offset < 16)) throw E(L, x.col, `offset ${x.t}: steps before bar 1, 0..15`); }
+    else if (t === 'bpm') { const x = val(); ast.bpm = +x.t; ast.bpmAt = { line: L, col: x.col }; if (!(ast.bpm >= 20 && ast.bpm <= 400)) throw E(L, x.col, `bpm ${x.t}: 20..400`); }
     else if (t === 'grid') { const x = val(); ast.grid = +x.t; if (!(Number.isInteger(ast.grid) && ast.grid >= 1 && ast.grid <= 64)) throw E(L, x.col, `grid ${x.t}: steps per bar, a whole number (16 = sixteenths)`); }
     else if (t === 'base') { const x = val(); ast.base = { name: x.t, line: L, col: x.col }; }
     else if (t === 'bars') { const x = val(); ast.bars = +x.t; if (!(Number.isInteger(ast.bars) && ast.bars > 0)) throw E(L, x.col, `bars ${x.t}: a whole number`); }
@@ -305,26 +306,60 @@ function resolveSound(ast, def, rate) {
 export const PATCH_HOOK = {}; // filled by patch.mjs: sppSound(file) -> a My sounds record of type fm
 
 const kindOf = (c) => c.type;
-const isDrumSample = (c, spec) => kindOf(c) === 'samples' && spec.voice !== MELODIC_VOICE;
+// "song:i3/m40", "song:g46/i1/m110", "song:m151", "song:s4", with ",p=36" for the pitch of x: a sound of the song itself
+// (an imported song: its instruments, macros and samples are in its exact: block)
+function songSound(ast, def, song) {
+  const E = (msg) => new SpsError(fileOf(ast), def.line, def.col, msg, 'song:i3/m40 (FM), song:g46/i1/m110 (FM drum), song:m7 (PSG / noise), song:s2 (sample)');
+  const [body, ...opts] = def.ref.slice(5).split(',');
+  const o = {};
+  for (const part of body.split('/')) {
+    const m = /^([igms])(\d+)$/.exec(part);
+    if (!m) throw E(`"${def.ref}" is not a sound of the song`);
+    o[{ i: 'i', g: 'gm', m: 'm', s: 'smp' }[m[1]]] = +m[2];
+  }
+  for (const x of opts) { const m = /^p=(\d+)$/.exec(x); if (!m) throw E(`"${x}": only p=<MIDI note> may follow`); o.p = +m[1]; }
+  if (o.smp != null) {
+    const smp = song.samples?.[o.smp];
+    if (!smp) throw E(`the song has no sample ${o.smp}`);
+    return { type: 'samples', song: true, snd: { smp: o.smp, p: o.p ?? 60 - (smp.transp || 0) }, name: smp.name, pitched: smp.pitched };
+  }
+  const mac = song.macros?.[o.m];
+  if (!mac) throw E(`the song has no macro ${o.m}`);
+  if (o.i != null && !song.instruments?.[o.i]) throw E(`the song has no instrument ${o.i}`);
+  const type = o.gm != null ? 'drums' : o.i != null ? 'fm' : mac.noise ? 'noise' : 'psg';
+  return { type, song: true, snd: { i: o.i, m: o.m, gm: o.gm, p: o.p ?? macroPitch(mac) }, name: def.name };
+}
+const ONLY_EXACT = ['m', 'i', 'smp', 'gm', 'md', 's', 'S', 'e'];
 
 export function buildSong(ast) {
   const file = fileOf(ast);
   const E = (line, col, msg, hint) => new SpsError(file, line, col, msg, hint);
   const base = resolveBase(ast);
   const ref = fetchRef(base);
-  if (ast.exact) return BUILD_HOOK.exact(ast, base, ref);
+  const exact = !!ast.exact;
   const grid = ast.grid, unit = STEPS_PER_BAR / grid; // app steps per grid step
-  const step = 44100 * 60 / (ast.bpm * 4);
-  const song = {
-    title: ast.title || path.basename(file).replace(/\.[^.]+$/, ''), base, rate: 44100, uniform: true, bpm: ast.bpm, step, step0: 0,
-    stepsPerBeat: 4, beatsPerBar: 4, stepTimes: [], end: 0, loopStart: -1,
-    globals: ref.globals.filter((x) => x[0] <= 1).map((x) => [0, x[1], x[2], x[3]]), // as app.js newSongData
-    instruments: [], macros: [], layers: [], samples: [], bankFile: ref.bankFile, mixRate: ref.mixRate, library: { fm: [], psg: [] },
-    game: ref.game || '',
-  };
-  if (ast.key) song.scale = ast.key;
-  const maker = new SongMaker(song, fetchBank(base, ref.bankFile || 'pcm.bin').length);
+  let song;
+  if (exact) { // an imported song: everything but the notes as it was
+    song = structuredClone(ast.exact);
+    if (ast.title) song.title = ast.title;
+    if (ast.bpm !== song.bpm) throw E(ast.bpmAt.line, ast.bpmAt.col, `bpm ${ast.bpm}: this imported song keeps its recorded timing (bpm ${song.bpm})`, 'change the tempo in Sega Paint, or write the music into a new .sps');
+    song.base = base;
+    song.game = ref.game || '';
+    if (ast.key) song.scale = ast.key;
+  } else {
+    const step = 44100 * 60 / (ast.bpm * 4);
+    song = {
+      title: ast.title || path.basename(file).replace(/\.[^.]+$/, ''), base, rate: 44100, uniform: true, bpm: ast.bpm, step, step0: 0,
+      stepsPerBeat: 4, beatsPerBar: 4, stepTimes: [], end: 0, loopStart: -1,
+      globals: ref.globals.filter((x) => x[0] <= 1).map((x) => [0, x[1], x[2], x[3]]), // as app.js newSongData
+      instruments: [], macros: [], layers: [], samples: [], bankFile: ref.bankFile, mixRate: ref.mixRate, library: { fm: [], psg: [] },
+      game: ref.game || '',
+    };
+    if (ast.key) song.scale = ast.key;
+  }
+  const maker = new SongMaker(song, fetchBank(base, song.bankFile || 'pcm.bin').length);
   Object.defineProperty(song, '_maker', { value: maker }); // for the checks
+  const off = ast.offset || 0; // steps before bar 1 (an imported song whose bars do not start at step 0)
 
   // sounds, checked against the voices that use them
   const sounds = new Map();
@@ -332,17 +367,22 @@ export function buildSong(ast) {
     if (sounds.has(name)) return sounds.get(name);
     const def = ast.sounds.get(name);
     if (!def) throw E(line, col, `no sound "${name}"`, `define it first: sound ${name} = "key" (keys: sp sounds)`);
-    const c = resolveSound(ast, def, ref.mixRate);
+    let c;
+    if (def.ref.startsWith('song:')) {
+      if (!exact) throw new SpsError(file, def.line, def.col, `"${def.ref}": song: sounds exist only in an imported song (with exact:)`, 'use a library key: sp sounds');
+      c = songSound(ast, def, song);
+    } else c = resolveSound(ast, def, song.mixRate);
     sounds.set(name, c);
     return c;
   };
   const fits = (c, spec, v) => {
-    const k = kindOf(c);
-    if (spec.kind === 'fm') return k === 'fm' || k === 'drums' ? '' : `${v} plays FM sounds; "${soundName(c)}" is ${k}`;
-    if (spec.kind === 'psg') return k === 'psg' ? '' : `${v} plays square waves (psg sounds); "${soundName(c)}" is ${k}`;
-    if (spec.kind === 'noise') return k === 'noise' ? '' : `NOISE plays noise sounds; "${soundName(c)}" is ${k}`;
-    if (k !== 'samples') return `${v} plays samples; "${soundName(c)}" is ${k}`;
-    if (spec.voice === MELODIC_VOICE && !c.pitched) return `DAC4 is the pitched sample voice and "${soundName(c)}" has no pitch: put it on DAC1-DAC3`;
+    const k = kindOf(c), nm = c.song ? c.name : soundName(c);
+    if (spec.kind === 'fm') return k === 'fm' || k === 'drums' ? '' : `${v} plays FM sounds; "${nm}" is ${k}`;
+    if (c.song && (spec.kind === 'psg' || spec.kind === 'noise') && (k === 'psg' || k === 'noise')) return '';
+    if (spec.kind === 'psg') return k === 'psg' ? '' : `${v} plays square waves (psg sounds); "${nm}" is ${k}`;
+    if (spec.kind === 'noise') return k === 'noise' ? '' : `NOISE plays noise sounds; "${nm}" is ${k}`;
+    if (k !== 'samples') return `${v} plays samples; "${nm}" is ${k}`;
+    if (!c.song && spec.voice === MELODIC_VOICE && !c.pitched) return `DAC4 is the pitched sample voice and "${nm}" has no pitch: put it on DAC1-DAC3`;
     return '';
   };
 
@@ -361,7 +401,7 @@ export function buildSong(ast) {
   };
   const arr = ast.arrange?.items || (ast.sections.size ? [...ast.sections.keys()] : [...ast.patterns.keys()]).map((name) => ({ name, times: 1, transp: 0, line: 1, col: 1 }));
   expand(arr, 0, []);
-  if (!placed.length) throw E(1, 1, 'no music: write a pattern (and arrange: ...)');
+  if (!placed.length && !exact) throw E(1, 1, 'no music: write a pattern (and arrange: ...)');
   let bar = 0;
   const sectionStart = new Map();
   for (const x of placed) {
@@ -369,13 +409,27 @@ export function buildSong(ast) {
     for (const name of [x.section, x.pat.name]) if (!sectionStart.has(name)) sectionStart.set(name, bar);
     bar += x.pat.bars;
   }
-  const bars = ast.bars || bar;
-  const steps = bars * STEPS_PER_BAR;
-  song.stepTimes = Array.from({ length: steps + 1 }, (_, i) => Math.round(i * step * 10) / 10); // as app.js setTiming
-  song.end = Math.round(steps * step);
+  let steps;
+  if (!exact) {
+    const bars = ast.bars || bar;
+    steps = bars * STEPS_PER_BAR;
+    song.stepTimes = Array.from({ length: steps + 1 }, (_, i) => Math.round(i * song.step * 10) / 10); // as app.js setTiming
+    song.end = Math.round(steps * song.step);
+  } else {
+    // longer than recorded (more bars written, or bars N): the grid goes on at the song's step, as app.js setUnevenTiming
+    const have = Math.ceil((timeToStep(song, song.end) - off) / STEPS_PER_BAR - 1e-6);
+    const want = ast.bars || (bar > have ? bar : 0);
+    if (want) {
+      const last = off + want * STEPS_PER_BAR;
+      while (song.stepTimes.length - 1 - song.step0 < last + STEPS_PER_BAR) song.stepTimes.push(Math.round((song.stepTimes.at(-1) + song.step) * 10) / 10);
+      song.end = Math.round(stepTime(song, last));
+    }
+    steps = Infinity;
+  }
+  const nBars = Math.round((timeToStep(song, song.end) - off) / STEPS_PER_BAR);
   if (ast.loop && !ast.loop.off) {
     let lb;
-    if (ast.loop.bar != null) { lb = ast.loop.bar - 1; if (!(lb >= 0 && lb < bars)) throw E(ast.loop.line, ast.loop.col, `loop bar ${ast.loop.bar}: the song has ${bars} bars`); }
+    if (ast.loop.bar != null) { lb = ast.loop.bar - 1; if (!(lb >= 0 && lb < nBars)) throw E(ast.loop.line, ast.loop.col, `loop bar ${ast.loop.bar}: the song has ${nBars} bars`); }
     else {
       lb = sectionStart.get(ast.loop.name);
       if (lb == null) {
@@ -383,11 +437,15 @@ export function buildSong(ast) {
         if (lb == null) throw E(ast.loop.line, ast.loop.col, `loop: "${ast.loop.name}" does not play in the arrangement`);
       }
     }
-    song.loopStart = Math.round(stepTime(song, lb * STEPS_PER_BAR));
-  }
+    song.loopStart = Math.round(stepTime(song, off + lb * STEPS_PER_BAR));
+  } else if (ast.loop?.off) song.loopStart = -1;
 
   // notes, voice by voice
   const layers = new Map(); // voice -> { L, palette keys, notes by step }
+  if (exact) for (const L of song.layers) {
+    if (L.kind !== 'dac') L.notes = [];
+    layers.set(voiceOf(L), { L, keys: new Map(), at: new Map(), names: [], old: true });
+  }
   const layerFor = (v, spec, line, col, c) => {
     if (!layers.has(v)) {
       const L = { id: '', kind: spec.kind, ch: spec.ch, name: ast.tracks.get(v)?.name || '', color: '', role: spec.kind === 'fm' ? (kindOf(c) === 'drums' ? 'perc' : 'lead') : spec.kind === 'sample' ? 'sample' : spec.kind === 'noise' ? 'noise' : 'psg', notes: [], palette: [] };
@@ -396,20 +454,25 @@ export function buildSong(ast) {
       layers.set(v, { L, keys: new Map(), at: new Map(), names: [] });
     }
     const X = layers.get(v);
-    if (spec.kind === 'fm' && !!X.L.kit !== (kindOf(c) === 'drums')) throw E(line, col, `${v} mixes FM drums and FM instruments`, 'an FM voice is either a drum track (drums sounds) or a melodic one; use another FM voice');
+    if (!exact && spec.kind === 'fm' && !!X.L.kit !== (kindOf(c) === 'drums')) throw E(line, col, `${v} mixes FM drums and FM instruments`, 'an FM voice is either a drum track (drums sounds) or a melodic one; use another FM voice');
+    if (X.old && ast.tracks.get(v)) X.L.name = ast.tracks.get(v).name;
     return X;
   };
-  const paletteOf = (X, name, c, spec) => {
+  const paletteOf = (X, name, c) => {
     if (X.keys.has(name)) return X.keys.get(name);
-    const snd = kindOf(c) === 'samples' ? maker.addSample(c) : maker.addSound(c);
-    if (!X.L.palette.some((x) => x.key === snd.key)) X.L.palette.push(snd);
+    let snd;
+    if (c.song) snd = c.snd;
+    else {
+      snd = kindOf(c) === 'samples' ? maker.addSample(c) : maker.addSound(c);
+      if (X.L.palette && !X.L.palette.some((x) => x.key === snd.key)) X.L.palette.push(snd);
+      if (!X.names.includes(soundName(c))) X.names.push(soundName(c));
+    }
     X.keys.set(name, snd);
-    if (!X.names.includes(soundName(c))) X.names.push(soundName(c));
     return snd;
   };
 
   for (const P of placed) {
-    const pat = P.pat, S0 = P.bar * STEPS_PER_BAR, patSteps = pat.bars * grid;
+    const pat = P.pat, S0 = off + P.bar * STEPS_PER_BAR, patSteps = pat.bars * grid;
     const local = new Map(); // voice -> [{ k (grid step), note }]
     for (const line of pat.voices) {
       const { voice: v, spec } = line;
@@ -417,28 +480,33 @@ export function buildSong(ast) {
       const why = fits(c, spec, v);
       if (why) throw E(line.line, line.soundCol, why);
       const X = layerFor(v, spec, line.line, line.soundCol, c);
-      const snd = paletteOf(X, line.sound, c, spec);
-      const drum = isDrumSample(c, spec) || spec.kind === 'noise' || kindOf(c) === 'drums';
-      const natural = kindOf(c) === 'samples' ? snd.p : snd.p ?? 60;
+      const snd = paletteOf(X, line.sound, c);
+      const lane = spec.kind === 'noise' || (spec.kind === 'sample' && spec.voice !== MELODIC_VOICE) || (spec.kind === 'fm' && !!X.L.kit);
+      const drum = lane || kindOf(c) === 'drums';
+      const natural = snd.p ?? 60;
       let k = 0;
       const list = local.get(v) || [];
       local.set(v, list);
       const put = (tok, col, pitch, len, attrs) => {
         if (!(len > 0)) throw E(line.line, col, `length /${len}: more than 0 steps`);
-        if (k + len > patSteps + 1e-9) throw E(line.line, col, `${v}: the notes run past the end of "${pat.name}" (${pat.bars} bar${pat.bars > 1 ? 's' : ''} = ${patSteps} steps)`, `make the pattern longer (pattern ${pat.name} ${pat.bars + 1}:) or the notes shorter`);
+        let s = S0 + k * unit;
+        if (attrs.s != null) { s = S0 + attrs.s; k = attrs.s / unit; }
+        if (attrs.S != null) { s = attrs.S; k = (attrs.S - S0) / unit; }
+        if (!exact && k + len > patSteps + 1e-9) throw E(line.line, col, `${v}: the notes run past the end of "${pat.name}" (${pat.bars} bar${pat.bars > 1 ? 's' : ''} = ${patSteps} steps)`, `make the pattern longer (pattern ${pat.name} ${pat.bars + 1}:) or the notes shorter`);
         if (pitch != null) {
-          const clash = list.find((x) => Math.abs(x.k - k) < 1e-9);
+          const clash = !exact && list.find((x) => Math.abs(x.k - k) < 1e-9);
           if (clash) throw E(line.line, col, `${v}: two notes at once at step ${k + 1} of "${pat.name}" (also line ${clash.line})`, 'one voice plays one note at a time; put the other note on another voice');
           const p = pitch === 'x' ? natural : pitch + (drum ? 0 : P.transp);
-          const s = S0 + k * unit;
           const n = { s, n: 0, d: 0, p };
-          if (drum) n.d = snd.d; else n.d = Math.round(stepTime(song, s + len * unit) - stepTime(song, s));
+          n.d = drum && snd.d != null ? snd.d : Math.round(stepTime(song, s + len * unit) - stepTime(song, s));
           if (kindOf(c) === 'samples') n.smp = snd.smp; else { if (snd.i !== undefined) n.i = snd.i; n.m = snd.m; }
-          if (snd.gm != null) { n.gm = snd.gm; n.p = snd.p; }
+          if (snd.gm != null) { n.gm = snd.gm; if (pitch === 'x') n.p = snd.p; }
           for (const [a, val] of Object.entries(attrs)) {
-            if (a === 'vol' && spec.kind === 'sample') throw E(line.line, col, 'samples have no volume: the DAC plays them as they are', 'use a quieter sample or leave vol out');
-            if (a === 'pan' && spec.kind !== 'fm') throw E(line.line, col, spec.kind === 'sample' ? 'all samples share one DAC channel: no pan per note' : 'the PSG is mono: no pan', 'only FM voices pan');
-            if (a === 'slide' && (drum || spec.kind === 'sample')) throw E(line.line, col, `${v}: slide works on FM and PSG notes`);
+            if (ONLY_EXACT.includes(a) && !exact) throw E(line.line, col, `{${a}=...} belongs to imported songs (with exact:)`, 'vol, pan, slide, d (length in samples) and n (offset in samples) work everywhere');
+            if (a === 'vol' && spec.kind === 'sample' && !exact) throw E(line.line, col, 'samples have no volume: the DAC plays them as they are', 'use a quieter sample or leave vol out');
+            if (a === 'pan' && spec.kind !== 'fm' && !exact) throw E(line.line, col, spec.kind === 'sample' ? 'all samples share one DAC channel: no pan per note' : 'the PSG is mono: no pan', 'only FM voices pan');
+            if (a === 'slide' && !exact && (drum || spec.kind === 'sample')) throw E(line.line, col, `${v}: slide works on FM and PSG notes`);
+            if (a === 's' || a === 'S') continue;
             n[a] = val;
           }
           list.push({ k, n, line: line.line, col });
@@ -486,7 +554,7 @@ export function buildSong(ast) {
       const X = layers.get(v);
       for (const x of list) {
         const key = Math.round(x.n.s * 1e6);
-        if (X.at.has(key)) throw E(x.line, x.col, `${v}: two notes at once (with line ${X.at.get(key)})`);
+        if (!exact && X.at.has(key)) throw E(x.line, x.col, `${v}: two notes at once (with line ${X.at.get(key)})`);
         if (x.n.s >= steps) continue; // after the song end (bars N): left out
         X.at.set(key, x.line);
         X.L.notes.push(x.n);
@@ -494,12 +562,13 @@ export function buildSong(ast) {
     }
   }
 
-  // layers in voice order, with names, colours and roles
+  // layers in voice order (an imported song keeps its own order), with names, colours and roles
   const order = ['FM1', 'FM2', 'FM3', 'FM4', 'FM5', 'PSG1', 'PSG2', 'PSG3', 'NOISE', 'DAC4', 'DAC1', 'DAC2', 'DAC3'];
-  let id = 0;
+  let id = exact ? Math.max(-1, ...song.layers.map((x) => +String(x.id).slice(1) || 0)) + 1 : 0;
+  for (const X of layers.values()) if (X.old) X.L.notes.sort((a, b) => a.s - b.s);
   for (const v of order) {
     const X = layers.get(v);
-    if (!X) continue;
+    if (!X || X.old) continue;
     const L = X.L;
     L.id = 'L' + id;
     L.color = COLORS[id % COLORS.length];
@@ -514,11 +583,12 @@ export function buildSong(ast) {
     song.layers.push(L);
   }
   // the lowest FM track is the bass (the app opens a song on it)
-  const fms = song.layers.filter((L) => L._median != null).sort((a, b) => a._median - b._median);
-  if (fms[0] && fms[0]._median < 55) fms[0].role = 'bass';
+  if (!exact) {
+    const fms = song.layers.filter((L) => L._median != null).sort((a, b) => a._median - b._median);
+    if (fms[0] && fms[0]._median < 55) fms[0].role = 'bass';
+  }
   return song;
 }
-export const BUILD_HOOK = {}; // exact(ast, base, ref): section 3 (an imported song with its exact data)
 
 // app.js serializeObj: the song file without runtime-only fields
 const RUNTIME_KEYS = new Set(['sounds', 'sel', 'def', 'pitch', 'game', 'tone', 'group', 'pick']);

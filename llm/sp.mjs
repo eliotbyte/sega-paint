@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import fs from 'node:fs';
 import { UserError, outPath, stem, writeWav, songBars, loadSongFile, loadSongObject, renderSong, voiceOf, RATE } from './core.mjs';
 import { buildFile } from './sps.mjs';
+import { importSong } from './import.mjs';
 import { checkSong, formatCheck } from './check.mjs';
 import { listSounds, formatTable, gameNames } from './sounds.mjs';
 
@@ -96,6 +97,22 @@ export const COMMANDS = {
       const res = checkSong(s);
       console.log(formatCheck(res));
       if (res.errors.length) process.exitCode = 1;
+    },
+  },
+  import: {
+    usage: 'sp import song.json [out.sps]',
+    help: 'Turn a song.json (a game track of player/songs, or an export of Sega Paint) into a .sps; sp build gives it back.',
+    more: 'Repeats fold into patterns (x N, +semitones). A song made in Sega Paint from library sounds on its even grid\n' +
+      'comes out plain; a game track keeps its recording as exact data ({m=..} {d=..}, song:... sounds, the exact: block).\n' +
+      'out.sps defaults to llm/out/<name>.sps.',
+    run(a) {
+      const [file, out0] = a._;
+      if (!file) throw new UserError('which song? sp import song.json');
+      const { text, plain } = importSong(file);
+      const out = out0 || outPath(stem(file) + '.sps');
+      fs.writeFileSync(out, text);
+      const pats = (text.match(/^pattern /gm) || []).length, lines = text.split('\n').findIndex((l) => l.startsWith('exact:'));
+      console.log(`${out}: ${plain ? 'plain' : 'exact'} mode, ${pats} patterns, ${lines < 0 ? text.split('\n').length : lines} lines of notation; sp build gives back the same timeline (checked)`);
     },
   },
   check: {
