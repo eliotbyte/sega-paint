@@ -17,3 +17,4 @@ player/art/backup/
 __pycache__/
 *.pyc
 node_modules/
+llm/out/
