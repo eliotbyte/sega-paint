@@ -1,0 +1,8 @@
+# Pluck bass: the library Bass with a gentler growl, a short decay and a little buzz.
+patch "Pluck bass"  alg 3  fb 3  ams 0  fms 0
+  op1  mul 0  dt +3  tl 39  ar 22  dr 25  sl 0  sr 31  rr 15  ks 0  am 0  ssg 0
+  op2  mul 9  dt 0   tl 45  ar 23  dr 31  sl 0  sr 31  rr 15  ks 0  am 0  ssg 0
+  op3  mul 1  dt 0   tl 16  ar 31  dr 14  sl 4  sr 2   rr 6   ks 1  am 0  ssg 0
+  op4  mul 1  dt 0   tl 6   ar 31  dr 10  sl 6  sr 4   rr 9   ks 0  am 0  ssg 0
+note A2
+icon cat
