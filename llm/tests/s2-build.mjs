@@ -36,7 +36,9 @@ function compareWithApp(file) {
   delete S.song.libUse;
   S.catOff = fetchBank(json.base, ref.bankFile).length;
   const A = app(S);
-  const appC = (c) => S.catalog.games.flatMap((g) => SECS.flatMap((sec) => g[sec] || [])).find((x) => x.key === c.key);
+  // a file sound (sound x = "bass.spp") is one of My sounds in the app, which come first in its library (loadMySounds, catOf)
+  for (const c of maker.log) if (c.my && !(S.mySounds[c.type] ||= []).includes(c)) S.mySounds[c.type].push(c);
+  const appC = (c) => SECS.flatMap((sec) => A.catOf(sec)).find((x) => x.key === c.key);
   for (const c of maker.log) { const x = appC(c); if (S.catalog.games.some((g) => (g.samples || []).includes(x))) A.addCatalogSample(x); else A.addCatalogSound(x); }
   const app1 = A.serializeObj(S.song);
   for (const k of ['instruments', 'macros', 'samples', 'libUse']) assert.deepEqual(json[k], app1[k], `${k} differ from app.js`);
