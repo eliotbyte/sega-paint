@@ -5,6 +5,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { stepTime, timeToStep, MELODIC_VOICE } from '../player/engine/song.js';
 import { readSoundFile } from '../player/soundfile.js';
+import { sppSound } from './patch.mjs';
 import { findSound, fetchRef, fetchBank, refList, baseRef, parseNote, voiceSpec, voiceOf, KIT, soundName, spriteName, spritePool, macroPitch, STEPS_PER_BAR, UserError } from './core.mjs';
 
 export class SpsError extends UserError {
@@ -290,8 +291,6 @@ function resolveSound(ast, def, rate) {
     const f = path.resolve(path.dirname(path.resolve(ast.file)), ref);
     if (!fs.existsSync(f)) throw E(`no such file: ${ref}`);
     if (/\.spp$/i.test(ref)) {
-      const { sppSound } = PATCH_HOOK;
-      if (!sppSound) throw E('.spp patches need llm/patch.mjs');
       return sppSound(f);
     }
     const res = readSoundFile(path.basename(f), fs.readFileSync(f, 'utf8'), rate);
@@ -303,7 +302,6 @@ function resolveSound(ast, def, rate) {
   if (!c) throw E(`no sound "${ref}" in the library`, 'see: sp sounds (or sp sounds --find word)');
   return c;
 }
-export const PATCH_HOOK = {}; // filled by patch.mjs: sppSound(file) -> a My sounds record of type fm
 
 const kindOf = (c) => c.type;
 // "song:i3/m40", "song:g46/i1/m110", "song:m151", "song:s4", with ",p=36" for the pitch of x: a sound of the song itself

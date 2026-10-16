@@ -3,12 +3,15 @@
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import fs from 'node:fs';
-import { UserError, outPath, stem, writeWav, songBars, loadSongFile, loadSongObject, renderSong, voiceOf, RATE } from './core.mjs';
+import { UserError, outPath, stem, writeWav, songBars, loadSongFile, loadSongObject, renderSong, voiceOf, noteName, RATE } from './core.mjs';
 import { buildFile } from './sps.mjs';
 import { importSong } from './import.mjs';
 import { listen, parseBars } from './listen.mjs';
+import { soundRecord, writeSpp, readSpp, sppToSound, explainPatch } from './patch.mjs';
 import { checkSong, formatCheck } from './check.mjs';
 import { listSounds, formatTable, gameNames } from './sounds.mjs';
+
+const slugName = (t) => t.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'sound';
 
 // argv -> { _: positional, flag: value | true }; flags listed in `bool` take no value
 export function parseArgs(argv, bool = []) {
@@ -45,7 +48,7 @@ export const COMMANDS = {
         return;
       }
       console.log('Sega Paint tools for language models (node llm/sp.mjs <command> ...). Guide: llm/README.md\n');
-      for (const [k, x] of Object.entries(COMMANDS)) if (x.usage) console.log(`  ${x.usage.padEnd(62)} ${x.help.split('\n')[0]}`);
+      for (const x of Object.values(COMMANDS)) if (x.usage) console.log(`  ${x.usage}\n      ${x.help.split('\n')[0]}`);
       console.log('\nsp help <command> for details.');
     },
   },
@@ -128,6 +131,32 @@ export const COMMANDS = {
       const doc = loadAny(file);
       const total = songBars(doc.song);
       console.log(listen(doc, { bars: parseBars(a.bars, total), roll: parseBars(a.roll, total), all: !!a.all, render: !a['no-render'] }));
+    },
+  },
+  patch: {
+    usage: 'sp patch get <key|file.spsound> [out.spp] | save x.spp [--name N] [out.spsound] | explain x.spp|<key>',
+    help: 'FM patches as text (.spp): get one from the library, save it as a .spsound for Sega Paint, explain it in words.',
+    more: 'get: writes llm/out/<name>.spp (or out.spp) and prints it. save: a .spsound the app imports into My sounds\n' +
+      '(drop it on the window); default llm/out/<name>.spsound. explain: algorithm, who modulates whom, ratios, depth,\n' +
+      'envelopes, and the note measured through the engine. The .spp format: llm/README.md.',
+    run(a) {
+      const [sub, x, out0] = a._;
+      if (sub === 'get') {
+        if (!x) throw new UserError('sp patch get <key>   (keys: sp sounds --kind fm)');
+        const rec = soundRecord(x), text = writeSpp(rec);
+        const out = out0 || outPath(slugName(rec.name) + '.spp');
+        fs.writeFileSync(out, text);
+        console.log(text + `(saved ${out})`);
+      } else if (sub === 'save') {
+        if (!x) throw new UserError('sp patch save x.spp [--name N] [out.spsound]');
+        const rec = readSpp(x), json = sppToSound(rec, a.name);
+        const out = out0 || outPath(slugName(a.name || rec.name) + '.spsound');
+        fs.writeFileSync(out, json);
+        console.log(`${out}: "${(a.name || rec.name).slice(0, 24)}", ${rec.type === 'drums' ? 'FM drum' : 'FM sound'}, note ${noteName(rec.p)}. Drop it on Sega Paint: it goes to My sounds.`);
+      } else if (sub === 'explain') {
+        if (!x) throw new UserError('sp patch explain x.spp');
+        console.log(explainPatch(soundRecord(x)));
+      } else throw new UserError('sp patch get | save | explain (sp help patch)');
     },
   },
   check: {

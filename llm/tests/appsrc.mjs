@@ -5,7 +5,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { PLAYER } from '../core.mjs';
 
-const SRC = fs.readFileSync(path.join(PLAYER, 'app.js'), 'utf8');
+const SRCS = new Map();
+const src = (file) => { if (!SRCS.has(file)) SRCS.set(file, fs.readFileSync(path.join(PLAYER, file), 'utf8')); return SRCS.get(file); };
 
 // index just past the end of a balanced block or statement starting at i (strings, comments and regexes skipped)
 function scan(src, i, untilSemicolon) {
@@ -28,20 +29,21 @@ function scan(src, i, untilSemicolon) {
   }
   throw new Error('unbalanced source');
 }
-export function source(name) {
-  let m = new RegExp(`^(async )?function ${name}\\(`, 'm').exec(SRC);
-  if (m) return SRC.slice(m.index, scan(SRC, m.index, false));
-  m = new RegExp(`^(const|let) ${name} = `, 'm').exec(SRC);
-  if (m) return SRC.slice(m.index, scan(SRC, m.index, true));
-  throw new Error(`app.js has no top-level ${name}`);
+export function source(name, file = 'app.js') {
+  const SRC = src(file);
+  let m = new RegExp(`^(export )?(async )?function ${name}\\(`, 'm').exec(SRC);
+  if (m) return SRC.slice(m.index, scan(SRC, m.index, false)).replace(/^export /, '');
+  m = new RegExp(`^(export )?(const|let) ${name} = `, 'm').exec(SRC);
+  if (m) return SRC.slice(m.index, scan(SRC, m.index, true)).replace(/^export /, '');
+  throw new Error(`${file} has no top-level ${name}`);
 }
-// one line of app.js that contains `marker` (for a rule inside a bigger function)
-export function line(marker) {
-  const l = SRC.split('\n').find((x) => x.includes(marker));
-  if (!l) throw new Error(`app.js has no line with ${marker}`);
+// one line of a file of player/ that contains `marker` (for a rule inside a bigger function)
+export function line(marker, file = 'app.js') {
+  const l = src(file).split('\n').find((x) => x.includes(marker));
+  if (!l) throw new Error(`${file} has no line with ${marker}`);
   return l.trim();
 }
-export function extract(names, globals = {}, extra = '') {
-  const code = names.map(source).join('\n') + '\n' + extra + `\nreturn { ${names.join(', ')} };`;
+export function extract(names, globals = {}, extra = '', file = 'app.js') {
+  const code = names.map((x) => source(x, file)).join('\n') + '\n' + extra + `\nreturn { ${names.join(', ')} };`;
   return new Function(...Object.keys(globals), code)(...Object.values(globals));
 }
