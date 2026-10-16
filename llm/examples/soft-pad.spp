@@ -1,0 +1,8 @@
+# A slow, wide pad: two detuned carriers that swell in and ring on after the key is up.
+patch "Soft pad"  alg 4  fb 2  ams 0  fms 0
+  op1  mul 1  dt +1  tl 40  ar 10  dr 4  sl 3  sr 0  rr 5  ks 0  am 0  ssg 0
+  op2  mul 1  dt +2  tl 8   ar 12  dr 2  sl 2  sr 0  rr 5  ks 0  am 0  ssg 0
+  op3  mul 2  dt -1  tl 45  ar 10  dr 4  sl 3  sr 0  rr 5  ks 0  am 0  ssg 0
+  op4  mul 1  dt -2  tl 8   ar 12  dr 2  sl 2  sr 0  rr 5  ks 0  am 0  ssg 0
+note C4
+icon star

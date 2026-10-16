@@ -3,11 +3,12 @@
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import fs from 'node:fs';
-import { UserError, outPath, stem, writeWav, songBars, loadSongFile, loadSongObject, renderSong, voiceOf, noteName, RATE } from './core.mjs';
+import { UserError, outPath, stem, writeWav, songBars, loadSongFile, loadSongObject, renderSong, voiceOf, noteName, parseNote, RATE } from './core.mjs';
 import { buildFile } from './sps.mjs';
 import { importSong } from './import.mjs';
 import { listen, parseBars } from './listen.mjs';
 import { soundRecord, writeSpp, readSpp, sppToSound, explainPatch } from './patch.mjs';
+import { hear, compare, nearest, isWav } from './hear.mjs';
 import { checkSong, formatCheck } from './check.mjs';
 import { listSounds, formatTable, gameNames } from './sounds.mjs';
 
@@ -157,6 +158,48 @@ export const COMMANDS = {
         if (!x) throw new UserError('sp patch explain x.spp');
         console.log(explainPatch(soundRecord(x)));
       } else throw new UserError('sp patch get | save | explain (sp help patch)');
+    },
+  },
+  hear: {
+    usage: 'sp hear x.spp|<key>|x.spsound|target.wav [--notes A2,A4] [--hold 1] [--png] [--wav]',
+    help: 'One sound in numbers: attack, peak, decay, sustain, release, brightness over time, harmonics, noise.',
+    more: 'A patch is played on FM1 through the engine at each note (default: its note and an octave each way; a drum\n' +
+      'at its own), held --hold seconds, then released. A WAV is summed to mono, its leading silence cut.\n' +
+      '--png: a spectrogram per note in llm/out/; --wav: the rendered notes as WAV files in llm/out/.',
+    bool: ['png', 'wav'],
+    run(a) {
+      const ref = a._[0];
+      if (!ref) throw new UserError('what to hear? sp hear bass.spp  (or a library key, or a .wav)');
+      const notes = list(a.notes)?.map((t) => { const p = parseNote(t); if (p == null) throw new UserError(`--notes: "${t}" is not a note`); return p; });
+      const hold = num(a, 'hold', isWav(ref) ? null : 1);
+      console.log(hear(ref, { notes, hold, png: !!a.png, wav: !!a.wav, out: (n) => outPath(`${slugName(stem(ref))}-${n.replace('#', 's')}.png`) }));
+    },
+  },
+  compare: {
+    usage: 'sp compare x.spp|<key> target.wav|<key> [--note A2] [--hold 1]',
+    help: 'How a patch differs from a target, in words and one distance (0 = the same, ~1 = clearly different).',
+    more: 'The patch plays at the target\'s pitch (or --note), as long as the target (its last 0.6 s taken as the\n' +
+      'release; --hold sets the held part). Levels are matched before the distance (a log spectrogram at three\n' +
+      'resolutions + the envelope); a level difference is reported in words only.',
+    run(a) {
+      const [x, t] = a._;
+      if (!x || !t) throw new UserError('sp compare patch.spp target.wav');
+      const note = a.note ? parseNote(a.note) : null;
+      if (a.note && note == null) throw new UserError(`--note: "${a.note}" is not a note`);
+      console.log(compare(x, t, { note, hold: num(a, 'hold', null) }).text);
+    },
+  },
+  nearest: {
+    usage: 'sp nearest target.wav|x.spp|<key> [--n 5] [--kit my.spkit] [--note A2]',
+    help: 'The FM sounds of the library (and of a My sounds export) closest to a target: a good patch to start from.',
+    run(a) {
+      const t = a._[0];
+      if (!t) throw new UserError('sp nearest target.wav');
+      const note = a.note ? parseNote(a.note) : null;
+      const { target, list: res } = nearest(t, { n: num(a, 'n', 5), kits: list(a.kit) || [], note, hold: num(a, 'hold', null) });
+      console.log(`nearest to ${t}${target.note != null ? ` (pitch ${noteName(target.note)})` : ' (no clear pitch)'}:`);
+      res.forEach((r, i) => console.log(`  ${i + 1}. ${r.key.padEnd(20)} "${r.rec.name}"  distance ${r.d.toFixed(3)}  (played at ${noteName(r.p)})`));
+      console.log('next: sp patch get <key>, then sp compare it with the target');
     },
   },
   check: {

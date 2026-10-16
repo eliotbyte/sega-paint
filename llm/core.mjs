@@ -261,6 +261,7 @@ export function writeWav(file, L, R, rate = RATE) {
 }
 // 8 / 16 / 24 / 32-bit PCM or 32-bit float WAV -> { L, R, rate } (mono files give L === R)
 export function readWav(file) {
+  if (!fs.existsSync(file)) fail(`no such file: ${file}`);
   const w = fs.readFileSync(file);
   if (w.toString('ascii', 0, 4) !== 'RIFF' || w.toString('ascii', 8, 12) !== 'WAVE') fail(`${file}: not a WAV file`);
   let at = 12, fmt = null, data = null;

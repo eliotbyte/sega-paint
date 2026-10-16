@@ -74,10 +74,11 @@ export function summarize(x, { hold = 1, f0 = 0 } = {}) {
 
 const hz = (f) => (f >= 1000 ? `${(f / 1000).toFixed(1)} kHz` : `${Math.round(f)} Hz`);
 const dB = (v) => `${v < 0 ? '−' : ''}${Math.abs(Math.round(v))} dB`;
-export function formatSummary(label, s, { hold = 1 } = {}) {
+export function formatSummary(label, s, { hold = 1, wav = false } = {}) {
   if (s.silent) return `${label}  silent`;
   const o = [];
-  o.push(`${label}  attack ${s.attack} ms · peak ${dB(s.peak)} · 200 ms ${dB(s.level200)} · held ${hold} s ${dB(s.sustain)} · ${s.decay != null ? `−20 dB after ${s.decay} ms` : 'holds within 20 dB'} · release ${s.release != null ? s.release + ' ms' : '> ' + Math.round((s.env.length * HOP / RATE - hold) * 1000) + ' ms'}`);
+  const tail = wav ? `end ${dB(s.sustain)}` : s.sustain < s.peak - 50 ? `silent before the key-up (${hold} s)` : `held ${hold} s ${dB(s.sustain)} · release ${s.release != null ? s.release + ' ms' : '> ' + Math.round((s.env.length * HOP / RATE - hold) * 1000) + ' ms'}`;
+  o.push(`${label}  attack ${s.attack} ms · peak ${dB(s.peak)} · 200 ms ${dB(s.level200)} · ${s.decay != null ? `−20 dB after ${s.decay} ms` : 'holds within 20 dB'} · ${tail}`);
   const pad = ' '.repeat(Math.max(4, label.length + 2));
   o.push(`${pad}brightness (centroid): ${s.times.map((t, i) => `${Math.round(t * 1000)} ms ${s.cents[i] ? hz(s.cents[i]) : 'silent'}`).join(' → ')}`);
   if (s.f0) o.push(`${pad}pitch ${hz(s.f0)} (${noteName(Math.round(hzMidi(s.f0)))}${(() => { const c = Math.round((hzMidi(s.f0) - Math.round(hzMidi(s.f0))) * 100); return c ? ` ${c > 0 ? '+' : ''}${c} cents` : ''; })()}) · harmonics @50 ms: ${s.harm.map((v, i) => `${i + 1}:${v}`).join(' ')} (dB)`);
