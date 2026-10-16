@@ -4,9 +4,9 @@ import fs from 'node:fs';
 import zlib from 'node:zlib';
 import { hzMidi } from '../player/engine/song.js';
 import { readSoundFile } from '../player/soundfile.js';
-import { RATE, readWav, writeWav, catOf, noteName, KIT, fail } from './core.mjs';
+import { RATE, readWav, writeWav, catOf, noteName, KIT, fail, readText, writeOut } from './core.mjs';
 import { power, db } from './dsp.mjs';
-import { summarize, formatSummary, envelope, pitchOf } from './analyze.mjs';
+import { summarize, formatSummary, envelope, pitchOf, pitchDoubt, noiseOf } from './analyze.mjs';
 import { renderPatch, soundRecord } from './patch.mjs';
 
 // ---------- a target: a WAV (mono, 44.1 kHz, leading silence cut) ----------
@@ -88,17 +88,27 @@ export function sourceOf(ref) {
   const rec = soundRecord(ref);
   return { wav: false, name: rec.name, rec };
 }
-const pitchOfWav = (x) => pitchOf(x, Math.round(0.05 * RATE)) || pitchOf(x, Math.round(0.15 * RATE)) || pitchOf(x, Math.round(0.3 * RATE));
-export const noteOfWav = (x) => { const f = pitchOfWav(x); return f ? Math.round(hzMidi(f)) : null; };
+// the pitch of a WAV: { note, f, doubt } (doubt: why the note may be wrong, in words), or null
+export function pitchOfWav(x) {
+  for (const t of [0.05, 0.15, 0.3]) {
+    const at = Math.round(t * RATE), f = pitchOf(x, at);
+    if (f) return { note: Math.round(hzMidi(f)), f, doubt: pitchDoubt(x, at + 2048, f) };
+  }
+  return null;
+}
+export const noteOfWav = (x) => pitchOfWav(x)?.note ?? null;
+// a line on a doubtful pitch of a target (T of prepareTarget), or null
+export const doubtLine = (T) => (T.doubt ? `pitch ${noteName(T.note)} is a guess: ${T.doubt}. If you know the note, give it: --note <note>` : null);
 
 // ---------- hear ----------
 export function hear(ref, { notes = null, hold = 1, png = false, wav = false, out = null } = {}) {
   const s = sourceOf(ref), lines = [];
   if (s.wav) {
     const h = Math.min(hold ?? 99, s.x.length / RATE);
-    const sum = summarize(s.x, { hold: h });
-    lines.push(`${ref}: ${(s.x.length / RATE).toFixed(2)} s${sum.f0 ? `, pitch ${noteName(Math.round(hzMidi(sum.f0)))}` : ''}${hold == null ? ' (where the key went up is not known: --hold sets it)' : ''}`);
+    const pw = pitchOfWav(s.x), sum = summarize(s.x, { hold: h, f0: pw?.f });
+    lines.push(`${ref}: ${(s.x.length / RATE).toFixed(2)} s${pw ? `, pitch ${noteName(pw.note)}${pw.doubt ? '?' : ''}` : ''}${hold == null ? ' (where the key went up is not known: --hold sets it)' : ''}`);
     lines.push(formatSummary('', sum, { hold: h, wav: hold == null }).replace(/^ {2}/, ''));
+    if (pw?.doubt) lines.push(`    pitch ${noteName(pw.note)} is a guess: ${pw.doubt}. Where a note is asked for (compare, nearest, fit), give it: --note <note>`);
     if (png) lines.push(`  picture: ${spectrogramPng(s.x, out('wav'))}`);
     return lines.join('\n');
   }
@@ -141,8 +151,10 @@ export function compareWords(a, b, levelDiff) { // a = the patch, b = the target
 const offsets = new WeakMap();
 export function pitchShift(rec) {
   if (!offsets.has(rec)) {
-    const p = rec.p ?? 60, f = pitchOf(renderPatch(rec, p, { hold: 0.25, release: 0.05 }), Math.round(0.05 * RATE));
-    offsets.set(rec, f ? Math.round(hzMidi(f) - p) : 0);
+    // none when the patch is mostly noise (its "pitch" is then anything: a fit gone noisy was played at F#-3)
+    const p = rec.p ?? 60, x = renderPatch(rec, p, { hold: 0.25, release: 0.05 }), f = pitchOf(x, Math.round(0.05 * RATE));
+    const s = f && noiseOf(x) < 0.5 ? Math.round(hzMidi(f) - p) : 0;
+    offsets.set(rec, Math.abs(s) <= 36 ? s : 0);
   }
   return offsets.get(rec);
 }
@@ -157,7 +169,8 @@ export function prepareTarget(x, { note = null, hold = null } = {}) {
   const ups = keyUps(x), guess = +holdFor(x.length).toFixed(3), near = (u) => Math.abs(u.t - guess) < 0.03;
   const ts = ups.map((u) => (near(u) ? guess : u.t));
   const holds = hold != null ? [hold] : ups.some((u) => u.s >= 1.5 || near(u)) ? ts : [...ts, guess];
-  return { x, note: note ?? noteOfWav(x), hold: holds[0], holds, f: features(x), sum: summarize(x, { hold: holds[0] }) };
+  const pw = note == null ? pitchOfWav(x) : null;
+  return { x, note: note ?? pw?.note ?? null, doubt: pw?.doubt ?? null, hold: holds[0], holds, f: features(x), sum: summarize(x, { hold: holds[0] }) };
 }
 // The patch rendered like the target at each of its key-ups: the closest one (p, x, hold, d)
 export function closestHold(rec, T, note = null) {
@@ -179,7 +192,8 @@ export function compare(ref, targetRef, { note = null, hold = null } = {}) {
   const F = features(x, T.x.length);
   const sa = summarize(x, { hold: T.hold });
   const words = compareWords(sa, T.sum, F.top - T.f.top);
-  return { d, p, hold: h, words, text: `"${s.rec.name}" at ${noteName(p)}, key-up at ${h} s, vs ${targetRef}: distance ${d.toFixed(3)}${d < 0.05 ? ' (the same sound)' : d < 0.3 ? ' (close)' : d < 0.8 ? ' (related)' : ' (different)'}\n` + (words.length ? words.map((x2) => '  - ' + x2).join('\n') : '  - no clear difference in envelope, brightness or harmonics') };
+  const doubt = isWav(targetRef) ? doubtLine(T) : null;
+  return { d, p, hold: h, words, doubt, text: (doubt ? `note: ${doubt}\n` : '') + `"${s.rec.name}" at ${noteName(p)}, key-up at ${h} s, vs ${targetRef}: distance ${d.toFixed(3)}${d < 0.05 ? ' (the same sound)' : d < 0.3 ? ' (close)' : d < 0.8 ? ' (related)' : ' (different)'}\n` + (words.length ? words.map((x2) => '  - ' + x2).join('\n') : '  - no clear difference in envelope, brightness or harmonics') };
 }
 
 // ---------- nearest: the FM sounds of the library (and of a .spkit / .spsound of My sounds) closest to a target ----------
@@ -187,7 +201,7 @@ export function candidates(kits = []) {
   const out = [];
   for (const c of [...catOf('fm'), ...catOf('drums')]) out.push({ key: c.key, rec: soundRecord(c.key) });
   for (const f of kits) {
-    const { sounds } = readSoundFile(f, fs.readFileSync(f, 'utf8'), 11300);
+    const { sounds } = readSoundFile(f, readText(f), 11300);
     for (const r of sounds) if (r.ins) out.push({ key: `${f}: ${r.name}`, rec: r });
   }
   return out;
@@ -234,6 +248,6 @@ export function spectrogramPng(x, file) {
     const t = Math.max(0, Math.min(1, (cols[c][y] - top + 70) / 70)), [r, g, b] = pal(t);
     const i = (y * W + c) * 3; rgb[i] = r; rgb[i + 1] = g; rgb[i + 2] = Math.max(0, b);
   }
-  fs.writeFileSync(file, png(W, H, rgb));
+  writeOut(file, png(W, H, rgb));
   return file;
 }

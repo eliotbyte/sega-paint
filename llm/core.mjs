@@ -13,7 +13,10 @@ export const OUT = path.join(ROOT, 'llm', 'out');
 export const RATE = 44100;
 export const STEPS_PER_BAR = 16; // the app draws a bar every 16 steps (app.js barStart)
 
-export const readJson = (f) => JSON.parse(fs.readFileSync(f, 'utf8'));
+// a text file without the BOM some editors put first (Notepad's "UTF-8 with BOM")
+export const noBom = (t) => (t.charCodeAt(0) === 0xfeff ? t.slice(1) : t);
+export const readText = (f) => noBom(fs.readFileSync(f, 'utf8'));
+export const readJson = (f) => JSON.parse(readText(f));
 export const outPath = (name) => { fs.mkdirSync(OUT, { recursive: true }); return path.join(OUT, name); };
 // every output file goes through here: its folder is made first (llm/out/ is not in git)
 export const writeOut = (file, data) => { fs.mkdirSync(path.dirname(path.resolve(file)), { recursive: true }); fs.writeFileSync(file, data); };

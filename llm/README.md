@@ -110,11 +110,19 @@ loop: chorus                                 # where the game loop starts (or: l
 - Attribute lines: `FM1 vol 12` (every note of FM1 in this pattern), `FM1 vol 12 at 3,7` (notes starting at
   grid steps 3 and 7, counted from 1 in the pattern), `FM1 pan L from 9` (from step 9 on).
   `vol` 0..15 (15 = full) on FM / PSG / NOISE (on the PSG each step is ~2 dB: `vol 8` is already quiet); `pan` L|C|R on FM only; `slide` on FM and PSG notes.
+- How fast `{slide=+N}` glides: from the note to N semitones away over the first 60 % of the note, at most
+  0.25 s and at least 33 ms, in 60 Hz steps, then it holds the new pitch. A 1-beat note at 120 bpm (0.5 s)
+  glides in 0.25 s, an eighth (0.25 s) in 0.15 s. A short, fast slide needs a short note; a slow one cannot
+  take longer than 0.25 s. A slide replaces the pitch events of the sound's macro on that note.
 - The notes of a line must fill at most the pattern (`bars x grid` steps); fewer is fine (the rest is silent).
 
 **Arrangement**: `section name = item, item ...` where an item is a pattern or section name, then optional
 `xN` (repeat) and `+N` / `-N` (transpose; drums are never transposed). `arrange:` lists what plays, in
 order. Without `arrange:`, the sections play in order (or the patterns, if there are no sections).
+
+**Loop**: `loop: chorus` or `loop bar 5` is where the repeat starts. Every Sega Paint song loops: `loop off`
+(or no `loop` line) only means no loop point, and the song then repeats from bar 1 (`build` says
+`no loop point`). Whether playback repeats at all is the player's Loop button, not the song.
 
 Song length in seconds = bars x 4 x 60 / bpm. At 140 bpm a bar is 1.71 s: 16 bars is about 27 s.
 The bars are the sum of the pattern lengths as `arrange:` expands them; `build` prints bars and seconds, check them.
@@ -149,7 +157,18 @@ icon star
 - Carriers (the operators you hear) per algorithm: 0-3: op4; 4: op2, op4; 5-6: op2, op3, op4; 7: all four.
   The rest are modulators: lower `tl` = more modulation = brighter. `sp patch get` prints the links.
 - `note A2`: the sound's own note (what `x` plays). `icon <sprite>`: the picture in Sega Paint.
+  `note` does not move the pitch: a written `A3` asks the chip for A3 whatever `note` says.
 - `patch get` may also write `macro`, `reg` and `keyon` lines (pitch events of a game sound); keep them as they are.
+  `macro base 3/1288` is the pitch the macro's `f` (frequency) events are written for. The engine moves those
+  events by (played note − base pitch), so they are relative to `macro base`, not to `note`. Changing the base
+  moves every `f` event; changing `note` moves none.
+- A patch can sound off the written note: a carrier at `mul 2` sounds an octave higher, a modulator that sets the
+  fundamental (`mul 0`, or a `mul 1` modulator over a `mul 2` carrier) an octave lower. `hear` prints the pitch
+  it measures, and `sp sounds` shows it for library sounds (Skitchin' `f0` Bass: "sounds an octave lower than
+  written"). Write the notes that much the other way.
+- `ams`, `fms` and `am` need the chip's LFO, and the LFO is off in every song (each base song sets register
+  0x22 to 0, and a `.sps` cannot turn it on). In a song they do nothing: `fms` vibrato is silent. `hear`,
+  `compare` and `fit` play patches the same way, so they show no vibrato either. For vibrato, use `{slide}`.
 
 ## Work loop: a song
 
@@ -177,9 +196,20 @@ icon star
    `nearest`, `compare` and `fit` find where the key went up in a target WAV (where its level starts falling
    clearly faster); `nearest` and `compare` say where (`key-up at 0.75 s`). If that is wrong (a slow fade, a recording with reverb),
    set it: `--hold 0.75` (or `0.75s`, `750ms`). In `hear`, `--hold` is how long each note is held (default 1 s).
+   They also measure the target's pitch and play the patch there. A chord sample, a hollow or a noisy sound
+   has no single pitch: then they print `pitch X is a guess` with its strongest partials. If you know the note
+   (the note the sample was played at), give it with `--note G#4`.
+   `hear --png` / `--wav` write to `llm/out/` unless `--out pic.png` (or a folder, `--out dir/`) says where.
+   `hear`, `compare`, `nearest` and `fit` take FM sounds (library FM sounds and FM drums, `.spp`, `.spsound`)
+   and WAVs. A PSG, noise or sample sound is not a patch: put it in a 1-bar `.sps`, `sp render` it, and hear the WAV.
 4. Optional: `sp fit llm/out/bass.spp target.wav llm/out/bass-fit.spp --free op2.tl,op4.dr,fb --time 30`
    moves the free numbers (default `tl,env`: every TL and envelope) while you keep the structure.
    `--free` takes `op1.tl`, `op3.dr`, `op2` (its TL and envelope), `tl` / `env` / `ar` ... (all operators), `fb ams fms`.
+   When a carrier's TL is free, the level follows the target's. The chip's output is coarse (9 bits), so level
+   changes the sound a little, and fit does not leave it for the end. Fit also keeps the patch harmonic: at most
+   30 % of the sound off the harmonics, or more when the start patch (+ 5 %) or the target (+ 10 %) is noisier. Without that limit, a hissy 8-bit
+   sample target turns the patch into noise. `--max-noise 0.5` allows more, `--max-noise 1` removes the
+   limit; drums have none.
 5. `sp patch save llm/out/bass.spp --name "Fat bass" llm/out/fat-bass.spsound`.
    Tell the human: drag the `.spsound` onto the Sega Paint window; it appears in **My sounds**.
 6. To use the patch in a song, name the file in the `.sps`: `sound bass = "bass.spp"` (path relative to

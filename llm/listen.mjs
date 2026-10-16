@@ -259,7 +259,8 @@ export function ranges(xs) {
 function soundReport(doc, P, vinfo, { b0, b1, off, all }) {
   const out = ['SOUND (rendered through the engine)'];
   const mix = renderSong(doc, { fromBar: b0, bars: b1 - b0 + 1 });
-  const at = (b) => Math.round(stepTime(P, off + (b - 1) * BS)) - mix.from;
+  // whole samples: a render can start between two (a song timed in fractions), and x[1.5] is no sample
+  const at = (b) => Math.round(stepTime(P, off + (b - 1) * BS) - mix.from);
   const rows = { rms: [], peak: [] };
   let clipBars = [], clipN = 0, sumL = 0, sumR = 0;
   for (let b = b0; b <= b1; b++) {

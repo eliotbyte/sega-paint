@@ -10,7 +10,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { prepareSong, buildTimeline, fmHz, hzMidi } from '../player/engine/song.js';
 import { writeSound, readSoundFile } from '../player/soundfile.js';
-import { findSound, fetchRef, baseRef, parseNote, noteName, renderTimeline, UserError, KIT, RATE, spriteName } from './core.mjs';
+import { findSound, fetchRef, baseRef, parseNote, noteName, renderTimeline, UserError, KIT, RATE, spriteName, readText, noBom } from './core.mjs';
 import { summarize } from './analyze.mjs';
 
 // ---------- voices: the same as player/patches.js (voiceFromRaw, rawOfVoice, voiceToRegs, regsToVoice) ----------
@@ -95,7 +95,7 @@ export function parseSpp(text, file = 'patch.spp') {
   const v = { alg: 0, fb: 0, ams: 0, fms: 0, ops: [0, 1, 2, 3].map(() => op({ mul: 1, dt: 0, tl: 127, rs: 0, ar: 31, am: 0, dr: 0, sr: 0, sl: 0, rr: 15, ssg: 0 })) };
   let pan = 0xc0, head = false;
   const seenOp = new Set(), extra = [];
-  const lines = text.replace(/\r/g, '').split('\n');
+  const lines = noBom(text).replace(/\r/g, '').split('\n'); // a BOM first is not text
   lines.forEach((raw, i) => {
     const L = i + 1, line = raw.replace(/(^|\s)#.*$/, '');
     const w = [];
@@ -169,7 +169,7 @@ export function parseSpp(text, file = 'patch.spp') {
 }
 export const readSpp = (file) => {
   if (!fs.existsSync(file)) throw new UserError(`no such file: ${file}`);
-  return parseSpp(fs.readFileSync(file, 'utf8'), file);
+  return parseSpp(readText(file), file);
 };
 // a .spp as a sound of a .sps (sound bass = "bass.spp"): a My sounds record, the key by its file
 export const sppSound = (file) => ({ ...readSpp(file), my: true, game: 'My sounds', key: 'my:' + path.basename(file).replace(/\.[^.]+$/, '') });
@@ -179,7 +179,7 @@ export function soundRecord(ref) {
   if (/\.spp$/i.test(ref)) return { ...readSpp(ref), file: ref };
   if (/\.(spsound|spkit)$/i.test(ref)) {
     if (!fs.existsSync(ref)) throw new UserError(`no such file: ${ref}`);
-    const res = readSoundFile(path.basename(ref), fs.readFileSync(ref, 'utf8'), 11300);
+    const res = readSoundFile(path.basename(ref), readText(ref), 11300);
     const rec = res.sounds.find((x) => x.ins);
     if (!rec) throw new UserError(`${ref}: no FM sound in it`);
     return rec;

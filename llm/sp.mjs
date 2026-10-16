@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 // Sega Paint for language models: songs and FM sounds as text, without the GUI. usage: node llm/sp.mjs help
+import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -25,7 +26,7 @@ const { buildFile } = await load('./sps.mjs');
 const { importSong } = await load('./import.mjs');
 const { listen, parseBars } = await load('./listen.mjs');
 const { soundRecord, writeSpp, readSpp, sppToSound, explainPatch } = await load('./patch.mjs');
-const { hear, compare, nearest, isWav } = await load('./hear.mjs');
+const { hear, compare, nearest, isWav, doubtLine } = await load('./hear.mjs');
 const { fit, formatFit } = await load('./fit.mjs');
 const { checkSong, formatCheck } = await load('./check.mjs');
 const { listSounds, formatTable, gameNames } = await load('./sounds.mjs');
@@ -56,6 +57,13 @@ const secs = (o, k, def) => {
   const m = /^\s*(\d*\.?\d+)\s*(s|ms)?\s*$/i.exec(String(o[k]));
   if (!m) throw new UserError(`--${k}: a duration (1, 1s, 300ms), not "${o[k]}"`);
   return m[2]?.toLowerCase() === 'ms' ? m[1] / 1000 : +m[1];
+};
+// a share: 0.3 or 30%
+const share = (o, k) => {
+  if (o[k] == null) return null;
+  const m = /^\s*(\d*\.?\d+)\s*(%)?\s*$/.exec(String(o[k])), v = m && (m[2] ? m[1] / 100 : +m[1]);
+  if (!m || v > 1) throw new UserError(`--${k}: a share from 0 to 1 (0.3) or a percentage (30%), not "${o[k]}"`);
+  return v;
 };
 const list = (v) => (v == null || v === true ? null : String(v).split(',').map((x) => x.trim()).filter(Boolean));
 // a song.json, or a .sps built on the fly
@@ -122,7 +130,7 @@ export const COMMANDS = {
       writeOut(out, JSON.stringify(json));
       const doc = loadSongObject(json, out);
       const s = doc.song;
-      console.log(`${out}: "${s.title}", ${songBars(s)} bars, ${(s.end / RATE).toFixed(1)} s at ${s.bpm} bpm, loop ${s.loopStart < 0 ? 'from the start' : 'from ' + (s.loopStart / RATE).toFixed(1) + ' s'}`);
+      console.log(`${out}: "${s.title}", ${songBars(s)} bars, ${(s.end / RATE).toFixed(1)} s at ${s.bpm} bpm, ${s.loopStart < 0 ? 'no loop point (repeats from the start, as every song in Sega Paint; the Loop button stops it)' : 'loop from ' + (s.loopStart / RATE).toFixed(1) + ' s'}`);
       for (const L of s.layers) console.log(`  ${voiceOf(L).padEnd(5)} ${String(L.notes.length).padStart(4)} notes  ${L.name}`);
       const res = checkSong(s);
       console.log(formatCheck(res));
@@ -186,19 +194,27 @@ export const COMMANDS = {
     },
   },
   hear: {
-    usage: 'sp hear x.spp|<key>|x.spsound|target.wav [--notes A2,A4] [--hold 1s] [--png] [--wav]',
+    usage: 'sp hear x.spp|<key>|x.spsound|target.wav [--notes A2,A4] [--hold 1s] [--png] [--wav] [--out pic.png|dir/]',
     help: 'One sound in numbers: attack, peak, decay, sustain, release, brightness over time, harmonics, noise.',
     more: 'A patch is played on FM1 through the engine at each note (default: its note and an octave each way; a drum\n' +
       'at its own), held --hold seconds (1, 1s, 300ms; default 1 s), then released. A WAV is summed to mono, its\n' +
       'leading silence cut.\n' +
-      '--png: a spectrogram per note in llm/out/; --wav: the rendered notes as WAV files in llm/out/.',
+      '--png: a spectrogram per note; --wav: the rendered notes as WAV files. Both go to llm/out/ unless --out names a\n' +
+      'file (several notes add -<note> to its name) or a folder (dir/).',
     bool: ['png', 'wav'],
     run(a) {
       const ref = a._[0];
       if (!ref) throw new UserError('what to hear? sp hear bass.spp  (or a library key, or a .wav)');
       const notes = list(a.notes)?.map((t) => { const p = parseNote(t); if (p == null) throw new UserError(`--notes: "${t}" is not a note`); return p; });
       const hold = secs(a, 'hold', isWav(ref) ? null : 1);
-      console.log(hear(ref, { notes, hold, png: !!a.png, wav: !!a.wav, out: (n) => outPath(`${slugName(stem(ref))}-${n.replace('#', 's')}.png`) }));
+      // --out: a folder (it exists, or ends in / or has no extension) or a file name; several notes add -<note> to it
+      const name = (n) => `${slugName(stem(ref))}-${n.replace('#', 's')}.png`, o = a.out === true ? null : a.out;
+      if (a.out === true) throw new UserError('--out: a folder or a file name (pic.png)');
+      const dir = o && (/[\\/]$/.test(o) || !path.extname(o) || (fs.existsSync(o) && fs.statSync(o).isDirectory()));
+      const many = !isWav(ref) && (notes ? notes.length > 1 : soundRecord(ref).type !== 'drums');
+      const out = !o ? (n) => outPath(name(n)) : dir ? (n) => path.join(o, name(n))
+        : (n) => (many ? o.replace(/(\.[^.\\/]*)?$/, `-${n.replace('#', 's')}.png`) : o.replace(/(\.[^.\\/]*)?$/, '.png'));
+      console.log(hear(ref, { notes, hold, png: !!a.png, wav: !!a.wav, out }));
     },
   },
   compare: {
@@ -230,18 +246,22 @@ export const COMMANDS = {
       const note = a.note ? parseNote(a.note) : null;
       const { target, list: res } = nearest(t, { n: num(a, 'n', 5), kits: list(a.kit) || [], note, hold: secs(a, 'hold', null) });
       console.log(`nearest to ${t} (${target.note != null ? `pitch ${noteName(target.note)}` : 'no clear pitch'}, key-up ${target.holds.length > 1 ? 'tried at ' : 'at '}${target.holds.join(' or ')} s):`);
+      if (isWav(t) && doubtLine(target)) console.log(`  note: ${doubtLine(target)}`);
       res.forEach((r, i) => console.log(`  ${i + 1}. ${r.key.padEnd(20)} "${r.rec.name}"  distance ${r.d.toFixed(3)}  (played at ${noteName(r.p)})`));
       console.log('next: sp patch get <key>, then sp compare it with the target');
     },
   },
   fit: {
-    usage: 'sp fit x.spp|<key> target.wav|<key> [out.spp] [--free tl,env] [--budget 2000] [--time 60]',
+    usage: 'sp fit x.spp|<key> target.wav|<key> [out.spp] [--free tl,env] [--budget 2000] [--time 60] [--max-noise 0.3]',
     help: 'Tune the numbers of a patch to a target: a search over the free parameters by the distance of compare.',
     more: 'You choose the structure (alg, mul, dt: edit the .spp); fit moves the free numbers. --free: op1.tl,op3.dr,fb\n' +
       '(fields as in the .spp: tl ar dr sl sr rr ks am mul dt ssg; d1r d2r work too), op2 = its TL and envelope,\n' +
       'tl / env / ar ... = on all four operators, fb ams fms. Default: tl,env (every TL and envelope).\n' +
       '--budget: renders at most; --time: seconds at most; --note / --hold as in compare; --seed for another search.\n' +
-      'The level is left out of the distance; when the carriers\' TLs are free, it is matched at the end.\n' +
+      'When the carriers\' TLs are free, the level follows the target\'s (the chip\'s grain makes level part of the sound).\n' +
+      '--max-noise: how much of the sound may lie off the harmonics (0.3 or 30%); default for an FM sound the most of 0.3,\n' +
+      'the start patch\'s noise + 0.05 and the target\'s + 0.1; none for a drum; 1 = no limit. It keeps a fit to a hissy 8-bit sample from turning\n' +
+      'the patch into noise.\n' +
       'out.spp defaults to llm/out/<name>-fit.spp. A WAV of another FM chip fits well, a live instrument only roughly.',
     async run(a) {
       const [x, t, out0] = a._;
@@ -249,7 +269,7 @@ export const COMMANDS = {
       const note = a.note ? parseNote(a.note) : null;
       if (a.note && note == null) throw new UserError(`--note: "${a.note}" is not a note`);
       const rec = soundRecord(x);
-      const r = await fit(rec, t, { free: a.free ?? 'tl,env', budget: num(a, 'budget', 2000), time: secs(a, 'time', 60), note, hold: secs(a, 'hold', null), seed: num(a, 'seed', 1), threads: num(a, 'threads', 0) });
+      const r = await fit(rec, t, { free: a.free ?? 'tl,env', budget: num(a, 'budget', 2000), time: secs(a, 'time', 60), note, hold: secs(a, 'hold', null), seed: num(a, 'seed', 1), threads: num(a, 'threads', 0), maxNoise: share(a, 'max-noise') });
       const out = out0 || outPath(slugName(rec.name) + '-fit.spp');
       writeOut(out, writeSpp(r.rec));
       console.log(formatFit(r, t) + `\nsaved ${out}; next: sp compare ${out} ${t}`);

@@ -27,10 +27,36 @@ export function pitchOf(x, at = 0, N = 4096) {
   let best = -1, bl = 0;
   for (let lag = lo + 1; lag <= hi; lag++) if (r[lag] > r[lag - 1] && r[lag] >= r[lag + 1] && r[lag] > best + 0.05) { best = r[lag]; bl = lag; }
   if (best < 0.3) return 0;
-  // the first peak nearly as high as the best one (avoids picking an octave below)
-  for (let lag = lo + 1; lag < bl; lag++) if (r[lag] > r[lag - 1] && r[lag] >= r[lag + 1] && r[lag] > best * 0.9) { bl = lag; break; }
+  // the first peak nearly as high as the best one (avoids picking an octave below), a peak of its own (not a ripple
+  // on the slope of the best one)
+  for (let lag = lo + 1; lag < 0.7 * bl; lag++) if (r[lag] > r[lag - 1] && r[lag] >= r[lag + 1] && r[lag] > best * 0.9) { bl = lag; break; }
+  // noise ripples the top of that peak into several: the highest within ±5 % (an A3 in hiss was read 45 cents sharp)
+  const b0 = Math.max(lo + 1, Math.floor(bl * 0.95)), b1 = Math.min(hi, Math.ceil(bl * 1.05));
+  for (let lag = b0; lag <= b1; lag++) if (r[lag] > r[bl]) bl = lag;
   const y0 = r[bl - 1], y1 = r[bl], y2 = r[bl + 1], d = (y0 - y2) / (2 * (y0 - 2 * y1 + y2) || 1);
-  return RATE / (bl + d);
+  let f = RATE / (bl + d);
+  // a chord repeats at the common period of its notes: a power chord (root and fifth, 2:3) an octave under its root,
+  // where nothing sounds. Up an octave while the octave is 15 dB (and more) stronger than the "fundamental".
+  const p = power(x, a + N / 2 - 4096, 8192);
+  while (2 * f <= 2000 && partial(p, 2 * f) > 30 * partial(p, f)) f *= 2;
+  return f;
+}
+// the power at f of an 8192-point spectrum: its highest bin within ±3 %
+function partial(p, f) {
+  const c = f / (RATE / 8192), w = Math.max(2, c * 0.03);
+  let m = 0;
+  for (let k = Math.max(1, Math.floor(c - w)); k <= Math.min(p.length - 1, Math.ceil(c + w)); k++) if (p[k] > m) m = p[k];
+  return m;
+}
+// How sure the pitch f of x is (at: where it was measured): a doubt in words when its fundamental is not the main
+// partial (a chord, a hollow sound: the ear may take a partial for the note) or most of the sound is noise; else null
+export function pitchDoubt(x, at, f) {
+  const h = harmonics(x, at, f, 8);
+  const top = Math.max(...h.db), strong = h.db.map((v, i) => [v, i + 1]).filter(([v]) => v >= top - 9).sort((u, v) => v[0] - u[0]);
+  const name = (k) => noteName(Math.round(hzMidi(k * f)));
+  if (top > 8) return `its fundamental is ${top} dB under its strongest partial (a chord or a hollow sound; partials ${strong.map(([, k]) => name(k)).join(' ')})`;
+  if (h.noise > 0.5) return `${Math.round(h.noise * 100)}% of it is noise`;
+  return null;
 }
 
 // Harmonics 1..n at a time (dB, the first = 0) and how much energy lies off them (0..1)
@@ -47,6 +73,12 @@ export function harmonics(x, at, f0, n = 8, N = 8192) {
   }
   const ref = amp[0] || Math.max(...amp) || 1e-12;
   return { db: amp.map((a) => Math.round(db(a / ref, -99))), noise: all ? Math.max(0, 1 - harm / all) : 0 };
+}
+
+// The share of a note's energy off its harmonics at 50 ms, as summarize measures it (1: no pitch at all)
+export function noiseOf(x) {
+  const f = pitchOf(x, Math.round(0.05 * RATE)) || pitchOf(x, Math.round(0.15 * RATE));
+  return f ? harmonics(x, Math.round(0.05 * RATE), f).noise : 1;
 }
 
 const bright = (x, at) => { const p = power(x, at, 2048); return centroid(p, RATE); };

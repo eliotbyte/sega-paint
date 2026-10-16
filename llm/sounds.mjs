@@ -1,5 +1,7 @@
 // The sound library as a table: the keys a .sps names its sounds by.
 import { catOf, SECTIONS, noteName, loadCatalog, soundName, UserError } from './core.mjs';
+import { soundRecord } from './patch.mjs';
+import { pitchShift } from './hear.mjs';
 
 const MIX_RATE = 11300; // the Skitchin' DAC mixer runs at about 11.3 kHz (song.mixRate)
 
@@ -11,6 +13,9 @@ export function voicesOf(c) {
   if (c.type === 'noise') return 'NOISE';
   return c.pitched ? 'DAC1-3, DAC4 pitched' : 'DAC1-3';
 }
+// An FM sound whose patch sounds off the written note (a modulator under the carrier: an octave lower, a carrier at
+// MUL 2: higher), as measured through the engine: write the note that much the other way
+export const offsetWords = (s) => (!s ? '' : `, sounds ${Math.abs(s) === 12 ? 'an octave' : Math.abs(s) === 24 ? 'two octaves' : Math.abs(s) + ' semitones'} ${s < 0 ? 'lower' : 'higher'} than written`);
 export function soundInfo(c) {
   if (c.type === 'samples') {
     const ms = Math.round(c.len / MIX_RATE * 1000);
@@ -19,7 +24,7 @@ export function soundInfo(c) {
     return bits.join(', ');
   }
   if (c.type === 'drums') return `drum gm ${c.gm}, plays ${noteName(c.p)}`;
-  if (c.type === 'fm') return `default note ${noteName(c.p ?? 60)}`;
+  if (c.type === 'fm') return `default note ${noteName(c.p ?? 60)}${offsetWords(pitchShift(soundRecord(c.key)))}`;
   if (c.type === 'psg') return `volume ${15 - (c.mac.vol ?? 0)}/15`;
   return '';
 }

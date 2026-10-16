@@ -6,7 +6,7 @@ import path from 'node:path';
 import { stepTime, timeToStep, MELODIC_VOICE } from '../player/engine/song.js';
 import { readSoundFile } from '../player/soundfile.js';
 import { sppSound } from './patch.mjs';
-import { findSound, fetchRef, fetchBank, refList, baseRef, parseNote, voiceSpec, voiceOf, KIT, soundName, spriteName, spritePool, macroPitch, STEPS_PER_BAR, UserError } from './core.mjs';
+import { findSound, fetchRef, fetchBank, refList, baseRef, parseNote, voiceSpec, voiceOf, KIT, soundName, spriteName, spritePool, macroPitch, STEPS_PER_BAR, UserError, readText, noBom } from './core.mjs';
 
 export class SpsError extends UserError {
   constructor(file, line, col, msg, hint = '') {
@@ -47,7 +47,7 @@ function words(text) {
 export function parseSps(text, file = 'song.sps') {
   const E = (line, col, msg, hint) => new SpsError(file, line, col, msg, hint);
   const ast = { file, title: null, bpm: null, meter: [4, 4], grid: 16, base: null, bars: null, key: null, sounds: new Map(), tracks: new Map(), patterns: new Map(), sections: new Map(), arrange: null, loop: null, exact: null };
-  const lines = text.replace(/\r/g, '').split('\n');
+  const lines = noBom(text).replace(/\r/g, '').split('\n'); // a BOM first is not text
   let pat = null;
   for (let ln = 0; ln < lines.length; ln++) {
     const raw = lines[ln], L = ln + 1;
@@ -293,7 +293,7 @@ function resolveSound(ast, def, rate) {
     if (/\.spp$/i.test(ref)) {
       return sppSound(f);
     }
-    const res = readSoundFile(path.basename(f), fs.readFileSync(f, 'utf8'), rate);
+    const res = readSoundFile(path.basename(f), readText(f), rate);
     if (!res.sounds.length) throw E(`${ref}: no sound in it (${res.skipped.join('; ')})`);
     const rec = res.sounds[0];
     return { ...rec, my: true, game: 'My sounds', key: 'my:' + (rec.id || path.basename(f).replace(/\.[^.]+$/, '')) };
@@ -594,5 +594,5 @@ export const serializeSong = (o) => JSON.parse(JSON.stringify(o, (k, v) => (k.st
 
 export function buildFile(file) {
   if (!fs.existsSync(file)) throw new UserError(`no such file: ${file}`);
-  return serializeSong(buildSong(parseSps(fs.readFileSync(file, 'utf8'), file)));
+  return serializeSong(buildSong(parseSps(readText(file), file)));
 }
