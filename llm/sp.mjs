@@ -2,7 +2,9 @@
 // Sega Paint for language models: songs and FM sounds as text, without the GUI. usage: node llm/sp.mjs help
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { UserError, outPath, stem, writeWav, songBars, loadSongFile, renderSong, RATE } from './core.mjs';
+import fs from 'node:fs';
+import { UserError, outPath, stem, writeWav, songBars, loadSongFile, loadSongObject, renderSong, voiceOf, RATE } from './core.mjs';
+import { buildFile } from './sps.mjs';
 import { checkSong, formatCheck } from './check.mjs';
 import { listSounds, formatTable, gameNames } from './sounds.mjs';
 
@@ -25,7 +27,8 @@ const num = (o, k, def) => {
   return v;
 };
 const list = (v) => (v == null || v === true ? null : String(v).split(',').map((x) => x.trim()).filter(Boolean));
-const loadAny = (file) => loadSongFile(file);
+// a song.json, or a .sps built on the fly
+export const loadAny = (file) => (/\.sps$/i.test(file) ? loadSongObject(buildFile(file), file) : loadSongFile(file));
 
 export const COMMANDS = {
   help: {
@@ -74,6 +77,25 @@ export const COMMANDS = {
       rms = Math.sqrt(rms / (2 * L.length || 1));
       const db = (x) => (x > 0 ? (20 * Math.log10(x)).toFixed(1) : '-inf');
       console.log(`${out}: ${((to - from) / RATE).toFixed(1)} s (bars ${fromBar}-${bars ? fromBar + bars - 1 : songBars(doc.song)} of ${songBars(doc.song)}), peak ${db(peak)} dBFS, rms ${db(rms)} dBFS${peak >= 0.999 ? ', CLIPS' : ''}`);
+    },
+  },
+  build: {
+    usage: 'sp build song.sps [out.json]',
+    help: 'Build a .sps into a song.json that Sega Paint opens with Import; check runs on it.',
+    more: 'out.json defaults to the .sps name next to it. Syntax: llm/README.md.',
+    run(a) {
+      const [file, out0] = a._;
+      if (!file) throw new UserError('which .sps? sp build song.sps');
+      const json = buildFile(file);
+      const out = out0 || file.replace(/\.sps$/i, '') + '.json';
+      fs.writeFileSync(out, JSON.stringify(json));
+      const doc = loadSongObject(json, out);
+      const s = doc.song;
+      console.log(`${out}: "${s.title}", ${songBars(s)} bars, ${(s.end / RATE).toFixed(1)} s at ${s.bpm} bpm, loop ${s.loopStart < 0 ? 'from the start' : 'from ' + (s.loopStart / RATE).toFixed(1) + ' s'}`);
+      for (const L of s.layers) console.log(`  ${voiceOf(L).padEnd(5)} ${String(L.notes.length).padStart(4)} notes  ${L.name}`);
+      const res = checkSong(s);
+      console.log(formatCheck(res));
+      if (res.errors.length) process.exitCode = 1;
     },
   },
   check: {

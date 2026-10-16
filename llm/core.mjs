@@ -40,6 +40,11 @@ export const KIT = {
   49: { row: 41, sprite: 'star', name: 'Crash' }, 50: { row: 38, sprite: 'diamond', name: 'High tom' },
   51: { row: 42, sprite: 'bell', name: 'Ride' }, 55: { row: 43, sprite: 'cymbal', name: 'Splash' },
 };
+// sprites.js spriteName: the note pictures are those of art/art.json (pixel.js NOTE_NAMES), old names have aliases
+let NOTE_NAMES = null;
+export const spritePool = () => (NOTE_NAMES ??= readJson(path.join(PLAYER, 'art', 'art.json')).notes.map((x) => x.name));
+const ALIAS = { invader: 'ufo', apple: 'heart', cherry: 'ring', crown: 'coin', rocket: 'plane', flower: 'fly', note: 'guitar', flame: 'bomb', clover: 'mushroom' };
+export const spriteName = (name) => (spritePool().includes(name) ? name : ALIAS[name] || 'star');
 // The name a library sound is shown by (app.js soundLibrary: a game's drums go by their kit name)
 export const soundName = (c) => (c.type === 'drums' && !c.my ? KIT[c.gm]?.name || 'Drum' : c.name);
 
