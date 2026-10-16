@@ -15,6 +15,8 @@ export const STEPS_PER_BAR = 16; // the app draws a bar every 16 steps (app.js b
 
 export const readJson = (f) => JSON.parse(fs.readFileSync(f, 'utf8'));
 export const outPath = (name) => { fs.mkdirSync(OUT, { recursive: true }); return path.join(OUT, name); };
+// every output file goes through here: its folder is made first (llm/out/ is not in git)
+export const writeOut = (file, data) => { fs.mkdirSync(path.dirname(path.resolve(file)), { recursive: true }); fs.writeFileSync(file, data); };
 // a file's name without extension; an example's song.json goes by its folder
 export const stem = (f) => (path.basename(f) === 'song.json' ? path.basename(path.dirname(path.resolve(f))) : path.basename(f).replace(/\.[^.]+$/, ''));
 export class UserError extends Error {}
@@ -257,7 +259,7 @@ export function writeWav(file, L, R, rate = RATE) {
     buf.writeInt16LE(Math.max(-32768, Math.min(32767, Math.round(L[i] * 32767))), 44 + i * 4);
     buf.writeInt16LE(Math.max(-32768, Math.min(32767, Math.round(R[i] * 32767))), 46 + i * 4);
   }
-  fs.writeFileSync(file, buf);
+  writeOut(file, buf);
 }
 // 8 / 16 / 24 / 32-bit PCM or 32-bit float WAV -> { L, R, rate } (mono files give L === R)
 export function readWav(file) {

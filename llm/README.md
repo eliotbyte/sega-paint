@@ -6,7 +6,9 @@ same thing for a model: **text in, text out, and files Sega Paint already opens*
 human, who opens it with **Import** in Sega Paint. Sounds work the same way: an FM patch as text (`.spp`),
 numbers instead of ears, and a `.spsound` file the human drags onto the Sega Paint window.
 
-Run everything from the repository root with Node 18+ (no npm install):
+Run everything from the repository root with Node 22.7+ (or 20.19+ on Node 20; no npm install). The tools load
+the app's `.js` modules, which Node tells apart by their syntax only from those versions on; an older Node gets
+a one-line message saying so.
 
 ```
 node llm/sp.mjs help              # all commands

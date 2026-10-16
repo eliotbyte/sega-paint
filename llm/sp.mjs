@@ -2,16 +2,33 @@
 // Sega Paint for language models: songs and FM sounds as text, without the GUI. usage: node llm/sp.mjs help
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import fs from 'node:fs';
-import { UserError, outPath, stem, writeWav, songBars, loadSongFile, loadSongObject, renderSong, voiceOf, noteName, parseNote, RATE } from './core.mjs';
-import { buildFile } from './sps.mjs';
-import { importSong } from './import.mjs';
-import { listen, parseBars } from './listen.mjs';
-import { soundRecord, writeSpp, readSpp, sppToSound, explainPatch } from './patch.mjs';
-import { hear, compare, nearest, isWav } from './hear.mjs';
-import { fit, formatFit } from './fit.mjs';
-import { checkSong, formatCheck } from './check.mjs';
-import { listSounds, formatTable, gameNames } from './sounds.mjs';
+
+// player/*.js are ES modules in .js files with no package.json of their own (the app is published as it is), so Node
+// must tell them by their syntax: on by default from Node 22.7 / 20.19. Checked before they load, hence the dynamic
+// imports below. A package.json without "type" above the repository makes Node warn about each one: those are dropped.
+const NEED = 'Sega Paint tools need Node 22.7+ (or 20.19+ on Node 20): they load the app\'s .js modules by their syntax';
+const [major, minor] = process.versions.node.split('.').map(Number);
+if (!(major > 22 || (major === 22 && minor >= 7) || (major === 20 && minor >= 19))) {
+  console.error(`error: ${NEED}; this is Node ${process.versions.node}.`);
+  process.exit(2);
+}
+const warn = process.listeners('warning');
+process.removeAllListeners('warning');
+process.on('warning', (w) => { if (w.code !== 'MODULE_TYPELESS_PACKAGE_JSON') for (const f of warn) f(w); });
+const load = (m) => import(m).catch((e) => {
+  if (!(e instanceof SyntaxError)) throw e;
+  console.error(`error: ${NEED}, and module syntax detection is off here (--no-experimental-detect-module?).\n  (${e.message.split('\n')[0]})`);
+  process.exit(2);
+});
+const { UserError, outPath, writeOut, stem, writeWav, songBars, loadSongFile, loadSongObject, renderSong, voiceOf, noteName, parseNote, RATE } = await load('./core.mjs');
+const { buildFile } = await load('./sps.mjs');
+const { importSong } = await load('./import.mjs');
+const { listen, parseBars } = await load('./listen.mjs');
+const { soundRecord, writeSpp, readSpp, sppToSound, explainPatch } = await load('./patch.mjs');
+const { hear, compare, nearest, isWav } = await load('./hear.mjs');
+const { fit, formatFit } = await load('./fit.mjs');
+const { checkSong, formatCheck } = await load('./check.mjs');
+const { listSounds, formatTable, gameNames } = await load('./sounds.mjs');
 
 const slugName = (t) => t.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'sound';
 
@@ -95,7 +112,7 @@ export const COMMANDS = {
       if (!file) throw new UserError('which .sps? sp build song.sps');
       const json = buildFile(file);
       const out = out0 || file.replace(/\.sps$/i, '') + '.json';
-      fs.writeFileSync(out, JSON.stringify(json));
+      writeOut(out, JSON.stringify(json));
       const doc = loadSongObject(json, out);
       const s = doc.song;
       console.log(`${out}: "${s.title}", ${songBars(s)} bars, ${(s.end / RATE).toFixed(1)} s at ${s.bpm} bpm, loop ${s.loopStart < 0 ? 'from the start' : 'from ' + (s.loopStart / RATE).toFixed(1) + ' s'}`);
@@ -116,7 +133,7 @@ export const COMMANDS = {
       if (!file) throw new UserError('which song? sp import song.json');
       const { text, plain } = importSong(file);
       const out = out0 || outPath(stem(file) + '.sps');
-      fs.writeFileSync(out, text);
+      writeOut(out, text);
       const pats = (text.match(/^pattern /gm) || []).length, lines = text.split('\n').findIndex((l) => l.startsWith('exact:'));
       console.log(`${out}: ${plain ? 'plain' : 'exact'} mode, ${pats} patterns, ${lines < 0 ? text.split('\n').length : lines} lines of notation; sp build gives back the same timeline (checked)`);
     },
@@ -147,13 +164,13 @@ export const COMMANDS = {
         if (!x) throw new UserError('sp patch get <key>   (keys: sp sounds --kind fm)');
         const rec = soundRecord(x), text = writeSpp(rec);
         const out = out0 || outPath(slugName(rec.name) + '.spp');
-        fs.writeFileSync(out, text);
+        writeOut(out, text);
         console.log(text + `(saved ${out})`);
       } else if (sub === 'save') {
         if (!x) throw new UserError('sp patch save x.spp [--name N] [out.spsound]');
         const rec = readSpp(x), json = sppToSound(rec, a.name);
         const out = out0 || outPath(slugName(a.name || rec.name) + '.spsound');
-        fs.writeFileSync(out, json);
+        writeOut(out, json);
         console.log(`${out}: "${(a.name || rec.name).slice(0, 24)}", ${rec.type === 'drums' ? 'FM drum' : 'FM sound'}, note ${noteName(rec.p)}. Drop it on Sega Paint: it goes to My sounds.`);
       } else if (sub === 'explain') {
         if (!x) throw new UserError('sp patch explain x.spp');
@@ -220,7 +237,7 @@ export const COMMANDS = {
       const rec = soundRecord(x);
       const r = await fit(rec, t, { free: a.free ?? 'tl,env', budget: num(a, 'budget', 2000), time: num(a, 'time', 60), note, hold: num(a, 'hold', null), seed: num(a, 'seed', 1), threads: num(a, 'threads', 0) });
       const out = out0 || outPath(slugName(rec.name) + '-fit.spp');
-      fs.writeFileSync(out, writeSpp(r.rec));
+      writeOut(out, writeSpp(r.rec));
       console.log(formatFit(r, t) + `\nsaved ${out}; next: sp compare ${out} ${t}`);
     },
   },
@@ -237,6 +254,8 @@ export const COMMANDS = {
   },
 };
 
+const FILE_ERR = { ENOENT: 'no such file or folder', EISDIR: 'a folder, not a file', ENOTDIR: 'a file where a folder is needed', EACCES: 'not allowed', EPERM: 'not allowed', EBUSY: 'in use by another program', ENOSPC: 'the disk is full', EROFS: 'a read-only disk' };
+
 export async function main(argv) {
   const [cmd = 'help', ...rest] = argv;
   const c = COMMANDS[cmd];
@@ -246,6 +265,8 @@ export async function main(argv) {
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   main(process.argv.slice(2)).catch((e) => {
-    if (e instanceof UserError) { console.error('error: ' + e.message); process.exitCode = 2; } else throw e;
+    if (e instanceof UserError) { console.error('error: ' + e.message); process.exitCode = 2; }
+    // a file that is missing, a folder, read-only...: one line, not a stack trace
+    else if (e?.syscall && e.path) { console.error(`error: ${e.path}: ${FILE_ERR[e.code] || e.code} (${e.syscall})`); process.exitCode = 2; } else throw e;
   });
 }
