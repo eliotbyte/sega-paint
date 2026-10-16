@@ -6,6 +6,7 @@ import fs from 'node:fs';
 import { UserError, outPath, stem, writeWav, songBars, loadSongFile, loadSongObject, renderSong, voiceOf, RATE } from './core.mjs';
 import { buildFile } from './sps.mjs';
 import { importSong } from './import.mjs';
+import { listen, parseBars } from './listen.mjs';
 import { checkSong, formatCheck } from './check.mjs';
 import { listSounds, formatTable, gameNames } from './sounds.mjs';
 
@@ -113,6 +114,20 @@ export const COMMANDS = {
       fs.writeFileSync(out, text);
       const pats = (text.match(/^pattern /gm) || []).length, lines = text.split('\n').findIndex((l) => l.startsWith('exact:'));
       console.log(`${out}: ${plain ? 'plain' : 'exact'} mode, ${pats} patterns, ${lines < 0 ? text.split('\n').length : lines} lines of notation; sp build gives back the same timeline (checked)`);
+    },
+  },
+  listen: {
+    usage: 'sp listen song.sps|song.json [--bars 1-16] [--roll 1-8] [--all] [--no-render]',
+    help: 'A text report instead of ears: piano roll, chords, key, clashes, voice load, loudness and buried voices.',
+    more: 'Default: the whole song up to 32 bars, else bars 1-16; the roll shows 16 bars (--roll for others).\n' +
+      '--all: every problem, not the first few; --no-render: skip the sound part (faster).',
+    bool: ['all', 'no-render'],
+    run(a) {
+      const file = a._[0];
+      if (!file) throw new UserError('which song? sp listen song.sps');
+      const doc = loadAny(file);
+      const total = songBars(doc.song);
+      console.log(listen(doc, { bars: parseBars(a.bars, total), roll: parseBars(a.roll, total), all: !!a.all, render: !a['no-render'] }));
     },
   },
   check: {
