@@ -9,6 +9,7 @@ import { importSong } from './import.mjs';
 import { listen, parseBars } from './listen.mjs';
 import { soundRecord, writeSpp, readSpp, sppToSound, explainPatch } from './patch.mjs';
 import { hear, compare, nearest, isWav } from './hear.mjs';
+import { fit, formatFit } from './fit.mjs';
 import { checkSong, formatCheck } from './check.mjs';
 import { listSounds, formatTable, gameNames } from './sounds.mjs';
 
@@ -200,6 +201,27 @@ export const COMMANDS = {
       console.log(`nearest to ${t}${target.note != null ? ` (pitch ${noteName(target.note)})` : ' (no clear pitch)'}:`);
       res.forEach((r, i) => console.log(`  ${i + 1}. ${r.key.padEnd(20)} "${r.rec.name}"  distance ${r.d.toFixed(3)}  (played at ${noteName(r.p)})`));
       console.log('next: sp patch get <key>, then sp compare it with the target');
+    },
+  },
+  fit: {
+    usage: 'sp fit x.spp|<key> target.wav|<key> [out.spp] [--free tl,env] [--budget 2000] [--time 60]',
+    help: 'Tune the numbers of a patch to a target: a search over the free parameters by the distance of compare.',
+    more: 'You choose the structure (alg, mul, dt: edit the .spp); fit moves the free numbers. --free: op1.tl,op3.dr,fb\n' +
+      '(fields as in the .spp: tl ar dr sl sr rr ks am mul dt ssg; d1r d2r work too), op2 = its TL and envelope,\n' +
+      'tl / env / ar ... = on all four operators, fb ams fms. Default: tl,env (every TL and envelope).\n' +
+      '--budget: renders at most; --time: seconds at most; --note / --hold as in compare; --seed for another search.\n' +
+      'The level is left out of the distance; when the carriers\' TLs are free, it is matched at the end.\n' +
+      'out.spp defaults to llm/out/<name>-fit.spp. A WAV of another FM chip fits well, a live instrument only roughly.',
+    async run(a) {
+      const [x, t, out0] = a._;
+      if (!x || !t) throw new UserError('sp fit patch.spp target.wav [out.spp]');
+      const note = a.note ? parseNote(a.note) : null;
+      if (a.note && note == null) throw new UserError(`--note: "${a.note}" is not a note`);
+      const rec = soundRecord(x);
+      const r = await fit(rec, t, { free: a.free ?? 'tl,env', budget: num(a, 'budget', 2000), time: num(a, 'time', 60), note, hold: num(a, 'hold', null), seed: num(a, 'seed', 1), threads: num(a, 'threads', 0) });
+      const out = out0 || outPath(slugName(rec.name) + '-fit.spp');
+      fs.writeFileSync(out, writeSpp(r.rec));
+      console.log(formatFit(r, t) + `\nsaved ${out}; next: sp compare ${out} ${t}`);
     },
   },
   check: {

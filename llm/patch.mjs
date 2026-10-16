@@ -53,14 +53,14 @@ export const ALG_LINKS = [ // who feeds whom (operators 1..4, 0 = the output)
   [[1, 2], [2, 3], [3, 4], [4, 0]], [[1, 3], [2, 3], [3, 4], [4, 0]], [[1, 4], [2, 3], [3, 4], [4, 0]], [[1, 2], [2, 4], [3, 4], [4, 0]],
   [[1, 2], [3, 4], [2, 0], [4, 0]], [[1, 2], [1, 3], [1, 4], [2, 0], [3, 0], [4, 0]], [[1, 2], [2, 0], [3, 0], [4, 0]], [[1, 0], [2, 0], [3, 0], [4, 0]],
 ];
-const dtShown = (raw) => (raw >= 4 ? -(raw - 4) : raw);
-const dtRaw = (k) => (k < 0 ? 4 - k : k);
-const ssgShown = (raw) => (raw & 8 ? (raw & 7) + 1 : 0);
-const ssgRaw = (k) => (k ? 8 | (k - 1) : 0);
+export const dtShown = (raw) => (raw >= 4 ? -(raw - 4) : raw);
+export const dtRaw = (k) => (k < 0 ? 4 - k : k);
+export const ssgShown = (raw) => (raw & 8 ? (raw & 7) + 1 : 0);
+export const ssgRaw = (k) => (k ? 8 | (k - 1) : 0);
 
 // the fields of an operator line, in the FM editor's order, with their ranges (shown values)
-const OPF = [['mul', 0, 15], ['dt', -3, 3], ['tl', 0, 127], ['ar', 0, 31], ['dr', 0, 31], ['sl', 0, 15], ['sr', 0, 31], ['rr', 0, 15], ['ks', 0, 3], ['am', 0, 1], ['ssg', 0, 8]];
-const ALIAS = { d1r: 'dr', d2r: 'sr', rs: 'ks', d1l: 'sl', ml: 'mul', ssgeg: 'ssg' };
+export const OPF = [['mul', 0, 15], ['dt', -3, 3], ['tl', 0, 127], ['ar', 0, 31], ['dr', 0, 31], ['sl', 0, 15], ['sr', 0, 31], ['rr', 0, 15], ['ks', 0, 3], ['am', 0, 1], ['ssg', 0, 8]];
+export const ALIAS = { d1r: 'dr', d2r: 'sr', rs: 'ks', d1l: 'sl', ml: 'mul', ssgeg: 'ssg' };
 const FM_C4 = [3, 1288]; // app.js: block / F-number of C4, the base of a new patch's macro
 
 // ---------- .spp text ----------
