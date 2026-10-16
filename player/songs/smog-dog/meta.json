@@ -74,15 +74,15 @@
       },
       {
         "title": "Smog Dog",
-        "text": "One of the 16 CD Player songs. Its melody is on the PSG chip, as in the songs of San Diego, Seattle, Toronto and Chicago. Skitchin' (EA, 1994), Mega Drive / Genesis. Music by Jeff van Dyck."
+        "text": "Smog Dog, from Skitchin's CD Player, plays its melody on the PSG, the square-wave chip in the Genesis. The songs for San Diego, Seattle, Toronto and Chicago do the same."
       },
       {
         "picture": "../_games/skitchin/jeff-van-dyck.png",
         "caption": "Jeff van Dyck"
       },
       {
-        "title": "From CD to 8 bits",
-        "text": "Jeff wrote the songs on a Mac, with MOTU Performer and CD-quality samples on a SampleCell card. For the cartridge the guitars and drums went down to 11 kHz, mono, 8 bit; here they play at the game's own 11,331 Hz."
+        "title": "From CD quality to 8 bits",
+        "text": "Composer Jeff van Dyck wrote the songs for Skitchin' on a Mac, using MOTU Performer and CD-quality samples on a SampleCell card. To fit them on the cartridge, the guitars and drums were cut down to 11 kHz, mono, 8-bit. In this player they run at the game's own rate of 11,331 Hz."
       }
     ]
   }

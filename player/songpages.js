@@ -205,7 +205,6 @@ export function makePages({ $, btn, status }) {
     const num = `${k + 1}/${n}`, cap = p.caption || p.title || '';
     const label = cap ? `${num} · ${fitText(cap, W - 36 - textWidth(num) - 8)}` : num;
     drawText(g, label, (W - textWidth(label)) >> 1, ny + 4, T.dim);
-    if (overflow) { g.strokeStyle = '#ff2400'; g.lineWidth = 1; g.strokeRect(px + 0.5, py + 0.5, PIC_W - 1, PIC_H - 1); }
     return [cv, overflow];
   }
   function buildCards() {
@@ -221,8 +220,7 @@ export function makePages({ $, btn, status }) {
       const [cv, overflow] = drawPage(p, k, n);
       const num = document.createElement('span');
       num.className = 'num';
-      num.textContent = `${k + 1} · ${p.picture ? 'picture' : 'text'}${overflow ? ' · text does not fit' : ''}`;
-      if (overflow) num.style.color = '#ff2400';
+      num.textContent = `${k + 1} · ${p.picture ? 'picture' : 'text'}${overflow ? ' · goes on over the next page in the player' : ''}`;
       b.append(num, cv);
       b.title = 'Click to edit · drag to move';
       b.onclick = () => { sp.page = k; buildCards(); buildSide(); buildBar(); };

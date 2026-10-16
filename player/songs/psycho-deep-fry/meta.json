@@ -69,15 +69,15 @@
       },
       {
         "title": "Psycho Deep Fry",
-        "text": "Race 3: San Diego, 4.6 miles. Password: BEACH. The tune on top is not a guitar: it is the Mega Drive's PSG, the square-wave chip, in the Melody track. Skitchin' (EA, 1994), Mega Drive / Genesis. Music by Jeff van Dyck."
+        "text": "In Psycho Deep Fry, the San Diego song in Skitchin', the lead that sounds like a guitar comes from the PSG, the simple square-wave sound chip inside the Genesis. You'll find it on the song's Melody track. San Diego is the third race, 4.6 miles long, and its password is BEACH."
       },
       {
-        "title": "Lead on the PSG",
-        "text": "Jeff wrote the lead guitar as a sample, but it did not fit next to the band, so it went to the PSG chip. That beepy lead, he says, is what makes the game sound 'Genesis'."
+        "title": "Why the lead is on the PSG",
+        "text": "Composer Jeff van Dyck first wrote the lead guitar as a sample, but it didn't fit with the rest of the band, so he moved it to the PSG chip. Jeff says that beepy lead is what makes the game sound \"Genesis.\""
       },
       {
-        "title": "Three at once",
-        "text": "The Mega Drive has one sample channel, and most games play one sample at a time. Kevin Pickell's EA sound driver mixed three on it, so a kick, a snare and a guitar can sound together."
+        "title": "Three samples on one channel",
+        "text": "The Genesis has only one channel for samples, so most games play one sample at a time. Kevin Pickell wrote EA's sound driver, which mixes three samples on that one channel. That's how a kick drum, a snare and a guitar can all play together."
       }
     ]
   }

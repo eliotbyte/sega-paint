@@ -3813,8 +3813,40 @@ function infoPicture(url) {
   if (!im) { im = new Image(); im.src = url; infoPics.set(url, im); }
   return im.complete && im.naturalWidth ? im : null;
 }
+// Does a text page fit the picture box? Same layout as drawAbout: title 10 px, lines 7 px, 3 px between paragraphs.
+function aboutFits(title, t) {
+  let ty = 3 + (title ? 10 : 0), last = 0;
+  for (const para of String(t || '').split('\n')) {
+    for (const _ of wrapText(para, PIC_W - 4)) { last = ty; ty += 7; }
+    ty += 3;
+  }
+  return last + 5 <= PIC_H;
+}
+// The pages as shown: a text too long for one box goes on over the next ones under the same title,
+// broken between sentences (between words only for a sentence longer than a box).
+const aboutLaid = new WeakMap();
+function aboutPages(info) {
+  let out = aboutLaid.get(info);
+  if (out) return out;
+  out = [];
+  for (const p of info.pages) {
+    if (p.picture || aboutFits(p.title, p.text)) { out.push(p); continue; }
+    let cur = '';
+    const add = (u, sep) => {
+      const cand = cur ? cur + sep + u : u;
+      if (aboutFits(p.title, cand)) cur = cand;
+      else if (cur) { out.push({ ...p, text: cur }); cur = ''; add(u, sep); }
+      else if (/\s/.test(u)) for (const word of u.split(/ +/)) add(word, ' ');
+      else cur = u;
+    };
+    for (const s of String(p.text).split(/(?<=[.!?]['"’”)]?) +/)) add(s, ' ');
+    if (cur) out.push({ ...p, text: cur });
+  }
+  aboutLaid.set(info, out);
+  return out;
+}
 function drawAbout(x, y, w, info) {
-  const T = ui.T, pages = info.pages, n = pages.length;
+  const T = ui.T, pages = aboutPages(info), n = pages.length;
   if (panelHead(x, y, w, ABOUT_H, 'DESCRIPTION', 'about')) return;
   const k = S.aboutPage = Math.max(0, Math.min(n - 1, S.aboutPage || 0)), p = pages[k];
   const turn = (d) => { S.aboutPage = (S.aboutPage + d + n) % n; };
