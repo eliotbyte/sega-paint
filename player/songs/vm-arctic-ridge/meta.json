@@ -1,0 +1,36 @@
+{
+  "game": "Vectorman",
+  "layers": {
+    "L0": {
+      "name": "Guitar",
+      "role": "lead",
+      "color": "#1fbfa5"
+    },
+    "L1": {
+      "name": "Lead 1",
+      "role": "lead",
+      "color": "#ff70c8"
+    },
+    "L2": {
+      "name": "Bass",
+      "role": "bass",
+      "color": "#2fb8e8"
+    },
+    "L3": {
+      "name": "Lead 2",
+      "role": "lead",
+      "color": "#ffb020"
+    },
+    "L4": {
+      "name": "Brass 1",
+      "role": "lead",
+      "color": "#ff70c8"
+    },
+    "L5": {
+      "name": "Brass 2",
+      "role": "lead",
+      "color": "#ff70c8"
+    }
+  },
+  "samples": []
+}

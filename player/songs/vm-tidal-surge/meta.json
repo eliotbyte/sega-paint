@@ -1,0 +1,36 @@
+{
+  "game": "Vectorman",
+  "layers": {
+    "L0": {
+      "name": "Slap bass",
+      "role": "lead",
+      "color": "#4cc24c"
+    },
+    "L1": {
+      "name": "Guitar 1",
+      "role": "lead",
+      "color": "#1fbfa5"
+    },
+    "L2": {
+      "name": "Guitar 2",
+      "role": "lead",
+      "color": "#1fbfa5"
+    },
+    "L3": {
+      "name": "Guitar 3",
+      "role": "lead",
+      "color": "#1fbfa5"
+    },
+    "L4": {
+      "name": "Guitar 4",
+      "role": "lead",
+      "color": "#1fbfa5"
+    },
+    "L5": {
+      "name": "Guitar 5",
+      "role": "lead",
+      "color": "#1fbfa5"
+    }
+  },
+  "samples": []
+}

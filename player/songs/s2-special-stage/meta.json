@@ -1,0 +1,60 @@
+{
+  "game": "Sonic the Hedgehog 2",
+  "layers": {
+    "L0": {
+      "name": "Bass 1",
+      "role": "bass",
+      "color": "#ffb020"
+    },
+    "L1": {
+      "name": "Bass 2",
+      "role": "bass",
+      "color": "#ff5d8f"
+    },
+    "L2": {
+      "name": "Lead 1",
+      "role": "lead",
+      "color": "#a06bff"
+    },
+    "L3": {
+      "name": "Lead 2",
+      "role": "lead",
+      "color": "#5a7bff"
+    },
+    "L4": {
+      "name": "Bell",
+      "role": "lead",
+      "color": "#4cc24c"
+    },
+    "L5": {
+      "name": "PSG 1",
+      "role": "psg",
+      "color": "#ff6a3d"
+    },
+    "L6": {
+      "name": "PSG 2",
+      "role": "psg",
+      "color": "#2fb8e8"
+    },
+    "L7": {
+      "name": "Noise",
+      "role": "noise",
+      "color": "#e6b800"
+    },
+    "L8": {
+      "name": "Drums",
+      "role": "sample",
+      "color": "#1fbfa5"
+    }
+  },
+  "samples": [
+    {
+      "name": "Kick",
+      "sprite": "drum"
+    },
+    {
+      "name": "Snare",
+      "sprite": "snare"
+    }
+  ]
+}

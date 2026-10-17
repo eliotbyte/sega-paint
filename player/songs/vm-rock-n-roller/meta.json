@@ -1,0 +1,36 @@
+{
+  "game": "Vectorman",
+  "layers": {
+    "L0": {
+      "name": "Bell 1",
+      "role": "lead",
+      "color": "#e6b800"
+    },
+    "L1": {
+      "name": "Bell 2",
+      "role": "lead",
+      "color": "#e6b800"
+    },
+    "L2": {
+      "name": "FM 3",
+      "role": "lead",
+      "color": "#1fbfa5"
+    },
+    "L3": {
+      "name": "FM 4",
+      "role": "lead",
+      "color": "#1fbfa5"
+    },
+    "L4": {
+      "name": "Organ",
+      "role": "lead",
+      "color": "#a06bff"
+    },
+    "L5": {
+      "name": "Pad",
+      "role": "bass",
+      "color": "#ffb020"
+    }
+  },
+  "samples": []
+}

@@ -759,8 +759,10 @@ async function startAudio() {
   post({ type: 'gain', gain: S.volume });
   post({ type: 'loop', on: S.loop });
   post({ type: 'clean', on: S.sound === 'clean' });
-  sendTimeline(S.song.stepTimes[S.song.step0]);
-  sendMute();
+  if (S.song) { // a click on the boot splash can come before the song is loaded: setupSong sends it then
+    sendTimeline(S.song.stepTimes[S.song.step0]);
+    sendMute();
+  }
 }
 // Browsers only allow audio after a user gesture: start the engine on the first one.
 let audioStarting = null;

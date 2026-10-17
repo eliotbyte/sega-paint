@@ -1,0 +1,36 @@
+{
+  "game": "Vectorman",
+  "layers": {
+    "L0": {
+      "name": "Pluck 1",
+      "role": "lead",
+      "color": "#ff6a3d"
+    },
+    "L1": {
+      "name": "Pluck 2",
+      "role": "lead",
+      "color": "#ff6a3d"
+    },
+    "L2": {
+      "name": "Lead 1",
+      "role": "lead",
+      "color": "#ff5d8f"
+    },
+    "L3": {
+      "name": "Lead 2",
+      "role": "lead",
+      "color": "#ff70c8"
+    },
+    "L4": {
+      "name": "Lead 3",
+      "role": "lead",
+      "color": "#ff5d8f"
+    },
+    "L5": {
+      "name": "Pluck 3",
+      "role": "lead",
+      "color": "#ff6a3d"
+    }
+  },
+  "samples": []
+}
