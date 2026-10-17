@@ -1,0 +1,41 @@
+{
+  "game": "Sonic the Hedgehog",
+  "layers": {
+    "L0": {
+      "name": "Pluck",
+      "role": "lead",
+      "color": "#ffb020"
+    },
+    "L1": {
+      "name": "Bell 1",
+      "role": "lead",
+      "color": "#ff5d8f"
+    },
+    "L2": {
+      "name": "Bell 2",
+      "role": "lead",
+      "color": "#a06bff"
+    },
+    "L3": {
+      "name": "Horn",
+      "role": "lead",
+      "color": "#5a7bff"
+    },
+    "L4": {
+      "name": "Organ",
+      "role": "lead",
+      "color": "#4cc24c"
+    },
+    "L5": {
+      "name": "Drums",
+      "role": "sample",
+      "color": "#ff6a3d"
+    }
+  },
+  "samples": [
+    {
+      "name": "Kick",
+      "sprite": "drum"
+    }
+  ]
+}

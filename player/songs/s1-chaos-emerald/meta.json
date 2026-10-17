@@ -1,0 +1,46 @@
+{
+  "game": "Sonic the Hedgehog",
+  "layers": {
+    "L0": {
+      "name": "Chime 1",
+      "role": "lead",
+      "color": "#ffb020"
+    },
+    "L1": {
+      "name": "Chime 2",
+      "role": "lead",
+      "color": "#ff5d8f"
+    },
+    "L2": {
+      "name": "Chime 3",
+      "role": "lead",
+      "color": "#a06bff"
+    },
+    "L3": {
+      "name": "Whistle 1",
+      "role": "lead",
+      "color": "#5a7bff"
+    },
+    "L4": {
+      "name": "Whistle 2",
+      "role": "lead",
+      "color": "#4cc24c"
+    },
+    "L5": {
+      "name": "Whistle 3",
+      "role": "lead",
+      "color": "#ff6a3d"
+    },
+    "L6": {
+      "name": "PSG 1",
+      "role": "psg",
+      "color": "#2fb8e8"
+    },
+    "L7": {
+      "name": "PSG 2",
+      "role": "psg",
+      "color": "#e6b800"
+    }
+  },
+  "samples": []
+}

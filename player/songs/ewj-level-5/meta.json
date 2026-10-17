@@ -1,0 +1,82 @@
+{
+  "game": "Earthworm Jim",
+  "layers": {
+    "L0": {
+      "name": "Bass 1",
+      "role": "bass",
+      "color": "#5a7bff"
+    },
+    "L1": {
+      "name": "Bass 2",
+      "role": "bass",
+      "color": "#5a7bff"
+    },
+    "L2": {
+      "name": "Lead",
+      "role": "lead",
+      "color": "#ff70c8"
+    },
+    "L3": {
+      "name": "Hi-hat",
+      "role": "lead",
+      "color": "#5a7bff"
+    },
+    "L4": {
+      "name": "Bass 3",
+      "role": "bass",
+      "color": "#5a7bff"
+    },
+    "L5": {
+      "name": "Synth",
+      "role": "lead",
+      "color": "#5a7bff"
+    },
+    "L6": {
+      "name": "Drums",
+      "role": "sample",
+      "color": "#2fb8e8"
+    }
+  },
+  "samples": [
+    {
+      "name": "Kick",
+      "sprite": "drum"
+    },
+    {
+      "name": "Kick 2",
+      "sprite": "drum"
+    },
+    {
+      "name": "Snare",
+      "sprite": "snare"
+    },
+    {
+      "name": "Tom",
+      "sprite": "tom"
+    },
+    {
+      "name": "Closed hat",
+      "sprite": "hihat"
+    },
+    {
+      "name": "Snare 2",
+      "sprite": "snare"
+    },
+    {
+      "name": "Rim",
+      "sprite": "hihat"
+    },
+    {
+      "name": "Open hat",
+      "sprite": "hihat"
+    },
+    {
+      "name": "Crash",
+      "sprite": "cymbal"
+    },
+    {
+      "name": "Tom 2",
+      "sprite": "tom"
+    }
+  ]
+}

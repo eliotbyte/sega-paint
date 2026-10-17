@@ -1,0 +1,58 @@
+{
+  "game": "Earthworm Jim",
+  "layers": {
+    "L0": {
+      "name": "Banjo 1",
+      "role": "lead",
+      "color": "#1fbfa5"
+    },
+    "L1": {
+      "name": "Banjo 2",
+      "role": "lead",
+      "color": "#1fbfa5"
+    },
+    "L2": {
+      "name": "Banjo 3",
+      "role": "lead",
+      "color": "#1fbfa5"
+    },
+    "L3": {
+      "name": "Organ 1",
+      "role": "lead",
+      "color": "#5a7bff"
+    },
+    "L4": {
+      "name": "Organ 2",
+      "role": "lead",
+      "color": "#5a7bff"
+    },
+    "L5": {
+      "name": "Banjo 4",
+      "role": "lead",
+      "color": "#1fbfa5"
+    },
+    "L6": {
+      "name": "Drums",
+      "role": "sample",
+      "color": "#2fb8e8"
+    }
+  },
+  "samples": [
+    {
+      "name": "Kick 2",
+      "sprite": "drum"
+    },
+    {
+      "name": "Closed hat",
+      "sprite": "hihat"
+    },
+    {
+      "name": "Crash",
+      "sprite": "cymbal"
+    },
+    {
+      "name": "Snare 3",
+      "sprite": "snare"
+    }
+  ]
+}

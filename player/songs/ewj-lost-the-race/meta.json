@@ -1,0 +1,11 @@
+{
+  "game": "Earthworm Jim",
+  "layers": {
+    "L0": {
+      "name": "Tuba",
+      "role": "bass",
+      "color": "#a06bff"
+    }
+  },
+  "samples": []
+}

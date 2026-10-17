@@ -1,0 +1,58 @@
+{
+  "game": "Earthworm Jim",
+  "layers": {
+    "L0": {
+      "name": "Guitar 1",
+      "role": "lead",
+      "color": "#4cc24c"
+    },
+    "L1": {
+      "name": "Guitar 2",
+      "role": "lead",
+      "color": "#4cc24c"
+    },
+    "L2": {
+      "name": "Slap bass 1",
+      "role": "lead",
+      "color": "#4cc24c"
+    },
+    "L3": {
+      "name": "Guitar 3",
+      "role": "lead",
+      "color": "#ff6a3d"
+    },
+    "L4": {
+      "name": "Bass",
+      "role": "bass",
+      "color": "#e6b800"
+    },
+    "L5": {
+      "name": "Slap bass 2",
+      "role": "lead",
+      "color": "#4cc24c"
+    },
+    "L6": {
+      "name": "Drums",
+      "role": "sample",
+      "color": "#2fb8e8"
+    }
+  },
+  "samples": [
+    {
+      "name": "Kick (slow)",
+      "sprite": "drum"
+    },
+    {
+      "name": "Snare (slow)",
+      "sprite": "snare"
+    },
+    {
+      "name": "Tom (fast)",
+      "sprite": "tom"
+    },
+    {
+      "name": "Tom",
+      "sprite": "tom"
+    }
+  ]
+}

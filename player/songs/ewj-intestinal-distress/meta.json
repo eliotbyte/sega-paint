@@ -1,0 +1,36 @@
+{
+  "game": "Earthworm Jim",
+  "layers": {
+    "L0": {
+      "name": "Zap 1",
+      "role": "lead",
+      "color": "#ff6a3d"
+    },
+    "L1": {
+      "name": "Zap 2",
+      "role": "lead",
+      "color": "#ff6a3d"
+    },
+    "L2": {
+      "name": "Clank",
+      "role": "lead",
+      "color": "#a06bff"
+    },
+    "L3": {
+      "name": "Zap 3",
+      "role": "lead",
+      "color": "#ff6a3d"
+    },
+    "L4": {
+      "name": "Drone",
+      "role": "lead",
+      "color": "#ffb020"
+    },
+    "L5": {
+      "name": "Kick",
+      "role": "bass",
+      "color": "#1fbfa5"
+    }
+  },
+  "samples": []
+}

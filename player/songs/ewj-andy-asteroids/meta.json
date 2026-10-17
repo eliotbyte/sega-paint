@@ -1,0 +1,58 @@
+{
+  "game": "Earthworm Jim",
+  "layers": {
+    "L0": {
+      "name": "Brass 1",
+      "role": "lead",
+      "color": "#2fb8e8"
+    },
+    "L1": {
+      "name": "Brass 2",
+      "role": "lead",
+      "color": "#2fb8e8"
+    },
+    "L2": {
+      "name": "Brass 3",
+      "role": "lead",
+      "color": "#2fb8e8"
+    },
+    "L3": {
+      "name": "Brass 4",
+      "role": "lead",
+      "color": "#2fb8e8"
+    },
+    "L4": {
+      "name": "Brass 5",
+      "role": "lead",
+      "color": "#2fb8e8"
+    },
+    "L5": {
+      "name": "Brass 6",
+      "role": "lead",
+      "color": "#2fb8e8"
+    },
+    "L6": {
+      "name": "Drums",
+      "role": "sample",
+      "color": "#2fb8e8"
+    }
+  },
+  "samples": [
+    {
+      "name": "Swell",
+      "sprite": "moon"
+    },
+    {
+      "name": "Pop",
+      "sprite": "star"
+    },
+    {
+      "name": "Zap",
+      "sprite": "bolt"
+    },
+    {
+      "name": "Swish",
+      "sprite": "plane"
+    }
+  ]
+}

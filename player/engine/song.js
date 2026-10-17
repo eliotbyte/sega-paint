@@ -24,7 +24,8 @@ export function psgTranspose(tone, k) {
 export function prepareSong(song) {
   // base pitch of every macro, used for transposition of edited notes
   for (const m of song.macros) {
-    if (m.noise) m.pitch = 60;
+    // pitched noise (m.tone: PSG 3's tone, which clocks noise modes 3 / 7) is transposed like a square
+    if (m.noise) m.pitch = m.tone ? Math.round(hzMidi(psgHz(m.tone))) : 60;
     else if (Array.isArray(m.base)) m.pitch = Math.round(hzMidi(fmHz(m.base[0], m.base[1])));
     else m.pitch = Math.round(hzMidi(psgHz(m.base)));
   }
@@ -294,6 +295,7 @@ export function buildTimeline(song, pcm, muted = new Set()) {
       }
     } else if (L.kind === 'psg' || L.kind === 'noise') {
       const c = L.ch, lat = c << 5;
+      let mode = -1; // noise mode last written on this layer
       for (let ni = 0; ni < notes.length; ni++) {
         const n = notes[ni];
         const T = noteTime(song, n);
@@ -302,14 +304,20 @@ export function buildTimeline(song, pcm, muted = new Set()) {
         const legato = T + n.d >= nextT - 4 && nextT < songEnd;
         const end = Math.min(T + n.d, nextT, songEnd);
         const mac = song.macros[n.m];
-        const k = L.kind === 'psg' ? n.p - mac.pitch : 0;
+        const k = L.kind === 'psg' || mac.tone != null ? n.p - mac.pitch : 0;
+        // the tone goes to the note's channel, or for pitched noise to PSG 3 (it clocks the noise, staying silent)
+        const tlat = mac.noise ? 2 << 5 : lat;
         const tone = (t) => {
           const v = psgTranspose(t, k);
-          tb.push(T, KIND_PSG, 0x80 | lat | (v & 15), 0);
+          tb.push(T, KIND_PSG, 0x80 | tlat | (v & 15), 0);
           tb.push(T, KIND_PSG, (v >> 4) & 0x3f, 0);
         };
-        if (mac.noise) tb.push(T, KIND_PSG, 0xe0 | (mac.base & 7), 0);
-        else tone(mac.base);
+        if (mac.noise) {
+          if (mac.tone != null) tone(mac.tone);
+          // writing the mode restarts the noise generator: a driver that sets it once (mac.freeRun, SMPS) lets it run
+          if (!mac.freeRun || mode !== (mac.base & 7)) tb.push(T, KIND_PSG, 0xe0 | (mac.base & 7), 0);
+          mode = mac.base & 7;
+        } else tone(mac.base);
         const quiet = volSteps(n), att = (v) => Math.min(15, v + quiet);
         tb.push(T, KIND_PSG, 0x90 | lat | att(mac.vol), 0);
         const own = n.slide != null && !mac.noise;
@@ -325,7 +333,7 @@ export function buildTimeline(song, pcm, muted = new Set()) {
           if (e[1] === 't' && own) continue;
           if (e[1] === 't') {
             const v = psgTranspose(e[2], k);
-            tb.push(t, KIND_PSG, 0x80 | lat | (v & 15), 0);
+            tb.push(t, KIND_PSG, 0x80 | tlat | (v & 15), 0);
             tb.push(t, KIND_PSG, (v >> 4) & 0x3f, 0);
           } else if (e[1] === 'v') tb.push(t, KIND_PSG, 0x90 | lat | att(e[2]), 0);
           else if (e[1] === 'n') tb.push(t, KIND_PSG, 0xe0 | (e[2] & 7), 0);

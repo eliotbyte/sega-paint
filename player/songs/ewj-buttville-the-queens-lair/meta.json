@@ -1,0 +1,70 @@
+{
+  "game": "Earthworm Jim",
+  "layers": {
+    "L0": {
+      "name": "Marimba",
+      "role": "lead",
+      "color": "#ffb020"
+    },
+    "L1": {
+      "name": "Hi-hat 1",
+      "role": "lead",
+      "color": "#a06bff"
+    },
+    "L2": {
+      "name": "Hi-hat 2",
+      "role": "lead",
+      "color": "#a06bff"
+    },
+    "L3": {
+      "name": "Guitar",
+      "role": "lead",
+      "color": "#1fbfa5"
+    },
+    "L4": {
+      "name": "Slap bass",
+      "role": "lead",
+      "color": "#4cc24c"
+    },
+    "L5": {
+      "name": "PSG 1",
+      "role": "psg",
+      "color": "#ff6a3d"
+    },
+    "L6": {
+      "name": "Drums",
+      "role": "sample",
+      "color": "#2fb8e8"
+    }
+  },
+  "samples": [
+    {
+      "name": "Kick",
+      "sprite": "drum"
+    },
+    {
+      "name": "Kick 2",
+      "sprite": "drum"
+    },
+    {
+      "name": "Snare 2",
+      "sprite": "snare"
+    },
+    {
+      "name": "Rim",
+      "sprite": "hihat"
+    },
+    {
+      "name": "Open hat",
+      "sprite": "hihat"
+    },
+    {
+      "name": "Crash",
+      "sprite": "cymbal"
+    },
+    {
+      "name": "Tom 2",
+      "sprite": "tom"
+    }
+  ]
+}

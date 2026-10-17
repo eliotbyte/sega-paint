@@ -1,0 +1,59 @@
+{
+  "game": "Sonic the Hedgehog",
+  "layers": {
+    "L0": {
+      "name": "Organ 1",
+      "role": "lead",
+      "color": "#ffb020"
+    },
+    "L1": {
+      "name": "Bass",
+      "role": "bass",
+      "color": "#ff5d8f"
+    },
+    "L2": {
+      "name": "Horn",
+      "role": "lead",
+      "color": "#a06bff"
+    },
+    "L3": {
+      "name": "Organ 2",
+      "role": "lead",
+      "color": "#5a7bff"
+    },
+    "L4": {
+      "name": "Synth",
+      "role": "lead",
+      "color": "#4cc24c"
+    },
+    "L5": {
+      "name": "PSG 1",
+      "role": "psg",
+      "color": "#ff6a3d"
+    },
+    "L6": {
+      "name": "PSG 2",
+      "role": "psg",
+      "color": "#2fb8e8"
+    },
+    "L7": {
+      "name": "Drums",
+      "role": "sample",
+      "color": "#e6b800"
+    }
+  },
+  "samples": [
+    {
+      "name": "Snare",
+      "sprite": "snare"
+    },
+    {
+      "name": "Timpani hi",
+      "sprite": "ring"
+    },
+    {
+      "name": "Timpani low",
+      "sprite": "tom"
+    }
+  ]
+}

@@ -1,0 +1,36 @@
+{
+  "game": "Earthworm Jim",
+  "layers": {
+    "L0": {
+      "name": "Guitar 1",
+      "role": "lead",
+      "color": "#a06bff"
+    },
+    "L1": {
+      "name": "Guitar 2",
+      "role": "lead",
+      "color": "#a06bff"
+    },
+    "L2": {
+      "name": "Guitar 3",
+      "role": "lead",
+      "color": "#a06bff"
+    },
+    "L3": {
+      "name": "Guitar 4",
+      "role": "lead",
+      "color": "#a06bff"
+    },
+    "L4": {
+      "name": "Guitar 5",
+      "role": "lead",
+      "color": "#a06bff"
+    },
+    "L5": {
+      "name": "Guitar 6",
+      "role": "lead",
+      "color": "#a06bff"
+    }
+  },
+  "samples": []
+}

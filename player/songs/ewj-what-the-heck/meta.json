@@ -1,0 +1,74 @@
+{
+  "game": "Earthworm Jim",
+  "layers": {
+    "L0": {
+      "name": "Bass",
+      "role": "bass",
+      "color": "#2fb8e8"
+    },
+    "L1": {
+      "name": "Hi-hat",
+      "role": "lead",
+      "color": "#a06bff"
+    },
+    "L2": {
+      "name": "Brass 1",
+      "role": "lead",
+      "color": "#5a7bff"
+    },
+    "L3": {
+      "name": "Bell",
+      "role": "lead",
+      "color": "#e6b800"
+    },
+    "L4": {
+      "name": "Brass 2",
+      "role": "lead",
+      "color": "#5a7bff"
+    },
+    "L5": {
+      "name": "Brass 3",
+      "role": "lead",
+      "color": "#5a7bff"
+    },
+    "L6": {
+      "name": "Drums",
+      "role": "sample",
+      "color": "#2fb8e8"
+    }
+  },
+  "samples": [
+    {
+      "name": "Moan (fast)",
+      "sprite": "ghost"
+    },
+    {
+      "name": "Moan",
+      "sprite": "ghost"
+    },
+    {
+      "name": "Moan (slow)",
+      "sprite": "ghost"
+    },
+    {
+      "name": "Growl (fast) 1",
+      "sprite": "ghost"
+    },
+    {
+      "name": "Growl (fast) 2",
+      "sprite": "ghost"
+    },
+    {
+      "name": "Growl",
+      "sprite": "ghost"
+    },
+    {
+      "name": "Thud",
+      "sprite": "bomb"
+    },
+    {
+      "name": "Wail",
+      "sprite": "ghost"
+    }
+  ]
+}
