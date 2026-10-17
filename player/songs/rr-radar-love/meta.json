@@ -1,0 +1,51 @@
+{
+  "game": "Rock n' Roll Racing",
+  "layers": {
+    "L0": {
+      "name": "Lead 1",
+      "role": "lead",
+      "color": "#ffb020"
+    },
+    "L1": {
+      "name": "Bass 1",
+      "role": "bass",
+      "color": "#ff5d8f"
+    },
+    "L2": {
+      "name": "Drums",
+      "role": "perc",
+      "color": "#a06bff"
+    },
+    "L3": {
+      "name": "Lead 2",
+      "role": "lead",
+      "color": "#5a7bff"
+    },
+    "L4": {
+      "name": "Bass 2",
+      "role": "bass",
+      "color": "#4cc24c"
+    }
+  },
+  "samples": [],
+  "info": {
+    "pages": [
+      {
+        "title": "Radar Love",
+        "text": "Radar Love is Golden Earring's 1973 hit and the one song in Rock n' Roll Racing that's only on the Genesis. The Super NES version has five songs, so there was no Follin arrangement to convert, and the game's credits name only Software Creations and Sound Images. Who arranged Radar Love isn't documented. It's the fastest song in the game, about 195 beats a minute, with the longest loop, nearly three minutes."
+      },
+      {
+        "title": "The driving song",
+        "text": "Radar Love is the classic driving song. In 2005 it was called the No. 1 driving song in Australia, and in a 2011 Planet Rock poll of driving songs it \"finished well ahead of its nearest rival,\" Deep Purple's Highway Star."
+      },
+      {
+        "title": "Back in 2021",
+        "text": "Radar Love returned in Rock n' Roll Racing's Definitive Edition, part of the Blizzard Arcade Collection (2021). That version can switch between the Super NES and Genesis soundtracks and adds new songs, among them Judas Priest's Breaking the Law and Rush's Red Barchetta."
+      },
+      {
+        "title": "George Kooymans",
+        "text": "George Kooymans wrote Radar Love with Barry Hay, and the Rock n' Roll Racing manual credits it to \"G. Kooymans & B. Hay.\" Kooymans announced in 2021 that he had ALS, and Golden Earring disbanded. He died on July 22, 2025, at 77."
+      }
+    ]
+  }
+}

@@ -47,5 +47,11 @@
   {"dir": "cz-results", "title": "Results", "game": "Comix Zone", "track": 22, "composer": "Howard Drossin"},
   {"dir": "cz-game-over", "title": "Game Over", "game": "Comix Zone", "track": 23, "composer": "Howard Drossin"},
   {"dir": "cz-ending-theme", "title": "Ending Theme", "game": "Comix Zone", "track": 24, "composer": "Howard Drossin"},
-  {"dir": "cz-staff-roll", "title": "Staff Roll", "game": "Comix Zone", "track": 25, "composer": "Howard Drossin"}
+  {"dir": "cz-staff-roll", "title": "Staff Roll", "game": "Comix Zone", "track": 25, "composer": "Howard Drossin"},
+  {"dir": "rr-bad-to-the-bone", "title": "Bad to the Bone", "game": "Rock n' Roll Racing", "track": 1, "composer": "Tony Williams"},
+  {"dir": "rr-born-to-be-wild", "title": "Born to be Wild", "game": "Rock n' Roll Racing", "track": 2, "composer": "Tony Williams"},
+  {"dir": "rr-paranoid", "title": "Paranoid", "game": "Rock n' Roll Racing", "track": 3, "composer": "Tony Williams"},
+  {"dir": "rr-peter-gunn", "title": "Peter Gunn", "game": "Rock n' Roll Racing", "track": 4, "composer": "Tony Williams"},
+  {"dir": "rr-highway-star", "title": "Highway Star", "game": "Rock n' Roll Racing", "track": 5, "composer": "Tony Williams"},
+  {"dir": "rr-radar-love", "title": "Radar Love", "game": "Rock n' Roll Racing", "track": 6, "composer": "Tony Williams"}
 ]

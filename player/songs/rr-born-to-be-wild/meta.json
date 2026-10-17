@@ -1,0 +1,51 @@
+{
+  "game": "Rock n' Roll Racing",
+  "layers": {
+    "L0": {
+      "name": "Drums",
+      "role": "perc",
+      "color": "#ffb020"
+    },
+    "L1": {
+      "name": "Bass",
+      "role": "bass",
+      "color": "#ff5d8f"
+    },
+    "L2": {
+      "name": "Chug",
+      "role": "lead",
+      "color": "#a06bff"
+    },
+    "L3": {
+      "name": "Lead",
+      "role": "lead",
+      "color": "#5a7bff"
+    },
+    "L4": {
+      "name": "Guitar",
+      "role": "lead",
+      "color": "#4cc24c"
+    }
+  },
+  "samples": [],
+  "info": {
+    "pages": [
+      {
+        "title": "Born to be Wild",
+        "text": "Born to be Wild is Steppenwolf's 1968 hit, which reached No. 2 in the US. In Rock n' Roll Racing on the Genesis, it's Tony Williams's conversion of the arrangement Tim Follin made for the Super NES. The Genesis version runs about 148 beats a minute, and a low, palm-muted guitar riff (the Chug track) drives it."
+      },
+      {
+        "title": "A hundred songs, five or six",
+        "text": "Designer Alan Pavlish picked songs for Rock n' Roll Racing by one rule, whether they made the team want to drive faster. He sent a list of 100 to a licensing company in New York. ZZ Top \"wanted a ridiculous amount of money,\" and Led Zeppelin \"wouldn't do it.\" In the end, he told Retro Gamer, \"we ended up with five or six.\""
+      },
+      {
+        "title": "Heavy metal thunder",
+        "text": "The line \"heavy metal thunder\" in Born to be Wild is called the first use of \"heavy metal\" in a song, and it means a motorcycle there. The song never says \"motorcycle\" at all, but after Easy Rider (1969) it became the biker anthem."
+      },
+      {
+        "title": "Sung in a music store",
+        "text": "Blizzard quoted a Brazilian fan, Angelo Cani, in 2021. He and a friend loved the songs in Rock n' Roll Racing but didn't know their names, so \"we went to a music store and we sang our 16-bit remembered version of Born to be Wild from the depths of our lungs.\""
+      }
+    ]
+  }
+}

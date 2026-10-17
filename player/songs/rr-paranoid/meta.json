@@ -1,0 +1,51 @@
+{
+  "game": "Rock n' Roll Racing",
+  "layers": {
+    "L0": {
+      "name": "Bass",
+      "role": "bass",
+      "color": "#ffb020"
+    },
+    "L1": {
+      "name": "Guitar",
+      "role": "lead",
+      "color": "#ff5d8f"
+    },
+    "L2": {
+      "name": "Lead",
+      "role": "lead",
+      "color": "#a06bff"
+    },
+    "L3": {
+      "name": "Chug",
+      "role": "bass",
+      "color": "#5a7bff"
+    },
+    "L4": {
+      "name": "Drums",
+      "role": "perc",
+      "color": "#4cc24c"
+    }
+  },
+  "samples": [],
+  "info": {
+    "pages": [
+      {
+        "title": "Paranoid",
+        "text": "Paranoid was Black Sabbath's first hit single, No. 4 in the UK in 1970. The Genesis version in Rock n' Roll Racing is Tony Williams's conversion of Tim Follin's Super NES arrangement. Black Sabbath's single runs 2:48, and the Genesis version about a minute and a half."
+      },
+      {
+        "title": "Sheet music only",
+        "text": "Rock n' Roll Racing couldn't use the original recordings. \"We wanted the sync licence, which allowed us to use the music but not the actual recording,\" designer Alan Pavlish told Retro Gamer. \"We got sheet music, basically, and we had to redo the music performance ourselves.\""
+      },
+      {
+        "title": "A three-minute filler",
+        "text": "Black Sabbath wrote Paranoid in a hurry, when the album needed one more song. Geezer Butler called it \"a 3 minute filler,\" \"written as an afterthought.\" Tony Iommi came up with the riff, and Butler wrote the words quickly."
+      },
+      {
+        "title": "All four names",
+        "text": "The Rock n' Roll Racing manual credits Paranoid to \"Anthony Iommi, William Ward, Terence Butler, John Osbourne,\" the whole band under their full first names. John is Ozzy."
+      }
+    ]
+  }
+}

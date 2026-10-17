@@ -1,0 +1,51 @@
+{
+  "game": "Rock n' Roll Racing",
+  "layers": {
+    "L0": {
+      "name": "Drums",
+      "role": "perc",
+      "color": "#ffb020"
+    },
+    "L1": {
+      "name": "Bass",
+      "role": "bass",
+      "color": "#ff5d8f"
+    },
+    "L2": {
+      "name": "Fuzz",
+      "role": "bass",
+      "color": "#a06bff"
+    },
+    "L3": {
+      "name": "Horn 1",
+      "role": "lead",
+      "color": "#5a7bff"
+    },
+    "L4": {
+      "name": "Horn 2",
+      "role": "lead",
+      "color": "#4cc24c"
+    }
+  },
+  "samples": [],
+  "info": {
+    "pages": [
+      {
+        "title": "Peter Gunn",
+        "text": "Peter Gunn is Henry Mancini's theme for the 1958 TV detective show, the oldest music in Rock n' Roll Racing and the only piece not by a rock band. On the Super NES it was arranged by Matthew Cannon, the one song the Follin brothers didn't do, and VGMPF names Tony Williams as the arranger of the Genesis version. Its bass channel plays the famous riff the whole time while two horns carry the tune."
+      },
+      {
+        "title": "Ten lost centuries",
+        "text": "In the story of Rock n' Roll Racing, the first race is held in 2911 and drivers race to \"classic Rock N' Roll music from the planet Earth.\" Electronic Games joked that a thousand years of lost records \"probably explains why Henry Mancini's heavy jazz-based theme from Peter Gunn got included among the rock 'n' roll selections, but it works.\""
+      },
+      {
+        "title": "A game song since 1983",
+        "text": "Peter Gunn was a video game song long before Rock n' Roll Racing. VGMPF lists more than 30 game versions, starting with the arcade Spy Hunter in 1983 and including the Blues Brothers games."
+      },
+      {
+        "title": "Matthew Cannon's two tracks",
+        "text": "Matthew Cannon of Software Creations arranged Peter Gunn for the Super NES. \"Tim & Geoff Follin produced most of the tracks,\" he wrote. \"I was drafted-in to complete just two,\" and the other one went unused because a final bonus level wasn't finished in time."
+      }
+    ]
+  }
+}

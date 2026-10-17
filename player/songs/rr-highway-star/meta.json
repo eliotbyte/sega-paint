@@ -1,0 +1,51 @@
+{
+  "game": "Rock n' Roll Racing",
+  "layers": {
+    "L0": {
+      "name": "Drums",
+      "role": "perc",
+      "color": "#ffb020"
+    },
+    "L1": {
+      "name": "Bass",
+      "role": "bass",
+      "color": "#ff5d8f"
+    },
+    "L2": {
+      "name": "Guitar 1",
+      "role": "lead",
+      "color": "#a06bff"
+    },
+    "L3": {
+      "name": "Organ",
+      "role": "lead",
+      "color": "#5a7bff"
+    },
+    "L4": {
+      "name": "Guitar 2",
+      "role": "bass",
+      "color": "#4cc24c"
+    }
+  },
+  "samples": [],
+  "info": {
+    "pages": [
+      {
+        "title": "Highway Star",
+        "text": "Highway Star opens Deep Purple's 1972 album Machine Head, and it's a song about a car, an easy pick for a racing game. In Rock n' Roll Racing on the Genesis, it's Tony Williams's conversion of Tim Follin's Super NES arrangement. It's the only one of the six with a long intro, about 29 seconds, and it keeps Jon Lord's organ part. With 3,710 notes, it has the most of any song in the game."
+      },
+      {
+        "title": "Larry Supermouth Huffman",
+        "text": "The announcer in Rock n' Roll Racing is Larry \"Supermouth\" Huffman, a speedway announcer. Designer Alan Pavlish forgot his name, then remembered it \"driving back from Vegas to Los Angeles.\" Larry calls every race, from \"The stage is set, the green flag drops!\" to \"Viper is in another time zone!\""
+      },
+      {
+        "title": "Written on a tour bus",
+        "text": "Deep Purple wrote Highway Star on a bus to Portsmouth in 1971. A reporter asked how they wrote songs, so Ritchie Blackmore played a riff on one repeated G, Ian Gillan made up words over it, and the band played it that night."
+      },
+      {
+        "title": "Blackmore's Bach",
+        "text": "Ritchie Blackmore worked out his Highway Star guitar solo note by note over a Bach-like chord progression, and Jon Lord's organ solo uses Baroque-style arpeggios too."
+      }
+    ]
+  }
+}

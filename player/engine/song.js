@@ -246,15 +246,19 @@ export function buildTimeline(song, pcm, muted = new Set()) {
     if (L.kind === 'fm') {
       const ch = L.ch, part = ch >= 3 ? 1 : 0, c3 = ch % 3, code = c3 | (ch >= 3 ? 4 : 0);
       const shadow = new Map();
-      let loopMarked = song.loopStart < 0;
+      let loopMarked = song.loopStart < 0, held = false;
       for (let ni = 0; ni < notes.length; ni++) {
         const n = notes[ni];
         const T = noteTime(song, n);
-        if (T >= songEnd) continue;
+        if (T >= songEnd) { held = false; continue; }
         // first note of the loop: write the whole instrument, the chip holds the song end's state after the jump
-        if (!loopMarked && T >= song.loopStart) { loopMarked = true; shadow.clear(); }
+        if (!loopMarked && T >= song.loopStart) { loopMarked = true; shadow.clear(); held = false; }
         const nextT = ni + 1 < notes.length ? noteTime(song, notes[ni + 1]) : Infinity;
         const end = Math.min(T + n.d, nextT, songEnd);
+        // a legato note (n.leg) goes on from the note before it when that one lasts up to it: no key-off between
+        // them and no new key-on, so the envelope runs on (Rock n' Roll Racing's driver plays them so)
+        const tied = held;
+        held = ni + 1 < notes.length && !!notes[ni + 1].leg && T + n.d >= nextT - 4 && nextT < songEnd;
         const ins = song.instruments[n.i], mac = song.macros[n.m];
         const k = n.p - mac.pitch;
         const vol = fmNoteRegs(ins, n);
@@ -265,7 +269,7 @@ export function buildTimeline(song, pcm, muted = new Set()) {
         const [b, f] = fmTranspose(mac.base[0], mac.base[1], k);
         tb.push(T, part, 0xa4 + c3, (b << 3) | (f >> 8));
         tb.push(T, part, 0xa0 + c3, f & 0xff);
-        tb.push(T, KIND_YM0, 0x28, ins.ops | code);
+        if (!tied) tb.push(T, KIND_YM0, 0x28, ins.ops | code);
         const own = n.slide != null;
         if (own) glide(T, end, n.slide, (t, semis) => {
           const [gb, gf] = fmTranspose(mac.base[0], mac.base[1], k + semis);
@@ -286,7 +290,7 @@ export function buildTimeline(song, pcm, muted = new Set()) {
             tb.push(T + e[0], part, reg, v);
           }
         }
-        tb.push(end, KIND_YM0, 0x28, code);
+        if (!held) tb.push(end, KIND_YM0, 0x28, code);
       }
     } else if (L.kind === 'psg' || L.kind === 'noise') {
       const c = L.ch, lat = c << 5;

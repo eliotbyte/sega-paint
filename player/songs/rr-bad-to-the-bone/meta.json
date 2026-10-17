@@ -1,0 +1,55 @@
+{
+  "game": "Rock n' Roll Racing",
+  "layers": {
+    "L0": {
+      "name": "Lead",
+      "role": "lead",
+      "color": "#ffb020"
+    },
+    "L1": {
+      "name": "Bass",
+      "role": "bass",
+      "color": "#ff5d8f"
+    },
+    "L2": {
+      "name": "Drums",
+      "role": "perc",
+      "color": "#a06bff"
+    },
+    "L3": {
+      "name": "Guitar",
+      "role": "lead",
+      "color": "#5a7bff"
+    },
+    "L4": {
+      "name": "Organ",
+      "role": "lead",
+      "color": "#4cc24c"
+    }
+  },
+  "samples": [],
+  "info": {
+    "pages": [
+      {
+        "title": "Bad to the Bone",
+        "text": "Bad to the Bone, George Thorogood and the Destroyers' 1982 song, is the first music you hear in Rock n' Roll Racing, Blizzard's racing game for the Sega Genesis (1994). Electronic Games asked how \"a game that starts playing Bad to the Bone behind the opening screen\" could be anything but \"rough, tough, and just plain in-your-face mean.\" The Genesis arrangement is by Tony Williams of Sound Images, who converted the one the Follin brothers had made for the Super NES."
+      },
+      {
+        "title": "Who made the Genesis music",
+        "text": "The Genesis credits of Rock n' Roll Racing name no musician, only \"Audio Programming: Software Creations, Sound Images.\" Sound Images was a small British company that Tony Williams and Paul Tonge founded in 1989. According to VGMPF, the Follin brothers at Software Creations arranged the Super NES music, and Tony Williams converted it to the Genesis, with his own sound driver. The cartridge still says \"(c) Sound Images v1.20\" inside."
+      },
+      {
+        "title": "How Tony Williams worked",
+        "text": "Tony Williams of Sound Images wrote his Genesis music as MIDI in Notator on an Atari ST. \"It was based on MIDI, which then went through a data cruncher (DOS-based PC code), and got played back via a custom driver written in Z80 assembler,\" he told VGMPF. A real-time module even let him hear the Genesis play the music while he was writing it."
+      },
+      {
+        "title": "A car song first",
+        "text": "Bad to the Bone was the theme of a car before it was in a game, in John Carpenter's Christine (1983). Then came Terminator 2 in 1991. George Thorogood remembers Arnold Schwarzenegger calling him about it: \"Your song. Give it to me. Now.\""
+      },
+      {
+        "title": "Muddy Waters' riff",
+        "text": "The hook and the words of Bad to the Bone adapt Muddy Waters' \"Mannish Boy\" (1955). George Thorogood recorded it in Boston in April 1982, with Ian Stewart of the Rolling Stones on piano. It never made the Hot 100 and peaked at No. 27 on Billboard's rock chart."
+      }
+    ]
+  }
+}
