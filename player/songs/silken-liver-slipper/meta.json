@@ -66,6 +66,7 @@
     }
   ],
   "info": {
+    "edited": true,
     "pages": [
       {
         "picture": "../_games/skitchin/seattle.png",
@@ -74,6 +75,10 @@
       {
         "title": "Silken Liver Slipper",
         "text": "Seattle, the home town of grunge, is the fourth race in Skitchin', and Silken Liver Slipper is its song. The course is 4.6 miles long, and the password AIRPORT takes you straight there."
+      },
+      {
+        "picture": "../_games/skitchin/grunge.png",
+        "caption": ""
       },
       {
         "title": "Grunge was the artists' idea",

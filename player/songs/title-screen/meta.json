@@ -74,18 +74,19 @@
     }
   ],
   "info": {
+    "edited": true,
     "pages": [
       {
         "picture": "../_games/skitchin/logo-1.png",
-        "caption": "Title screen"
-      },
-      {
-        "picture": "../_games/skitchin/logo-2.png",
-        "caption": "Title screen"
+        "caption": ""
       },
       {
         "title": "Title Screen",
         "text": "The title music of Skitchin' plays over the graffiti on the start screen. Before it comes a warning that the stunts in the game are \"extremely dangerous.\""
+      },
+      {
+        "picture": "../_games/skitchin/logo-2.png",
+        "caption": ""
       },
       {
         "title": "The BADASS code",
