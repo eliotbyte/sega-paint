@@ -5,8 +5,10 @@ deletes is copied to player/art/backup/<date-time>/ first.
 It also lists and writes the Description panel's pictures (player/songs/_games/<game>/<name>.png, GET and POST
 /api/game-pictures); the image each was made from and its crop are kept in art-src/_pictures/<game>/, to redo it.
 And it writes a song's Description pages (POST /api/song-info: "info" in player/songs/<dir>/meta.json, nothing else).
-usage: python tools/serve.py [port]"""
-import base64, functools, http.server, json, os, re, shutil, socket, sys, threading, time
+Every PNG it writes is stored with a palette of exactly its own colours (small_png): the same pixels, a fraction of the
+size of the browser's 32-bit PNG. --shrink does that once to the PNGs already there.
+usage: python tools/serve.py [port]  |  python tools/serve.py --shrink"""
+import base64, functools, glob, http.server, io, json, os, re, shutil, socket, sys, threading, time
 
 ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'player')
 ART = os.path.join(ROOT, 'art')
@@ -23,6 +25,47 @@ def png_of(url):
     if not png.startswith(b'\x89PNG'):
         raise ValueError('not a PNG')
     return png
+
+
+def small_png(png):
+    """The same picture as a palette PNG (up to 256 colours; transparency kept), when that is smaller. Pixel for pixel
+    identical. Needs Pillow; without it the PNG is kept as it came."""
+    try:
+        from PIL import Image
+    except ImportError:
+        return png
+    im = Image.open(io.BytesIO(png)).convert('RGBA')
+    cols = im.getcolors(256)
+    if cols is None:
+        return png
+    pal = [c for _, c in cols]
+    index = {c: i for i, c in enumerate(pal)}
+    out = Image.new('P', im.size)
+    out.putdata([index[px] for px in im.getdata()])
+    out.putpalette([v for c in pal for v in c[:3]])
+    kw = {'optimize': True, 'bits': max(1, (len(pal) - 1).bit_length())}
+    if any(c[3] < 255 for c in pal):
+        kw['transparency'] = bytes(c[3] for c in pal)
+    buf = io.BytesIO()
+    out.save(buf, 'PNG', **kw)
+    small = buf.getvalue()
+    check = Image.open(io.BytesIO(small)).convert('RGBA')
+    return small if list(check.getdata()) == list(im.getdata()) and len(small) < len(png) else png
+
+
+def shrink_all():
+    """small_png over the PNGs the player loads (art, the Description panel's pictures); backups left alone."""
+    before = after = 0
+    for path in glob.glob(os.path.join(ART, '*', '*.png')) + glob.glob(os.path.join(GAMES, '*', '*.png')):
+        if os.sep + 'backup' + os.sep in path:
+            continue
+        png = open(path, 'rb').read()
+        small = small_png(png)
+        before, after = before + len(png), after + len(small)
+        if small is not png:
+            with open(path, 'wb') as f:
+                f.write(small)
+    print('PNG: %d KB -> %d KB' % (before // 1024, after // 1024))
 
 
 def keep(path, stamp):
@@ -94,7 +137,7 @@ def picture_post(body):
     keep(out, stamp)
     os.makedirs(os.path.dirname(out), exist_ok=True)
     with open(out, 'wb') as f:
-        f.write(png)
+        f.write(small_png(png))
     if body.get('source'):
         os.makedirs(os.path.dirname(src), exist_ok=True)
         for path in (src + '.png', src + '.json'):
@@ -161,7 +204,7 @@ class NoCache(http.server.SimpleHTTPRequestHandler):
                 png = base64.b64decode(url.split(',', 1)[1])
                 if not png.startswith(b'\x89PNG'):
                     raise ValueError('not a PNG: ' + rel)
-                pngs[rel] = png
+                pngs[rel] = small_png(png)
             stamp = time.strftime('%Y%m%d-%H%M%S')
             backup = os.path.join(ART, 'backup', stamp)
 
@@ -196,6 +239,9 @@ class Server6(http.server.ThreadingHTTPServer):
 
 
 if __name__ == '__main__':
+    if sys.argv[1:] == ['--shrink']:
+        shrink_all()
+        sys.exit()
     port = int(sys.argv[1]) if len(sys.argv) > 1 else 8765
     handler = functools.partial(NoCache, directory=ROOT)
     print(f'Sega Paint: http://localhost:{port}  ·  art editor: http://localhost:{port}/art.html')
