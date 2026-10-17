@@ -46,5 +46,17 @@
       "name": "Snare",
       "sprite": "snare"
     }
-  ]
+  ],
+  "info": {
+    "pages": [
+      {
+        "title": "Episode 3, Page 2-1",
+        "text": "Episode 3, Page 2-1 starts the final page of Comix Zone, in the Grave Shipyard. It's a slow song, about 80 beats a minute, and its drums use just two samples, a kick and a snare. In the shipyard, the aliens admit that they needed a new home, \"but our meteor attack failed!\""
+      },
+      {
+        "title": "A puzzle to solve",
+        "text": "Howard Drossin enjoyed writing music for the Genesis. \"You have one channel of low-fi 8-bit samples that you can use for your kick and snare drum,\" he told Gamasutra, and the rest is built from FM bass, keyboard and horn sounds. \"For me, it was like a puzzle that I had to solve.\""
+      }
+    ]
+  }
 }

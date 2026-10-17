@@ -54,5 +54,17 @@
       "name": "Snare 2",
       "sprite": "bomb"
     }
-  ]
+  ],
+  "info": {
+    "pages": [
+      {
+        "title": "Results",
+        "text": "Results plays at the end of a level in Comix Zone. That's where Sketch Turner gets a super hero rating for how well he's doing, as MobyGames puts it. The song runs about 45 seconds, at about 128 beats a minute."
+      },
+      {
+        "title": "84 percent on average",
+        "text": "Comix Zone averages 84% over the 45 reviews collected by Sega Retro. Fusion and the Czech magazine LeveL gave it full marks, and GamePro gave it 75%. GamePro liked the comic book look but warned, \"after a few panels, the honeymoon's over.\""
+      }
+    ]
+  }
 }

@@ -68,5 +68,17 @@
       "name": "Tom 2",
       "sprite": "tom"
     }
-  ]
+  ],
+  "info": {
+    "pages": [
+      {
+        "title": "Episode 1, Page 2-2",
+        "text": "Episode 1, Page 2-2 is the last song of the first episode of Comix Zone, at about 90 beats a minute. The episode ends with a fight against the mother of the mutants. \"You've destroyed my children!\" she cries, and Sketch Turner answers, \"Sorry, Big Mama! It's survival of the fittest.\""
+      },
+      {
+        "title": "Why Sketch has a rat",
+        "text": "Sega of America's marketing wanted Joe Pencil, the hero of the first Comix Zone demo, renamed and given a sidekick. Designer Peter Morawiec, a Smashing Pumpkins fan, made him a grunge rocker, but he didn't want a person or a big animal following him around. So Sketch Turner got a pet rat, Roadkill, who \"didn't take up a lot of screen space.\""
+      }
+    ]
+  }
 }

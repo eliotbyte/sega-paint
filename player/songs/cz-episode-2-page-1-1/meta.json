@@ -68,5 +68,21 @@
       "name": "Tom 2",
       "sprite": "tom"
     }
-  ]
+  ],
+  "info": {
+    "pages": [
+      {
+        "title": "Episode 2, Page 1-1",
+        "text": "Episode 2, Page 1-1 opens \"Welcome to the Temple,\" the second episode of Comix Zone, in the snowy Himalayas. \"What's this, the Rockies?\" Sketch Turner asks. General Alissa Cyan radios that a village here has been lost to the mutants, and she suspects Mortus has a secret training ground nearby."
+      },
+      {
+        "title": "More than chiptune",
+        "text": "Howard Drossin wrote the Comix Zone music with GEMS, the sound driver Sega of America's games used on the Genesis. He wanted to show that the console could do more than chiptune, so he wrote rock songs for its FM chip."
+      },
+      {
+        "title": "A big fan at Sonic Team",
+        "text": "Comix Zone has been re-released many times, on the Wii, Xbox 360, PlayStation 3, Steam, phones and the Genesis Mini. Sonic Team's Yojiro Ogawa was a \"huge fan\" of the game and pushed for it to be hidden in the Japanese Sonic Mega Collection in 2002."
+      }
+    ]
+  }
 }

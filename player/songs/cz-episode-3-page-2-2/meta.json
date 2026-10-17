@@ -76,5 +76,17 @@
       "name": "Crash",
       "sprite": "cymbal"
     }
-  ]
+  ],
+  "info": {
+    "pages": [
+      {
+        "title": "Episode 3, Page 2-2",
+        "text": "Episode 3, Page 2-2 is the longest song in Comix Zone, about two and a half minutes before it starts over. It's from the final page, where Sketch Turner gets inside the largest freighter of the shipyard and finds a nuclear bomb. \"Alissa, it's Mortus' weapons factory! We gotta blow this place!\""
+      },
+      {
+        "title": "Two levels cut",
+        "text": "Comix Zone was delayed several times so the team could add more, and by 1995 the Saturn and the PlayStation were on their way. To ship sooner, Sega Technical Institute cut two levels. The game came out in North America in July 1995, for $69.99."
+      }
+    ]
+  }
 }

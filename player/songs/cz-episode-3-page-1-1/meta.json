@@ -67,5 +67,21 @@
       "name": "Crash",
       "sprite": "cymbal"
     }
-  ]
+  ],
+  "info": {
+    "pages": [
+      {
+        "title": "Episode 3, Page 1-1",
+        "text": "Episode 3, Page 1-1 opens \"Curse of the Dead Ships,\" the last episode of Comix Zone, on the dried-up sea floor of the Zealand atolls. \"Wow, this meteor sure did some damage!\" Sketch Turner says. General Alissa Cyan has satellite photos that show suspicious structures nearby."
+      },
+      {
+        "title": "GameFan was impressed",
+        "text": "GameFan reviewed Comix Zone in August 1995. One of its reviewers wrote that the game has \"some of the best sound effects and music I have ever heard the system execute.\" Another added, \"The music shocked me too, nice job!\""
+      },
+      {
+        "title": "Comix Zone on MIDI",
+        "text": "Sega brought Comix Zone to Windows in November 1995. The PC version plays the soundtrack through the computer's MIDI instruments instead of the Genesis FM chip, which Hardcore Gaming 101 calls \"not great.\""
+      }
+    ]
+  }
 }

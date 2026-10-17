@@ -51,5 +51,17 @@
       "name": "Snare",
       "sprite": "snare"
     }
-  ]
+  ],
+  "info": {
+    "pages": [
+      {
+        "title": "Page 2-1 (Feed My Disease)",
+        "text": "Episode 1, Page 2-1 starts the second page of Comix Zone, which takes Sketch Turner down into the sewers. \"Yuck, it's wet in here!\" he says. Hardcore Gaming 101 finds the mutants in New York's sewers a little like the Teenage Mutant Ninja Turtles. Roadkill recorded the song as \"Feed My Disease,\" the second track on their CD."
+      },
+      {
+        "title": "What the mutants eat",
+        "text": "Deep in the sewers of Comix Zone, Sketch Turner works out why the place is full of little crawlers. \"The mutants need these crawlers for food!\" he says, and then wonders what they're feeding. The answer is a breeding ground full of hungry newborn mutants."
+      }
+    ]
+  }
 }

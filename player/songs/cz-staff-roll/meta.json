@@ -63,5 +63,21 @@
       "name": "Tom 2",
       "sprite": "tom"
     }
-  ]
+  ],
+  "info": {
+    "pages": [
+      {
+        "title": "Staff Roll",
+        "text": "Staff Roll plays over the credits of Comix Zone, and its bass line comes from the Introduction. Before the credits, an epilogue says Sketch Turner's issue sold out on the first day and became the best-selling comic book ever, and Roadkill was given 100 pounds of mozzarella."
+      },
+      {
+        "title": "After Comix Zone",
+        "text": "Comix Zone didn't sell as well as Sega hoped, and designer Peter Morawiec says the PlayStation \"stole our thunder.\" He, programmer Adrian Stephens and Howard Drossin moved to a new Sega Technical Institute office in Burbank, but their Sonic game for the Saturn and a 3D Comix Zone never got made. Morawiec went on to co-found Luxoflux, the studio behind Vigilante 8."
+      },
+      {
+        "title": "The best lamb in town",
+        "text": "The Comix Zone credits thank, among others, \"The House\" \"for the best lamb in town!\" They also show that background artist Fei Cheng is the voice of Styx the monk, and Sue Ortlip is the voice of Mongoria."
+      }
+    ]
+  }
 }

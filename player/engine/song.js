@@ -172,7 +172,7 @@ function fmNoteRegs(ins, n) {
 }
 
 // ---------- repeats inside a song ----------
-// song.repeats = [{ from, to, times }] in steps (bar lines). Bars are written once and played `times` times,
+// song.repeats = [{ from, to, times }] in steps (any 16th; made over whole bars). Bars are written once and played `times` times,
 // like |: ... :| in printed music; playback unrolls them ("played" steps) while the staff shows written steps.
 export function repeatSpans(song) {
   return (song.repeats || []).filter((r) => r.times > 1 && r.to > r.from).sort((a, b) => a.from - b.from);

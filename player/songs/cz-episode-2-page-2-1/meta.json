@@ -50,5 +50,21 @@
       "name": "Snare 2",
       "sprite": "bomb"
     }
-  ]
+  ],
+  "info": {
+    "pages": [
+      {
+        "title": "Episode 2, Page 2-1",
+        "text": "Episode 2, Page 2-1 starts the second page of the Himalayan episode of Comix Zone, at the temple in the mountains. Sketch Turner walks into the training courtyard and asks, \"Hey, where's the welcoming party?\" A fighter answers, \"Right here!\""
+      },
+      {
+        "title": "Soundgarden and The Breeders",
+        "text": "According to the booklet of the 2021 vinyl, Howard Drossin took his cue for the Comix Zone music from the rock bands Soundgarden and The Breeders. Sketch Turner fits the music, since he's a part-time rock musician as well as a comic artist."
+      },
+      {
+        "title": "The soundtrack on vinyl",
+        "text": "In 2021, Cartridge Thunder put out the Comix Zone soundtrack as a double LP for $40, with a booklet of interviews with the game's creators. The names of the Comix Zone songs in Sega Paint, like Episode 2, Page 2-1, match its track list."
+      }
+    ]
+  }
 }

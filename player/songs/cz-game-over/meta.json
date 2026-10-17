@@ -46,5 +46,17 @@
       "name": "Snare",
       "sprite": "snare"
     }
-  ]
+  ],
+  "info": {
+    "pages": [
+      {
+        "title": "Game Over",
+        "text": "Game Over is the shortest song in Comix Zone, about seven seconds long. Sketch Turner has no extra lives, and when he dies, his body turns into a pencil sketch that Mortus crosses out with a marker."
+      },
+      {
+        "title": "Mortus goes free",
+        "text": "If Sketch Turner dies in Comix Zone, Mortus gets what he wanted. \"Ah, free at last! In this body of flesh and bone, I'm going to rock this world!\" he says. \"Nice knowing you, Sketch Turner!\""
+      }
+    ]
+  }
 }

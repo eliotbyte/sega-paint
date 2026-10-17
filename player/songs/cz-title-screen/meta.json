@@ -63,5 +63,21 @@
       "name": "Crash",
       "sprite": "cymbal"
     }
-  ]
+  ],
+  "info": {
+    "pages": [
+      {
+        "title": "Title Screen",
+        "text": "The Title Screen music of Comix Zone is short, about 18 seconds. Its bass riff comes back in Options (Into the Zone), the song that follows it on the soundtrack, and both run at about 124 beats a minute."
+      },
+      {
+        "title": "Joe Pencil",
+        "text": "Comix Zone began as an animated demo that designer Peter Morawiec made on his Amiga, \"Joe Pencil Trapped in the Comix Zone.\" He showed it to Roger Hector, the head of Sega Technical Institute, in December 1992. \"The minute I saw it, I knew it was going to be great,\" Hector said. The game was put on hold for Sonic Spinball, and Sega of America president Tom Kalinske brought it back because he still remembered the demo."
+      },
+      {
+        "title": "Grade A from Fusion",
+        "text": "Fusion magazine gave Comix Zone an A in August 1995. Its reviewer, John Wesley Hardin, called the soundtrack \"the best, most original and entertaining music to appear in any video game, on any platform, this year.\""
+      }
+    ]
+  }
 }

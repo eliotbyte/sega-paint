@@ -79,5 +79,17 @@
       "name": "Swell",
       "sprite": "moon"
     }
-  ]
+  ],
+  "info": {
+    "pages": [
+      {
+        "title": "Sega Logo",
+        "text": "Sega Logo is the first thing you hear in Comix Zone, Sega Technical Institute's 1995 game for the Sega Genesis (the Mega Drive outside North America). It lasts about twelve seconds. According to the credits of Mega Drive Last Action Heroes, a 2010 Japanese album set, Howard Drossin wrote the music for the logo and is also the voice in it."
+      },
+      {
+        "title": "How Drossin got to Sega",
+        "text": "Before games, composer Howard Drossin played in a rock band with a major record deal. He had just scored Wolf, a game for Disney, when he handed a demo to a Disney artist who was moving to Sega. A few weeks later Roger Hector of Sega Technical Institute called him, and in June 1993 Howard started there, writing music for Sonic Spinball."
+      }
+    ]
+  }
 }

@@ -56,5 +56,17 @@
       "name": "Snare",
       "sprite": "snare"
     }
-  ]
+  ],
+  "info": {
+    "pages": [
+      {
+        "title": "Boss Theme",
+        "text": "Boss Theme (Woe is the World) is the music for the boss fights in Comix Zone, at about 140 beats a minute. According to Hardcore Gaming 101, each boss has a trick, and you can use the scenery around it to beat it faster."
+      },
+      {
+        "title": "Woe Is the World on CD",
+        "text": "Roadkill's version, \"Woe Is the World,\" has a guitar solo by Philip Stevenson, who co-produced their CD and also plays the solo on \"Feed My Disease.\" The CD went on sale on its own in 1996 in Sega's Sega Tunes series, and in 2010 it was included in the Japanese set Mega Drive Last Action Heroes."
+      }
+    ]
+  }
 }

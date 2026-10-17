@@ -62,5 +62,17 @@
       "name": "Crash",
       "sprite": "cymbal"
     }
-  ]
+  ],
+  "info": {
+    "pages": [
+      {
+        "title": "Episode 3, Page 2-3",
+        "text": "Episode 3, Page 2-3 is the slowest song in Comix Zone, about 70 beats a minute, and the last of the page songs. On the final page, Sketch Turner finds a nuclear bomb ready to launch, and General Alissa Cyan flies in. \"Stay put, I gotta defuse this thing!\" she says. The same music comes back note for note as the Ending Theme."
+      },
+      {
+        "title": "The voice of Alissa",
+        "text": "General Alissa Cyan, who guides Sketch Turner by radio through Comix Zone, is voiced by Deborah Costa, according to the game's credits. Alissa is sure Sketch was sent to save her world, whatever he says."
+      }
+    ]
+  }
 }

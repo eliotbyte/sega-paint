@@ -68,5 +68,17 @@
       "name": "Tom 2",
       "sprite": "tom"
     }
-  ]
+  ],
+  "info": {
+    "pages": [
+      {
+        "title": "Page 2-2 (10,000 Knives)",
+        "text": "Episode 2, Page 2-2 plays on the way to Kung-Fung, the master who trains Mortus's fighters in Comix Zone. \"Nice fingernails, dude,\" Sketch Turner tells him. Kung-Fung's voice is Howard Drossin's, and Drossin's band Roadkill recorded the song as \"10,000 Knives.\""
+      },
+      {
+        "title": "The other CD in the box",
+        "text": "The CD packed with Comix Zone in North America wasn't the game's music at all. It was a sampler of '90s rock, with \"I Hate Rock and Roll\" by The Jesus and Mary Chain and \"Going Down to Die\" by Danzig. According to Hardcore Gaming 101, Roadkill's CD came with the European cartridge and the Windows version instead."
+      }
+    ]
+  }
 }

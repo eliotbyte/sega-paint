@@ -64,5 +64,17 @@
       "name": "Snare 2",
       "sprite": "bomb"
     }
-  ]
+  ],
+  "info": {
+    "pages": [
+      {
+        "title": "Episode 2, Page 1-2",
+        "text": "Episode 2, Page 1-2 is the second song of the Himalayan page in Comix Zone. In Tibet City, a local asks Sketch Turner if he has come from the temple to fight in the tournament. \"Err, yeah, sure!\" he says. In the tournament chamber he faces Gravis, Styx the monk and Mongoria, who tell him the tournament is only for graduates of the temple master, Kung-Fung."
+      },
+      {
+        "title": "Voices from down the hall",
+        "text": "Howard Drossin did all the sound in Comix Zone, voices included. \"The voices include myself and various other people that I pulled into my office and sat in front of a microphone,\" he told Gamasutra in 2009. For the female fighter's cries he asked two administrative assistants from down the hall, who \"were thrilled to be in the game.\""
+      }
+    ]
+  }
 }

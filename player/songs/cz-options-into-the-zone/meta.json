@@ -68,5 +68,21 @@
       "name": "Crash",
       "sprite": "cymbal"
     }
-  ]
+  ],
+  "info": {
+    "pages": [
+      {
+        "title": "Options (Into the Zone)",
+        "text": "Options (Into the Zone) plays on the options screen of Comix Zone, which also has a jukebox of the game's music. Its subtitle comes from \"Into the Zone,\" the vocal version that opens the CD of Roadkill, the band composer Howard Drossin put together."
+      },
+      {
+        "title": "A code in the jukebox",
+        "text": "Pick tracks 14, 15, 18, 5, 13, 1, 3, 18, 15 and 6 on the Comix Zone jukebox, and the game answers \"Oh yeah!\" Now you can start on any of the six pages. Turn the numbers into letters (1 is A, 2 is B) and they spell NOREMACROF, which is \"For Cameron\" backwards."
+      },
+      {
+        "title": "The band called Roadkill",
+        "text": "Roadkill, the band Howard Drossin formed in Los Angeles for Comix Zone, was Tim P. on vocals, Howard on guitars and vocals, a bassist credited only as \"Weird Guy\" and David Harte on drums. Howard and Tim wrote lyrics for six songs from the game and recorded them in North Hollywood and Van Nuys, including the famous Sound City studio."
+      }
+    ]
+  }
 }

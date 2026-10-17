@@ -76,5 +76,21 @@
       "name": "Crash",
       "sprite": "cymbal"
     }
-  ]
+  ],
+  "info": {
+    "pages": [
+      {
+        "title": "Introduction",
+        "text": "Introduction plays while Comix Zone tells its story. It's New York City, present day, and lightning strikes the comic book that Sketch Turner is drawing. His villain, Mortus, climbs out of the page. \"Look at me, Sketch, I'm just a drawing!\" Mortus says. He can't kill Sketch in the real world, so he throws him into the comic. \"Have a nice trip!\""
+      },
+      {
+        "title": "Drawn by Tony DeZuniga",
+        "text": "The opening and the ending of Comix Zone were drawn by Tony DeZuniga, the Filipino comic artist who co-created Jonah Hex for DC. He drew them on paper with pencils and ink, and the team scanned his pages and fitted them to the Genesis's colors. He also drew the cover of the Roadkill CD."
+      },
+      {
+        "title": "Take On Me in reverse",
+        "text": "According to Wikipedia, the story of Comix Zone was inspired by a-ha's 1985 video for \"Take On Me,\" where a girl is pulled into a comic book and the hero of the comic reaches out into the real world. In Comix Zone, it's the villain who gets out and the artist who is pulled in."
+      }
+    ]
+  }
 }

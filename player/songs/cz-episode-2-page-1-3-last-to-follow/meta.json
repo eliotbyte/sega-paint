@@ -67,5 +67,17 @@
       "name": "Crash",
       "sprite": "cymbal"
     }
-  ]
+  ],
+  "info": {
+    "pages": [
+      {
+        "title": "Page 1-3 (Last to Follow)",
+        "text": "Episode 2, Page 1-3 is the third song on the first page of the Himalayan episode of Comix Zone. Roadkill turned it into \"Last to Follow,\" the song that closes their CD. In the tournament, Mongoria throws her bladed hair at Sketch Turner, but she has a weakness. When Roadkill the rat shows up, she screams, \"Eeeks, a mouse!\""
+      },
+      {
+        "title": "The CD that was swapped",
+        "text": "Comix Zone was meant to come with a CD of its own music, played by Howard Drossin's grunge band with real vocals. \"Marketing decided to do their own thing at the last minute,\" designer Peter Morawiec told Sega-16 in 2007. \"We were all pretty bummed about it, Howard in particular.\""
+      }
+    ]
+  }
 }

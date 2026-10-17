@@ -62,5 +62,21 @@
       "name": "Crash",
       "sprite": "cymbal"
     }
-  ]
+  ],
+  "info": {
+    "pages": [
+      {
+        "title": "Ending Theme",
+        "text": "Ending Theme plays after Sketch Turner defeats Mortus in Comix Zone, and it's the same music as Episode 3, Page 2-3, note for note. The game has two endings. If General Alissa Cyan dies, it calls this \"hardly an outcome worth celebrating\" and asks whether Sketch will play again \"in the hope of a better ending.\""
+      },
+      {
+        "title": "The good ending",
+        "text": "If Sketch Turner saves General Alissa Cyan in Comix Zone, she decides to come with him into our world. \"For Sketch, Alissa, and R'Kill, it was a new beginning,\" the last page says."
+      },
+      {
+        "title": "Howard Drossin after Sega",
+        "text": "Howard Drossin left Sega in December 1996, after Die Hard Arcade. He went on to Vigilante 8: 2nd Offense, Baldur's Gate II and film music, worked with RZA on Afro Samurai, and in 2009 wrote music for Sonic and the Black Knight."
+      }
+    ]
+  }
 }

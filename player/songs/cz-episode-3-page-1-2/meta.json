@@ -63,5 +63,21 @@
       "name": "Tom 2",
       "sprite": "tom"
     }
-  ]
+  ],
+  "info": {
+    "pages": [
+      {
+        "title": "Episode 3, Page 1-2",
+        "text": "Episode 3, Page 1-2 is the shortest of the Comix Zone page songs, under a minute before it starts over. It belongs to the page of reefs and caves in the Zealand atolls, where Sketch Turner grumbles, \"Man, I hate seafood!\""
+      },
+      {
+        "title": "Pelagus",
+        "text": "Hardcore Gaming 101 calls Pelagus, a rare enemy in Comix Zone, a \"mini-Cthulhu.\" It spits bouncing slime and lays mines that can blow away about half of Sketch Turner's health."
+      },
+      {
+        "title": "Two megabytes",
+        "text": "Programmer Adrian Stephens had to fit Comix Zone into a two-megabyte cartridge and still unpack big comic pages of graphics during play. The Genesis wasn't designed for that, he said, but he made it work."
+      }
+    ]
+  }
 }

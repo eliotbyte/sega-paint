@@ -1318,24 +1318,51 @@ const lastPlayStep = () => Math.ceil(timeToStep(S.song, S.song.end) - 1e-6) - 1;
 const endFlagX = () => xOf(lastPlayStep() + 1);
 const nearEndFlag = (x, y) => y < RULER && Math.abs(x - endFlagX() - 3) <= 5;
 function drawEndFlag() {
-  const x = endFlagX(), T = ui.T;
+  const x = endFlagX(), T = ui.T, ink = blinks((g) => g.end) ? T.white : T.ink;
   if (x < GUTTER || x > SW) return;
   fill(x, 1, 1, RULER - 2, T.ink);
-  for (let r = 0; r < 3; r++) for (let c = 0; c < 4; c++) fill(x + 1 + c * 2, 1 + r * 2, 2, 2, (r + c) % 2 ? T.paper : T.ink);
+  for (let r = 0; r < 3; r++) for (let c = 0; c < 4; c++) fill(x + 1 + c * 2, 1 + r * 2, 2, 2, (r + c) % 2 ? T.paper : ink);
 }
+// What the mouse is over that can be dragged: a flag on the ruler, or with the repeat tool a repeat sign or the
+// green |:. It blinks slowly, so it is clear it can be moved.
+function grabTarget() {
+  if (S.drag || S.dlg || ui.hover?.id !== 'staff' || !S.song) return null;
+  const x = ui.mouse.x - SX, y = ui.mouse.y - SY;
+  if (nearEndFlag(x, y)) return { end: true };
+  if (nearLoopFlag(x, y)) return { loop: true };
+  if (S.tool !== 'repeat') return null;
+  const t = repTarget(x, y);
+  return t?.kind === 'edge' ? { r: t.r, side: t.side } : t?.kind === 'loopEdge' ? { loop: true } : null;
+}
+const blinks = (is) => Math.floor(performance.now() / 400) % 2 === 1 && !!grabTarget() && is(grabTarget());
 
-// ---------- repeats: |: :| over whole bars, and the green one (the song loops from there to the end) ----------
+// ---------- repeats: |: :| (bar lines or any 16th), and the green one (the song loops from there to the end) ----------
 // Bars count from S.barOffset (examples recorded from the game may start their first bar a bit later).
 const barStart = (bar) => bar * 16 + S.barOffset;
 const barOfStep = (st) => Math.round((st - S.barOffset) / 16);
 const endStepQ = () => Math.round(timeToStep(S.song, S.song.end) * 1000) / 1000;
 const repBars = () => Math.max(0, Math.floor((endStepQ() - S.barOffset) / 16 + 1e-6)); // whole bars of the song
-const repeatAt = (bar) => (S.song.repeats || []).find((r) => barStart(bar) >= r.from && barStart(bar) < r.to);
+// The repeat over step st; repeats start and end on any 16th (made over whole bars, then their signs dragged).
+const repeatOver = (st) => (S.song.repeats || []).find((r) => st >= r.from && st < r.to);
+const repeatInBar = (bar) => (S.song.repeats || []).find((r) => r.from < barStart(bar + 1) && r.to > barStart(bar));
+const onBar = (st) => Math.abs((st - S.barOffset) / 16 - Math.round((st - S.barOffset) / 16)) < 1e-6;
+// "Bars 3–4" for whole bars, else from and to as bar.beat.16th ("2.3.2–4.1")
+function spanName(a, b) {
+  if (onBar(a) && onBar(b)) return b - a === 16 ? `Bar ${barOfStep(a) + 1}` : `Bars ${barOfStep(a) + 1}–${barOfStep(b)}`;
+  return `${barBeat(a, true)}–${barBeat(b, true)}`;
+}
 const REP_MODES = [
   { mode: 'x2', tip: 'Repeat x2' }, { mode: 'x3', tip: 'Repeat x3' }, { mode: 'x4', tip: 'Repeat x4' },
-  { mode: 'loop', tip: 'Loop from a bar' }, { mode: 'del', tip: 'Remove a repeat' },
+  { mode: 'loop', tip: 'Loop from here' }, { mode: 'del', tip: 'Remove a repeat' },
 ];
 const repTimes = () => +S.repMode.slice(1) || 2;
+// The green loop starts on any 16th of the song (the games' loops often start inside a bar), not only on a bar line:
+// the step under x, or -1 at the very start (the song loops from the beginning, no green repeat).
+function loopStepAt(st) {
+  const k = Math.max(S.barOffset, Math.min(Math.ceil(endStepQ()) - 1, Math.floor(st + 1e-6)));
+  return k <= Math.max(0, S.barOffset) ? -1 : k;
+}
+const loopName = (k) => (k < 0 ? 'the start' : barBeat(k, true));
 
 // What the repeat tool points at on the staff: a sign to drag, a repeat, a bar, or the loop.
 function repTarget(x, y) {
@@ -1353,14 +1380,15 @@ function repTarget(x, y) {
     if (mode === 'del' && ls >= 0 && st >= ls && st < endStepQ()) return { kind: 'loop', from: ls, to: endStepQ(), loop: true };
     return null;
   }
-  const r = repeatAt(bar);
-  if (mode === 'loop') return { kind: 'setLoop', bar, from: barStart(bar), to: endStepQ(), loop: true };
+  const r = repeatOver(st);
+  if (mode === 'loop') { const k = loopStepAt(st); return { kind: 'setLoop', at: k, from: Math.max(k, 0), to: endStepQ(), loop: true }; }
   if (mode === 'del') {
     if (r) return { kind: 'rep', r, from: r.from, to: r.to };
     if (ls >= 0 && st >= ls) return { kind: 'loop', from: ls, to: endStepQ(), loop: true };
     return null;
   }
   if (r) return { kind: 'rep', r, from: r.from, to: r.to };
+  if (repeatInBar(bar)) return null; // the rest of a bar a repeat starts or ends inside: drag that repeat's sign
   return { kind: 'bar', bar, from: barStart(bar), to: barStart(bar + 1) };
 }
 // The bars the repeat tool works on now (hover, or the repeat being made / resized).
@@ -1396,10 +1424,10 @@ const loopFlagX = () => xOf(loopStep());
 const nearLoopFlag = (x, y) => loopShown() && y < RULER && Math.abs(x - loopFlagX() - 3) <= 5;
 function drawLoopFlag() {
   if (!loopShown()) return;
-  const x = loopFlagX(), T = ui.T;
+  const x = loopFlagX(), T = ui.T, c = blinks((g) => g.loop) ? T.white : T.loop;
   if (x < GUTTER || x > SW) return;
   fill(x, 1, 1, RULER - 2, T.ink);
-  for (let r = 0; r < 6; r++) fill(x + 1, 1 + r, Math.max(1, 7 - Math.abs(r - 2.5) * 2 | 0), 1, T.loop);
+  for (let r = 0; r < 6; r++) fill(x + 1, 1 + r, Math.max(1, 7 - Math.abs(r - 2.5) * 2 | 0), 1, c);
 }
 // Repeat signs on the grand staff like in printed music: |: ... :| around repeated bars, a green |: at the
 // loop start and :| at the end (black when the song starts over from the beginning).
@@ -1409,11 +1437,12 @@ function drawRepeatSigns() {
   const dots = (x, c) => { for (const d of [33, 35, 21, 23]) fill(x, yOf(d) - 1, 2, 2, c); };
   const open = (x, c) => { fill(x, top, 2, h, c); fill(x + 3, top, 1, h, c); dots(x + 5, c); };
   const close = (x, c, dot = true) => { fill(x - 2, top, 2, h, c); fill(x - 4, top, 1, h, c); if (dot) dots(x - 7, c); };
-  for (const r of repeatSpans(S.song)) { open(xOf(r.from), T.bar); close(xOf(r.to), T.bar); }
+  const lit = (r, side) => blinks((g) => g.r === r && g.side === side);
+  for (const r of repeatSpans(S.song)) { open(xOf(r.from), lit(r, 'from') ? T.white : T.bar); close(xOf(r.to), lit(r, 'to') ? T.white : T.bar); }
   const ls = loopStep(), xe = endFlagX();
   if (loopShown()) {
     const x = xOf(ls);
-    if (x >= GUTTER - 6 && x < SW) open(x, T.loop);
+    if (x >= GUTTER - 6 && x < SW) open(x, blinks((g) => g.loop) ? T.white : T.loop);
   }
   if (xe >= GUTTER && xe < SW + 6) close(xe, loopShown() ? T.loop : T.bar);
 }
@@ -1433,9 +1462,9 @@ function repeatDown(x, y) {
   } else if (t.kind === 'rep') {
     if (t.r.times === repTimes()) { S.undo.pop(); showStatus(`Already x${t.r.times}`); return; }
     t.r.times = repTimes();
-    showStatus(`Bars ${barOfStep(t.r.from) + 1}–${barOfStep(t.r.to)} x${t.r.times}`);
+    showStatus(`${spanName(t.r.from, t.r.to)} x${t.r.times}`);
   } else if (t.kind === 'loop') { setLoopStep(-1); showStatus('The song no longer loops'); }
-  else if (t.kind === 'setLoop') { setLoopStep(t.bar ? t.from : -1); showStatus(t.bar ? `Loop from bar ${t.bar + 1}` : 'The song loops from the start'); }
+  else if (t.kind === 'setLoop') { setLoopStep(t.at); showStatus(t.at >= 0 ? `Loop from ${loopName(t.at)}` : 'The song loops from the start'); }
   S.perf = null;
   afterEdit();
 }
@@ -1446,32 +1475,31 @@ function repeatMove(x) {
     const bar = Math.max(0, Math.min(nb - 1, Math.floor((st - S.barOffset) / 16)));
     // stop at a neighbouring repeat: repeats do not overlap
     let b = d.a;
-    while (b !== bar && !repeatAt(b + Math.sign(bar - b))) b += Math.sign(bar - b);
+    while (b !== bar && !repeatInBar(b + Math.sign(bar - b))) b += Math.sign(bar - b);
     d.b = b;
-    showStatus(`Bars ${Math.min(d.a, b) + 1}–${Math.max(d.a, b) + 1} x${repTimes()}`);
+    showStatus(`${spanName(barStart(Math.min(d.a, b)), barStart(Math.max(d.a, b) + 1))} x${repTimes()}`);
     return;
   }
   if (d.mode === 'repEdge') {
-    // an end moves to a bar line, but not past the next repeat or over its own other end
+    // an end moves to the nearest 16th, but not past the next repeat or over its own other end
     const r = d.r, others = repeatSpans(S.song).filter((o) => o !== r);
-    let k = Math.round((st - S.barOffset) / 16);
+    let k = Math.round(st);
     if (d.side === 'from') {
-      const lo = Math.max(0, ...others.filter((o) => o.to <= r.from).map((o) => barOfStep(o.to)));
-      k = Math.max(lo, Math.min(barOfStep(r.to) - 1, k));
-      if (barStart(k) !== r.from) { r.from = barStart(k); d.moved = true; S.perf = null; }
+      const lo = Math.max(Math.max(0, S.barOffset), ...others.filter((o) => o.to <= r.from).map((o) => o.to));
+      k = Math.max(lo, Math.min(r.to - 1, k));
+      if (k !== r.from) { r.from = k; d.moved = true; S.perf = null; }
     } else {
-      const hi = Math.min(nb, ...others.filter((o) => o.from >= r.to).map((o) => barOfStep(o.from)));
-      k = Math.min(hi, Math.max(barOfStep(r.from) + 1, k));
-      if (barStart(k) !== r.to) { r.to = barStart(k); d.moved = true; S.perf = null; }
+      const hi = Math.min(barStart(nb), ...others.filter((o) => o.from >= r.to).map((o) => o.from));
+      k = Math.min(hi, Math.max(r.from + 1, k));
+      if (k !== r.to) { r.to = k; d.moved = true; S.perf = null; }
     }
-    showStatus(`Bars ${barOfStep(r.from) + 1}–${barOfStep(r.to)} x${r.times}`);
+    showStatus(`${spanName(r.from, r.to)} x${r.times}`);
     return;
   }
   if (d.mode === 'loop') {
-    const k = Math.max(0, Math.min(nb - 1, Math.round((st - S.barOffset) / 16)));
-    const to = k ? barStart(k) : -1; // dragged back to bar 1: the song loops from the start, the green repeat goes
+    const to = loopStepAt(st + 0.5); // to the nearest 16th; back at the start the green repeat goes
     if (to !== loopStep()) { setLoopStep(to); d.moved = true; }
-    showStatus(k ? `Loop from bar ${k + 1}` : 'The song loops from the start');
+    showStatus(to >= 0 ? `Loop from ${loopName(to)}` : 'The song loops from the start');
   }
 }
 
@@ -2143,9 +2171,11 @@ function pasteParts(c) {
   showStatus(`Pasted ${S.sel.size} note${S.sel.size > 1 ? 's' : ''} into ${parts.length} tracks`);
 }
 
-function barBeat(s) {
-  const rel = s - S.barOffset;
-  return `${Math.floor(rel / 16) + 1}.${Math.floor((((rel % 16) + 16) % 16) / 4) + 1}`;
+// Bar.beat of step s (bar.beat.16th with sixteenths: 3.2.2 = the second 16th of beat 2 of bar 3).
+function barBeat(s, sixteenths = false) {
+  const rel = s - S.barOffset, inBar = ((rel % 16) + 16) % 16;
+  const sub = Math.floor(inBar % 4);
+  return `${Math.floor(rel / 16) + 1}.${Math.floor(inBar / 4) + 1}${sixteenths && sub ? '.' + (sub + 1) : ''}`;
 }
 // The second row: the actions of the tool right here, short.
 function staffHint(h) {
@@ -2177,13 +2207,13 @@ function staffStatus(h) {
   const L = h?.L || activeLayer();
   if (!h || (!L && h.kind !== 'ruler')) return '';
   if (S.tool === 'repeat' && h.rep) {
-    const t = h.rep, bars = (a, b) => `Bars ${barOfStep(a) + 1}–${barOfStep(b)}`;
+    const t = h.rep, bars = spanName;
     if (t.kind === 'edge') return `${bars(t.from, t.to)} x${t.r.times} · drag the sign`;
-    if (t.kind === 'loopEdge') return `Loop from bar ${barOfStep(t.from) + 1} · drag the sign`;
+    if (t.kind === 'loopEdge') return `Loop from ${loopName(t.from)} · drag the sign`;
     if (t.kind === 'bar') return `Bar ${t.bar + 1} · click: x${repTimes()}, or drag over bars`;
     if (t.kind === 'rep') return `${bars(t.from, t.to)} x${t.r.times} · click: ${S.repMode === 'del' ? 'remove' : 'x' + repTimes()}`;
-    if (t.kind === 'loop') return `Loop from bar ${barOfStep(t.from) + 1} · click: remove`;
-    if (t.kind === 'setLoop') return t.bar ? `Click: loop from bar ${t.bar + 1}` : 'Click: loop from the start (no green repeat)';
+    if (t.kind === 'loop') return `Loop from ${loopName(t.from)} · click: remove`;
+    if (t.kind === 'setLoop') return t.at >= 0 ? `Click: loop from ${loopName(t.at)}` : 'Click: loop from the start (no green repeat)';
   }
   if (h.kind === 'ruler' && nearEndFlag(h.x, h.y)) return 'End of song · drag to change the length';
   if (h.kind === 'ruler' && nearLoopFlag(h.x, h.y)) return 'The song loops from here · drag to move';
@@ -3942,7 +3972,7 @@ function drawPalette(x, y, w) {
       click: () => { S.repMode = m.mode; },
     }));
     const sw = strip(x, y, cells, SMALL);
-    const label = { loop: 'Loop · click the bar the song repeats from (bar 1: from the start)', del: 'Remove · click a repeat or the loop' }[S.repMode]
+    const label = { loop: 'Loop · click where the song repeats from (bar 1: from the start)', del: 'Remove · click a repeat or the loop' }[S.repMode]
       || `Repeat ${S.repMode} · click a bar or drag over bars · drag |: :| to resize`;
     text(fitText(label, w - sw - 8), x + sw + 5, y + 5, T.ink);
     return;
@@ -4043,7 +4073,8 @@ const CURSOR_PIC = { select: 'select', pen: 'pen', erase: 'eraser', fill: 'bucke
 const toolCursor = () => CURSOR_PIC[S.tool] || 'pen'; // the arrow tool stays the black mouse while it selects and moves
 function staffCursor() {
   const d = S.drag, h = S.hover;
-  if (d) return d.mode === 'pan' ? 'fist' : ['seek', 'end', 'loop', 'keys'].includes(d.mode) ? 'pointer' : toolCursor();
+  // dragging something (the score, a flag, Sonic, a repeat sign): the closed hand
+  if (d) return ['pan', 'seek', 'end', 'loop', 'repEdge'].includes(d.mode) ? 'fist' : d.mode === 'keys' ? 'pointer' : toolCursor();
   if (!h) return 'arrow';
   if (h.kind === 'ruler' || h.kind === 'key' || h.kind === 'lane') return 'pointer';
   if (S.tool === 'hand') return 'hand';

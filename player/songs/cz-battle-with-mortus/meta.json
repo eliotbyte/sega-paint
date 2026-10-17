@@ -71,5 +71,17 @@
       "name": "Crash",
       "sprite": "cymbal"
     }
-  ]
+  ],
+  "info": {
+    "pages": [
+      {
+        "title": "Battle With Mortus",
+        "text": "Battle With Mortus is the music of the last fight in Comix Zone, when Mortus himself comes into the comic. He throws General Alissa Cyan into a tank of rising liquid and taunts Sketch Turner, \"What's the matter now, Sketch? Gettin' chicken?\" Its drum part has more than 550 notes, the most of any Comix Zone song."
+      },
+      {
+        "title": "The hero and the villain",
+        "text": "In Comix Zone, the hero and the villain share a voice. According to the game's credits, composer Howard Drossin voices both Sketch Turner and Mortus."
+      }
+    ]
+  }
 }

@@ -51,5 +51,21 @@
       "name": "Snare",
       "sprite": "snare"
     }
-  ]
+  ],
+  "info": {
+    "pages": [
+      {
+        "title": "Episode 1, Page 1-1",
+        "text": "Episode 1, Page 1-1 is the first song on the first page of Comix Zone. Episode 1, \"Night of the Mutants,\" begins in Newer York City, a ruined New York of the future, and soon reaches the Deceased District. Hardcore Gaming 101 points out a fallen Statue of Liberty in the page's second panel."
+      },
+      {
+        "title": "Surf rock in the ruins",
+        "text": "Hardcore Gaming 101 hears a surf rock feel in the Comix Zone music, most of all in the first episode, with heavy metal and '90s grunge in other songs. Its writer says the main instrument, a kind of electric guitar, \"sounds a bit grating at first\" but fits the game well."
+      },
+      {
+        "title": "Gravis meets his maker",
+        "text": "The first enemy Sketch Turner fights in Comix Zone is Gravis, a hulking brute. \"Who are you?\" Gravis asks. \"Your maker, Gravis,\" Sketch answers, since he drew him. Gravis is voiced by the game's designer, Peter Morawiec."
+      }
+    ]
+  }
 }

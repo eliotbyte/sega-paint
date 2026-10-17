@@ -67,5 +67,21 @@
       "name": "Crash",
       "sprite": "cymbal"
     }
-  ]
+  ],
+  "info": {
+    "pages": [
+      {
+        "title": "Page 1-2 (Seen it for Days)",
+        "text": "Episode 1, Page 1-2 is the second song on the first page of Comix Zone, so it takes over later on the page. Its subtitle, Seen It for Days, is the name of the vocal version on Roadkill's CD. At 3:52, that version is the longest song on the disc."
+      },
+      {
+        "title": "Strigil and his creator",
+        "text": "Strigil, a squid-headed fighter with twin hooked swords, is one of the first enemies in Comix Zone. When Sketch Turner says hello, Strigil shouts \"Die, intruder!\" and Sketch protests, \"Is this how you treat your creator?\" Strigil's voice belongs to the game's composer, Howard Drossin."
+      },
+      {
+        "title": "Drums from Mortus",
+        "text": "Mortus keeps drawing new trouble into Sketch Turner's way in Comix Zone. On the first page, when yet more drums appear, Sketch complains, \"Drums, Mortus? How about some imagination!\""
+      }
+    ]
+  }
 }
