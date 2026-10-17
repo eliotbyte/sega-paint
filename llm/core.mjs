@@ -197,8 +197,8 @@ export function voiceSpec(name) {
 }
 
 // ---------- bars ----------
-// app.js setupSong barOffset: game songs and new songs start their bars at step 0
-export const barOffset = (song) => (song.ticksPerStep || song.uniform ? 0 : (() => {
+// app.js setupSong barOffset: song.barOffset (a game song with a pickup), else game songs and new songs start at step 0
+export const barOffset = (song) => song.barOffset ?? (song.ticksPerStep || song.uniform ? 0 : (() => {
   const L = song.layers.find((l) => l.role === 'bass') || song.layers[0];
   const f = L ? L.notes.reduce((m, n) => Math.min(m, n.s), Infinity) : 0;
   return Number.isFinite(f) ? f % STEPS_PER_BAR : 0;

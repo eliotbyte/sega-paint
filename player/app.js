@@ -203,7 +203,8 @@ function setupSong(song, bank) {
   for (const L of song.layers) if (L.kind === 'fm' || L.kind === 'psg' || L.kind === 'noise') for (const n of L.notes) if (n.m != null && n.md == null && n.slide == null) n.md = n.d;
   S.song = prepareSong(song);
   S.pcm = bank;
-  S.barOffset = song.ticksPerStep || song.uniform ? 0 : firstStep(song.layers.find((l) => l.role === 'bass') || song.layers[0]) % 16;
+  // bar 1 starts at song.barOffset (a game song with a pickup before it), else at step 0 (game songs, new songs)
+  S.barOffset = song.barOffset ?? (song.ticksPerStep || song.uniform ? 0 : firstStep(song.layers.find((l) => l.role === 'bass') || song.layers[0]) % 16);
   assignSampleRows(song);
   assignTones(song.layers);
   for (const L of song.layers) indexLayer(L);
@@ -677,14 +678,15 @@ function afterEdit() {
   sendTimeline();
 }
 // ---------- tempo and length: any song (my songs have an even grid, examples the uneven one of the game) ----------
-const songBars = () => Math.max(1, Math.round(timeToStep(S.song, S.song.end) / 16));
+const songBars = () => Math.max(1, Math.round((timeToStep(S.song, S.song.end) - S.barOffset) / 16));
 // Loop start in steps (-1: the song does not loop).
 const loopStep = () => (S.song.loopStart < 0 ? -1 : Math.round(timeToStep(S.song, S.song.loopStart) * 1000) / 1000);
 // Every song loops; the green repeat (|: on the staff, flag on the ruler) only shows where the loop starts later
 // than the first bar. Without it the song starts over from the beginning.
-const loopShown = () => loopStep() > Math.max(0, S.barOffset) + 0.01;
+// A song with a pickup (bars from song.barOffset) shows it at bar 1 too: the pickup plays only the first time.
+const loopShown = () => loopStep() > (S.song.barOffset ? 0.01 : Math.max(0, S.barOffset) + 0.01);
 function setTiming(bpm, bars, loop = loopStep()) {
-  const steps = bars * 16;
+  const steps = bars * 16 + (S.song.barOffset || 0);
   if (loop >= steps) loop = Math.max(0, steps - 16); // keep at least the last bar inside the repeat
   if (S.song.uniform) {
     const step = RATE * 60 / (bpm * 4);
@@ -702,7 +704,7 @@ function setUnevenTiming(bpm, bars) {
   const b = (s._base ??= { times: s.stepTimes.slice(), step: s.step, bpm: s.bpm, end: s.end, bars: songBars(), globals: s.globals.map((x) => x.slice()) });
   const k = b.bpm / bpm;
   Object.assign(s, { bpm, step: b.step * k, stepTimes: b.times.map((t) => Math.round(t * k * 10) / 10), globals: b.globals.map(([t, ...r]) => [Math.round(t * k), ...r]) });
-  const last = bars * 16 + (((S.barOffset + 8) % 16) - 8); // bars count from the first bar of the song
+  const last = bars * 16 + (S.song.barOffset ?? ((S.barOffset + 8) % 16) - 8); // bars count from the first bar of the song
   while (s.stepTimes.length - 1 - s.step0 < last + 16) s.stepTimes.push(Math.round((s.stepTimes.at(-1) + s.step) * 10) / 10);
   s.end = bars === b.bars ? Math.round(b.end * k) : Math.round(stepTime(s, last));
 }
@@ -1359,8 +1361,9 @@ const repTimes = () => +S.repMode.slice(1) || 2;
 // The green loop starts on any 16th of the song (the games' loops often start inside a bar), not only on a bar line:
 // the step under x, or -1 at the very start (the song loops from the beginning, no green repeat).
 function loopStepAt(st) {
-  const k = Math.max(S.barOffset, Math.min(Math.ceil(endStepQ()) - 1, Math.floor(st + 1e-6)));
-  return k <= Math.max(0, S.barOffset) ? -1 : k;
+  const first = S.song.barOffset ? 0 : Math.max(0, S.barOffset); // a pickup before bar 1 can be left out of the loop
+  const k = Math.max(first, Math.min(Math.ceil(endStepQ()) - 1, Math.floor(st + 1e-6)));
+  return k <= first ? -1 : k;
 }
 const loopName = (k) => (k < 0 ? 'the start' : barBeat(k, true));
 
