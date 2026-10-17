@@ -59,7 +59,7 @@ const S = {
   tool: 'select', // the arrow first
   layers: new Set(), // the tracks chosen together (Ctrl / Shift + click); empty or one = just the active track
   repMode: 'x2', // what the repeat tool does: x2 / x3 / x4 (make or set a repeat), loop (the green one), del
-  playing: false, loop: true,
+  playing: false, loop: false, // loop off: a song from the games goes on to the next one when it ends
   pos: 0, posAt: 0, // last reported position (samples) and performance.now()
   ctx: null, node: null, analyser: null, latency: 0,
   undo: [], redo: [], drag: null, hover: null, mixMuted: '',
@@ -69,7 +69,8 @@ const S = {
   theme: 'light', volume: 1.6, status: '',
   sound: 'clean', // FM chip: clean (no DAC distortion, like a YM3438) or model1 (the first Mega Drive's YM2612)
   flyout: false, menu: false, dlg: null, layerScroll: 0,
-  fold: { layers: false, about: false, side: false }, aboutPage: 0, // the left column's panels folded to their title bars (side: the whole column hidden); the Description page shown
+  fold: { layers: false, about: false, playlist: false, side: false }, aboutPage: 0, // the left column's panels folded to their title bars (side: the whole column hidden); the Description page shown
+  pl: { scroll: 0, games: null }, // the Playlist panel: its scroll and the games unfolded (null: the game of the song open)
 };
 window.SEGA = S; // handy for debugging in the console
 
@@ -752,7 +753,7 @@ async function startAudio() {
   node.port.onmessage = (e) => {
     const m = e.data;
     if (m.type === 'pos') { S.pos = m.pos; S.posAt = performance.now(); }
-    else if (m.type === 'ended') S.playing = false;
+    else if (m.type === 'ended') { S.playing = false; playNext(); }
   };
   Object.assign(S, { ctx, node, analyser, latency: (ctx.outputLatency || 0) + (ctx.baseLatency || 0) });
   post({ type: 'gain', gain: S.volume });
@@ -841,6 +842,14 @@ async function switchRef(i) {
   const was = S.playing;
   try { await openDoc({ kind: 'ref', dir: ref.dir }); } catch (e) { console.error(e); tell(`Could not open the song: ${e.message}`); return; }
   if (was) togglePlay();
+}
+// Loop off: a song from the games that ends goes on to the next song of its game (the last one stops there).
+// Not with unsaved changes: the song being edited stays open.
+async function playNext() {
+  const i = refIndex(), next = S.refs[i + 1];
+  if (S.loop || i < 0 || S.dirty || !next || (next.game || '') !== (S.refs[i].game || '')) return;
+  try { await openDoc({ kind: 'ref', dir: next.dir }); } catch (e) { console.error(e); tell(`Could not open the song: ${e.message}`); return; }
+  if (!S.playing) togglePlay();
 }
 
 function seekToStep(s) {
@@ -2449,7 +2458,7 @@ function drawBpmDialog(d) {
 const cancelBpm = () => closeDialog(); // Cancel, the cross and Esc put the old tempo back (closeDialog)
 
 // A list of rows inside a dialog: clipped, scrolled with the wheel.
-function listRows(x, y, w, h, rows, d, rowH = 13) {
+function listRows(x, y, w, h, rows, d, rowH = 13, idp = '') {
   const T = ui.T;
   frame(x, y, w, h);
   const inner = h - 2, total = rows.length * rowH;
@@ -2459,7 +2468,7 @@ function listRows(x, y, w, h, rows, d, rowH = 13) {
   rows.forEach((row, i) => {
     const ry = y + 1 + i * rowH - d.scroll;
     if (ry + rowH < y || ry > y + h) return;
-    const id = 'row' + i;
+    const id = idp + 'row' + i;
     const rw = w - 2 - (row.del ? rowH : 0);
     const bg = row.sel ? T.sel : hot(id) ? T.hover : row.current ? T.soft : T.face;
     fill(x + 1, ry, w - 2, rowH, bg);
@@ -2481,7 +2490,7 @@ function listRows(x, y, w, h, rows, d, rowH = 13) {
     const vis = Math.max(ry, y + 1), visH = Math.min(ry + rowH, y + 1 + inner) - vis;
     if (visH > 0 && row.click) region(x + 1, vis, rw, visH, { id, cursor: 'pointer', tip: row.tip, click: row.click, dbl: row.dbl, wheel: (e) => { d.scroll += e.deltaY > 0 ? rowH * 2 : -rowH * 2; } });
     if (row.del) {
-      const dx = x + w - 1 - rowH, did = 'del' + i;
+      const dx = x + w - 1 - rowH, did = idp + 'del' + i;
       fill(dx, ry, 1, rowH, T.hover);
       g.drawImage(smallIcon('trash', hot(did) ? T.red : T.dim), dx + 1, ry);
       if (visH > 0) region(dx, vis, rowH, visH, { id: did, cursor: 'pointer', tip: 'Delete', click: row.del });
@@ -3671,11 +3680,13 @@ function draw() {
   drawScaleButton();
   drawSonic(lastPosStep);
   drawOverview(sx, st.y + st.h + 2, sw, ovH, lastPosStep);
-  if (showLayers) { // the left column: LAYERS, then the song's Description under it (songs from the games)
+  if (showLayers) { // the left column: LAYERS, the song's Description (songs from the games), the Playlist in the rest
     const colH = trY - 2 - row2, info = songInfo();
     const aboutH = info ? (S.fold.about ? PANEL_HEAD : ABOUT_H) + 2 : 0;
-    const lh = drawLayers(MARGIN, row2, lpw, colH - aboutH);
+    const plMin = S.refs.length ? (S.fold.playlist ? PANEL_HEAD : PL_MIN) + 2 : 0;
+    const lh = drawLayers(MARGIN, row2, lpw, colH - aboutH - plMin);
     if (info) drawAbout(MARGIN, row2 + lh + 2, lpw, info);
+    if (plMin) drawPlaylist(MARGIN, row2 + lh + 2 + aboutH, lpw, colH - lh - 2 - aboutH);
   }
   drawPalette(sx, row2, sw);
   drawToolbar(MARGIN);
@@ -3695,7 +3706,7 @@ function draw() {
 function drawToolbar(y) {
   const T = ui.T;
   let x = MARGIN;
-  x += strip(x, y, [{ id: 'side', icon: 'panels', on: !S.fold.side, tip: S.fold.side ? 'Show Layers and Description' : 'Hide Layers and Description', click: () => togglePanel('side') }]) + 2;
+  x += strip(x, y, [{ id: 'side', icon: 'panels', on: !S.fold.side, tip: S.fold.side ? 'Show the panels' : 'Hide the panels', click: () => togglePanel('side') }]) + 2;
   S.menuX = x;
   x += strip(x, y, [{ id: 'menu', icon: 'menu', on: S.menu, tip: 'File', click: () => { S.menu = !S.menu; S.flyout = false; } }]) + 2;
   x += strip(x, y, [
@@ -3904,6 +3915,37 @@ function drawAbout(x, y, w, info) {
   const num = `${k + 1}/${n}`, cap = p.caption || p.title || '';
   const label = cap ? `${num} · ${fitText(cap, w - 36 - textWidth(num) - 8)}` : num;
   text(label, x + ((w - textWidth(label)) >> 1), ny + 5, T.dim);
+}
+
+// ---------- Playlist: the songs from the games, folded by game; a click plays one ----------
+const PL_MIN = PANEL_HEAD + 4 * 13 + 1;
+async function playRef(dir) {
+  if (S.doc.kind !== 'ref' || S.doc.dir !== dir) {
+    if (!await confirmDiscard()) return;
+    try { await openDoc({ kind: 'ref', dir }); } catch (e) { console.error(e); tell(`Could not open the song: ${e.message}`); return; }
+  }
+  if (!S.playing) togglePlay();
+}
+function drawPlaylist(x, y, w, h) {
+  const d = S.pl, cur = S.doc.kind === 'ref' ? S.doc.dir : null;
+  const curGame = cur && (S.refs.find((r) => r.dir === cur)?.game || '');
+  d.games ??= new Set(cur ? [curGame] : []);
+  // another song opened (the next one, Open, ◀ ▶): its game unfolds and its row comes into view
+  const opened = d.shown !== cur;
+  if (opened) { d.shown = cur; if (cur) d.games.add(curGame); }
+  if (panelHead(x, y, w, h, 'PLAYLIST', 'playlist')) return;
+  const rows = [];
+  for (const game of new Set(S.refs.map((ref) => ref.game || ''))) {
+    const songs = S.refs.filter((ref) => (ref.game || '') === game), open = d.games.has(game);
+    rows.push({ fold: open ? 'open' : 'shut', label: game || 'Other', meta: String(songs.length), tip: open ? 'Fold' : 'Show the songs',
+      click: () => { if (open) d.games.delete(game); else d.games.add(game); } });
+    if (open) for (const ref of songs) rows.push({ inGroup: true, num: trackNo(ref), label: ref.title, sel: ref.dir === cur, tip: ref.dir === cur && S.playing ? 'Playing' : 'Play', click: () => playRef(ref.dir) });
+  }
+  if (opened && cur) {
+    const k = rows.findIndex((r) => r.sel), inner = h - PANEL_HEAD - 1;
+    if (k >= 0 && (k * 13 < d.scroll || (k + 1) * 13 > d.scroll + inner)) d.scroll = k * 13 - ((inner - 13) >> 1);
+  }
+  listRows(x, y + PANEL_HEAD - 1, w, h - PANEL_HEAD + 1, rows, d, 13, 'pl');
 }
 
 function layerSounding(L, i, pos) {
