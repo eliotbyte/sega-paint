@@ -1,0 +1,72 @@
+{
+  "game": "Comix Zone",
+  "layers": {
+    "L0": {
+      "name": "Organ",
+      "role": "lead",
+      "color": "#1fbfa5"
+    },
+    "L1": {
+      "name": "Grind",
+      "role": "lead",
+      "color": "#ffb020"
+    },
+    "L2": {
+      "name": "Guitar 1",
+      "role": "lead",
+      "color": "#ff70c8"
+    },
+    "L3": {
+      "name": "Guitar 2",
+      "role": "lead",
+      "color": "#ff70c8"
+    },
+    "L4": {
+      "name": "Bass",
+      "role": "bass",
+      "color": "#a06bff"
+    },
+    "L5": {
+      "name": "Guitar 3",
+      "role": "lead",
+      "color": "#ff70c8"
+    },
+    "L6": {
+      "name": "PSG 1",
+      "role": "psg",
+      "color": "#2fb8e8"
+    },
+    "L7": {
+      "name": "PSG 2",
+      "role": "psg",
+      "color": "#e6b800"
+    },
+    "L8": {
+      "name": "Drums",
+      "role": "sample",
+      "color": "#1fbfa5"
+    }
+  },
+  "samples": [
+    {
+      "name": "Kick",
+      "sprite": "drum"
+    },
+    {
+      "name": "Snare",
+      "sprite": "snare"
+    },
+    {
+      "name": "Tom 1",
+      "sprite": "tom"
+    },
+    {
+      "name": "Snare 2",
+      "sprite": "bomb"
+    },
+    {
+      "name": "Tom 2",
+      "sprite": "tom"
+    }
+  ]
+}

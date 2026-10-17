@@ -105,6 +105,9 @@ function mixSamples(song, bank, tb, muted) {
   let t = evs.length ? evs[0].T : 0, ei = 0, enabled = false, active = 0, loopMarked = song.loopStart < 0;
   const start = (e) => {
     slots[e.voice] = { pos: e.smp.off, end: e.smp.off + e.smp.len, loop: e.smp.loop, step: e.step, stop: e.stop };
+    // the DAC sounds through FM channel 6's stereo bits: centre them, as GEMS does (an FM note there may have left
+    // them on one side; the FM part writes its own pan again at its next note)
+    tb.push(e.T, 1, 0xb6, 0xc0);
   };
   while (ei < evs.length || active) {
     if (!active && ei < evs.length && evs[ei].T > t) t = evs[ei].T;
@@ -257,7 +260,7 @@ export function buildTimeline(song, pcm, muted = new Set()) {
         const vol = fmNoteRegs(ins, n);
         for (const [r, v0] of ins.regs) {
           const reg = r + c3, v = vol(r, v0);
-          if (shadow.get(reg) !== v) { shadow.set(reg, v); tb.push(T, part, reg, v); }
+          if (shadow.get(reg) !== v || (ch === 5 && r === 0xb4)) { shadow.set(reg, v); tb.push(T, part, reg, v); }
         }
         const [b, f] = fmTranspose(mac.base[0], mac.base[1], k);
         tb.push(T, part, 0xa4 + c3, (b << 3) | (f >> 8));

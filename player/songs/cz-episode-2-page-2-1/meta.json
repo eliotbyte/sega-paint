@@ -1,0 +1,54 @@
+{
+  "game": "Comix Zone",
+  "layers": {
+    "L0": {
+      "name": "Guitar 1",
+      "role": "lead",
+      "color": "#ff70c8"
+    },
+    "L1": {
+      "name": "Guitar 2",
+      "role": "lead",
+      "color": "#ff70c8"
+    },
+    "L2": {
+      "name": "Bass",
+      "role": "bass",
+      "color": "#a06bff"
+    },
+    "L3": {
+      "name": "Pad",
+      "role": "lead",
+      "color": "#ff6a3d"
+    },
+    "L4": {
+      "name": "Guitar 3",
+      "role": "lead",
+      "color": "#2fb8e8"
+    },
+    "L5": {
+      "name": "PSG 1",
+      "role": "psg",
+      "color": "#ff6a3d"
+    },
+    "L6": {
+      "name": "Drums",
+      "role": "sample",
+      "color": "#2fb8e8"
+    }
+  },
+  "samples": [
+    {
+      "name": "Kick",
+      "sprite": "drum"
+    },
+    {
+      "name": "Snare",
+      "sprite": "snare"
+    },
+    {
+      "name": "Snare 2",
+      "sprite": "bomb"
+    }
+  ]
+}
