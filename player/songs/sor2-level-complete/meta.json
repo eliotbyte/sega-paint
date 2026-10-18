@@ -1,0 +1,64 @@
+{
+  "game": "Streets of Rage 2",
+  "layers": {
+    "L0": {
+      "name": "FM 1",
+      "role": "bass",
+      "color": "#ffb020"
+    },
+    "L1": {
+      "name": "Pluck",
+      "role": "lead",
+      "color": "#ff5d8f"
+    },
+    "L2": {
+      "name": "Tom",
+      "role": "lead",
+      "color": "#a06bff"
+    },
+    "L3": {
+      "name": "Lead",
+      "role": "lead",
+      "color": "#5a7bff"
+    },
+    "L4": {
+      "name": "Strings",
+      "role": "lead",
+      "color": "#4cc24c"
+    },
+    "L5": {
+      "name": "PSG 1",
+      "role": "psg",
+      "color": "#ff6a3d"
+    },
+    "L6": {
+      "name": "PSG 2",
+      "role": "psg",
+      "color": "#2fb8e8"
+    },
+    "L7": {
+      "name": "Noise",
+      "role": "noise",
+      "color": "#e6b800"
+    },
+    "L8": {
+      "name": "Drums",
+      "role": "sample",
+      "color": "#1fbfa5"
+    }
+  },
+  "samples": [
+    {
+      "name": "Kick",
+      "sprite": "drum"
+    },
+    {
+      "name": "Snare",
+      "sprite": "snare"
+    },
+    {
+      "name": "Snare 2",
+      "sprite": "snare"
+    }
+  ]
+}

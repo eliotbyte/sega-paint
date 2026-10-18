@@ -136,7 +136,8 @@ function mixSamples(song, bank, tb, muted) {
     }
     t += dt;
     active = slots.filter(Boolean).length;
-    if (!active && enabled) { tb.push(t, KIND_YM0, 0x2b, 0x00); enabled = false; }
+    // song.dacHold (Streets of Rage 2's Z80): the DAC stays on at the last byte when a sample ends, until the next one
+    if (!active && enabled && !song.dacHold) { tb.push(t, KIND_YM0, 0x2b, 0x00); enabled = false; }
   }
 }
 
