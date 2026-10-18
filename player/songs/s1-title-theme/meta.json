@@ -46,5 +46,21 @@
       "name": "Snare",
       "sprite": "snare"
     }
-  ]
+  ],
+  "info": {
+    "pages": [
+      {
+        "title": "Title Theme",
+        "text": "The title screen of Sonic the Hedgehog, Sega's 1991 game for the Genesis, plays a short tune of about eight seconds. It was written by Masato Nakamura, the bassist and songwriter of the Japanese pop band Dreams Come True."
+      },
+      {
+        "title": "Not the first choice",
+        "text": "Sega director Fujio Minegishi first suggested his friend Yuzo Kayama to write the music for Sonic the Hedgehog. According to Wikipedia, the Sonic Team felt that Kayama's music wouldn't fit the game, so they asked Masato Nakamura instead. Nakamura had only just joined Dreams Come True and was surprised by the offer, but he said yes because the team wanted to beat Nintendo."
+      },
+      {
+        "title": "The \"Se-ga!\" chant",
+        "text": "Before the title screen of Sonic the Hedgehog appears, the Genesis shouts \"Se-ga!\". According to Sega Retro, sound programmer Yukifumi Makino suggested the chant and Keisuke Tsukahara supplied the recording. Wikipedia adds that the game was meant to have a sound test, but it was dropped for time, and programmer Yuji Naka used the memory he saved for the chant."
+      }
+    ]
+  }
 }

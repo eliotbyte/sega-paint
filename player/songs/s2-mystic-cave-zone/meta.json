@@ -56,5 +56,17 @@
       "name": "Snare",
       "sprite": "snare"
     }
-  ]
+  ],
+  "info": {
+    "pages": [
+      {
+        "title": "Mystic Cave Zone",
+        "text": "Mystic Cave Zone is the sixth level of Sonic the Hedgehog 2 (Sega, 1992), a dark cave. VGMPF lists its tune at two minutes."
+      },
+      {
+        "title": "Eerie wails",
+        "text": "In the Sonic Stadium Soundtrack Squad Review (2010), the reviewer BlitzChris wrote of \"the eerie wails of the dark Mystic Cave\". Another reviewer, T-BIRD, named this tune his favorite on the Genesis version and praised its slap bass."
+      }
+    ]
+  }
 }

@@ -56,5 +56,13 @@
       "name": "Snare",
       "sprite": "snare"
     }
-  ]
+  ],
+  "info": {
+    "pages": [
+      {
+        "title": "Ending Theme",
+        "text": "The ending theme of Sonic the Hedgehog 2 (Sega, 1992) is a medley of themes from the game, over a minute long. The Sonic Stadium reviewer JezMM said in 2010 that \"the 16-bit ending uses the classic medley formula\"."
+      }
+    ]
+  }
 }

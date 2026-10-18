@@ -56,5 +56,17 @@
       "name": "Snare",
       "sprite": "snare"
     }
-  ]
+  ],
+  "info": {
+    "pages": [
+      {
+        "title": "Ending Theme",
+        "text": "The ending theme of Sonic the Hedgehog (Sega, 1991) plays when Sonic has beaten Dr. Eggman. It is short, only about 18 seconds in VGMPF's list. The composer of the game is Masato Nakamura of Dreams Come True."
+      },
+      {
+        "title": "Two endings",
+        "text": "Sonic the Hedgehog has two endings, according to Wikipedia. If Sonic collected all six Chaos Emeralds, the full ending plays. If he didn't, a different ending shows Dr. Eggman juggling the emeralds that the player missed."
+      }
+    ]
+  }
 }

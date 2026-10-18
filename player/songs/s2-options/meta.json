@@ -60,5 +60,13 @@
       "name": "Tom low",
       "sprite": "tom"
     }
-  ]
+  ],
+  "info": {
+    "pages": [
+      {
+        "title": "Options",
+        "text": "The options menu of Sonic the Hedgehog 2 (Sega, 1992) has its own tune, only about 22 seconds long in VGMPF's track list. Sega Retro lists it as number 11 in the game's table of music, and credits it, like almost everything else in the game, to Masato Nakamura."
+      }
+    ]
+  }
 }

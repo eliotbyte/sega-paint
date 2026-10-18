@@ -68,5 +68,21 @@
       "name": "Tom low",
       "sprite": "tom"
     }
-  ]
+  ],
+  "info": {
+    "pages": [
+      {
+        "title": "Unused (Sound Test 10)",
+        "text": "This tune is in Sonic the Hedgehog 2 (Sega, 1992), but the game never plays it. It is number 10 in the table of music, and Sega Retro marks it as not used. It can only be heard in the sound test."
+      },
+      {
+        "title": "Hidden Palace",
+        "text": "Sega Retro calls this tune the music of Hidden Palace Zone, a secret level that Sonic the Hedgehog 2 was meant to have. Wikipedia says the level was cut for time and cartridge space. It came back in the 2013 remake of the game. Craig Stitt, an artist on the team, made its graphics."
+      },
+      {
+        "title": "A version with an ending",
+        "text": "Wikipedia says that an earlier demo version of this tune has a proper ending where the final game's version loops. The tune is listed as \"STH2 Unused Song\" on the 2011 soundtrack album."
+      }
+    ]
+  }
 }

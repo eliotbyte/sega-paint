@@ -41,5 +41,17 @@
       "name": "Swell",
       "sprite": "moon"
     }
-  ]
+  ],
+  "info": {
+    "pages": [
+      {
+        "title": "Stage Clear",
+        "text": "The Stage Clear jingle of Vectorman (BlueSky Software, 1995) lasts about five seconds."
+      },
+      {
+        "title": "Counting the score",
+        "text": "At the end of each stage of Vectorman, bonus points are given for the time left, the TVs destroyed and the photons collected, according to Sega Retro. There is also a \"Pacifist Bonus\" for finishing a stage without firing a shot."
+      }
+    ]
+  }
 }

@@ -64,5 +64,17 @@
       "name": "Timpani deep",
       "sprite": "mushroom"
     }
-  ]
+  ],
+  "info": {
+    "pages": [
+      {
+        "title": "Final Boss",
+        "text": "The final boss theme of Sonic the Hedgehog 2 (Sega, 1992) is the longest battle music in the game, 2 minutes 3 seconds in VGMPF's list. Sega Retro credits it to Masato Nakamura."
+      },
+      {
+        "title": "The last 48 hours",
+        "text": "According to Wikipedia, Sonic the Hedgehog 2 could be played from the first level to the end for the first time only in the last 48 hours of its development. The game came out on November 21, 1992 in Japan and three days later in the West."
+      }
+    ]
+  }
 }

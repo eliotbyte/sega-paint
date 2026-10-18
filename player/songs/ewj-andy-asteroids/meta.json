@@ -54,5 +54,21 @@
       "name": "Swish",
       "sprite": "plane"
     }
-  ]
+  ],
+  "info": {
+    "pages": [
+      {
+        "title": "Andy Asteroids?",
+        "text": "Andy Asteroids is the race that follows every level of Earthworm Jim (Shiny Entertainment, 1994). Jim flies his rocket through a tunnel against Psy-Crow, dodging asteroids and collecting fuel pods. It was named after Andy Astor, one of the game's programmers, according to Sega Retro. VGMPF credits the music to Tony Bernetich."
+      },
+      {
+        "title": "A banjo in space",
+        "text": "The Sega-16 review by Platonism (2005) praised \"deliberately out-of-place tunes\" in Earthworm Jim and gave as an example a \"banjo song during a race in space\"."
+      },
+      {
+        "title": "Programmed on the Super NES",
+        "text": "According to Wikipedia, programmer Nick Jones wrote the Andy Asteroids races for the Super NES first, and then converted them to the Genesis."
+      }
+    ]
+  }
 }

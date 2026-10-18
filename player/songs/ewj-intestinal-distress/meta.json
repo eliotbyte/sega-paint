@@ -32,5 +32,21 @@
       "color": "#1fbfa5"
     }
   },
-  "samples": []
+  "samples": [],
+  "info": {
+    "pages": [
+      {
+        "title": "Intestinal Distress",
+        "text": "Intestinal Distress is a level that only the Genesis version of Earthworm Jim (Shiny Entertainment, 1994) has. Its boss is Doc Duodenum. The Super NES and PC versions leave the level out. VGMPF lists the composer of this track as unknown."
+      },
+      {
+        "title": "Built in a night",
+        "text": "Nick Bruty, the art director of Earthworm Jim, said that Sega asked Shiny to add Intestinal Distress, and in exchange Sega lowered the price of making the cartridges. According to Wikipedia, the team designed the level overnight and finished the coding and testing in one day, the day the game went to print."
+      },
+      {
+        "title": "Ambient",
+        "text": "The Sega-16 review by Platonism (2005) called the music of Earthworm Jim \"ambient in tone\" in the case of Intestinal Distress, while other levels have \"solid beats\". The recording of this tune in this player uses no sampled sounds at all."
+      }
+    ]
+  }
 }

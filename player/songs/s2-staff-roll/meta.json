@@ -88,5 +88,21 @@
       "name": "Low tom low",
       "sprite": "mushroom"
     }
-  ]
+  ],
+  "info": {
+    "pages": [
+      {
+        "title": "Staff Roll",
+        "text": "The staff roll of Sonic the Hedgehog 2 (Sega, 1992) is the longest piece of music in the game, 2 minutes 38 seconds in VGMPF's list."
+      },
+      {
+        "title": "A song as a gift",
+        "text": "Masato Nakamura, the composer of Sonic the Hedgehog 2, wrote a song called \"Sweet Sweet Sweet\" for Dreams Come True's 1992 album The Swinging Star. According to Wikipedia, he meant it as an alternate ending theme and a gift for the game's developers. In 2006, the singer Akon remixed it for the game Sonic the Hedgehog."
+      },
+      {
+        "title": "Seven sound assistants",
+        "text": "The credits of Sonic the Hedgehog 2 name Masato Nakamura as music composer and Tomoyuki Shimada as sound programmer. They also list seven sound assistants under nicknames, such as Macky, Jimita and Ippo. Wikipedia adds that five or six people converted Nakamura's music for the Genesis."
+      }
+    ]
+  }
 }

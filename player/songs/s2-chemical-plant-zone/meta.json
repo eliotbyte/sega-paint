@@ -46,5 +46,21 @@
       "name": "Snare",
       "sprite": "snare"
     }
-  ]
+  ],
+  "info": {
+    "pages": [
+      {
+        "title": "Chemical Plant Zone",
+        "text": "Chemical Plant Zone is the second level of Sonic the Hedgehog 2 (Sega, 1992). VGMPF lists its tune at just over two minutes."
+      },
+      {
+        "title": "A convincing slap bass",
+        "text": "In the Sonic Stadium Soundtrack Squad Review of 2010, the reviewer T-BIRD praised Chemical Plant Zone for \"an incredibly convincing slap-bass synthesised by Nakamura-san\", meaning the composer Masato Nakamura. JezMM and Extaticus both named it their favorite tune on the Genesis version."
+      },
+      {
+        "title": "Back in 2017",
+        "text": "Sega Retro lists Masato Nakamura's music for Chemical Plant Zone among his credits in Sonic Mania (2017), a new game that brought the old zone back."
+      }
+    ]
+  }
 }

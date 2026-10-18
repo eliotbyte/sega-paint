@@ -42,5 +42,13 @@
       "color": "#e6b800"
     }
   },
-  "samples": []
+  "samples": [],
+  "info": {
+    "pages": [
+      {
+        "title": "Special Stage",
+        "text": "The special stage of Sonic the Hedgehog (Sega, 1991) is a spinning maze in which Sonic hunts for a Chaos Emerald. To get in, Sonic finishes the first or second act of a zone with at least 50 rings and jumps through the giant ring at the end. Sega Retro credits the stage's game system to Naoto Ohshima, who also created Sonic. VGMPF lists the tune at 1 minute 16 seconds."
+      }
+    ]
+  }
 }

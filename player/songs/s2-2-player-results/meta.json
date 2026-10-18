@@ -56,5 +56,17 @@
       "name": "Tom hi",
       "sprite": "ring"
     }
-  ]
+  ],
+  "info": {
+    "pages": [
+      {
+        "title": "2 Player Results",
+        "text": "The 2 Player Results tune of Sonic the Hedgehog 2 (Sega, 1992) plays after two players have raced each other. It is the first entry in the game's table of music, number 01."
+      },
+      {
+        "title": "Five ways to win",
+        "text": "In the two-player mode of Sonic the Hedgehog 2, the players are ranked in five areas, according to Wikipedia. These are score, time, the rings held at the end of a level, the total rings collected and the item boxes broken. The player who wins the most areas wins the race."
+      }
+    ]
+  }
 }

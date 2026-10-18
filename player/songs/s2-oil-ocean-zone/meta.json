@@ -56,5 +56,17 @@
       "name": "Snare",
       "sprite": "snare"
     }
-  ]
+  ],
+  "info": {
+    "pages": [
+      {
+        "title": "Oil Ocean Zone",
+        "text": "Oil Ocean Zone is the seventh level of Sonic the Hedgehog 2 (Sega, 1992). Its graphics were made by the artist Craig Stitt, according to Sega Retro. Wikipedia says that the zone's artwork was redone before the game was finished."
+      },
+      {
+        "title": "A slower tune",
+        "text": "In the Sonic Stadium Soundtrack Squad Review (2010), the reviewer JezMM counted Oil Ocean Zone among the slower tunes in Sonic the Hedgehog 2 that he found \"either repetitive or just a bit dull\"."
+      }
+    ]
+  }
 }

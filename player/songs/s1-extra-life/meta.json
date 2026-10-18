@@ -50,5 +50,17 @@
       "name": "Timpani deep",
       "sprite": "mushroom"
     }
-  ]
+  ],
+  "info": {
+    "pages": [
+      {
+        "title": "Extra Life",
+        "text": "The extra life jingle of Sonic the Hedgehog (Sega, 1991) lasts three seconds. Sonic gets an extra life by collecting 100 rings. Sega Retro lists the jingle as \"1-UP\" and credits it to Masato Nakamura."
+      },
+      {
+        "title": "Back in the sequel",
+        "text": "The 1-up jingle of Sonic the Hedgehog 2 (1992) starts all 39 of its melody notes on exactly the same beats as this one in the recordings of both games in this player, so the sequel reuses its rhythm."
+      }
+    ]
+  }
 }

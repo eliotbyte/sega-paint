@@ -32,5 +32,17 @@
       "color": "#a06bff"
     }
   },
-  "samples": []
+  "samples": [],
+  "info": {
+    "pages": [
+      {
+        "title": "Who Turned Out the Lights?",
+        "text": "Who Turned Out the Lights? is a secret level of Earthworm Jim (Shiny Entertainment, 1994). Halfway through Level 5, Jim can jump into the red dot of a black box, and everything goes dark. Jim and his enemies are silhouettes, and only their eyes can be seen."
+      },
+      {
+        "title": "Five rooms and a pair of eyes",
+        "text": "According to Sega Retro, the secret level of Earthworm Jim called Who Turned Out the Lights? has five short rooms. In the last one, a giant pair of eyes roars and chases Jim. When he escapes, three rays of light carry him back to the place in Level 5 where he left, with all his items as they were. VGMPF credits the music to Tony Bernetich."
+      }
+    ]
+  }
 }

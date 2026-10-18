@@ -32,5 +32,13 @@
       "color": "#2fb8e8"
     }
   },
-  "samples": []
+  "samples": [],
+  "info": {
+    "pages": [
+      {
+        "title": "Day 16: Twist and Shout",
+        "text": "Twist and Shout is Day 16 of Vectorman (BlueSky Software, 1995), the last day. Vectorman fights the crazed Orbot Warhead here."
+      }
+    ]
+  }
 }

@@ -7,5 +7,17 @@
       "color": "#a06bff"
     }
   },
-  "samples": []
+  "samples": [],
+  "info": {
+    "pages": [
+      {
+        "title": "Lost the Race...",
+        "text": "\"Lost the Race\" is a jingle of Earthworm Jim (Shiny Entertainment, 1994) that lasts about four seconds. By its name it belongs to the Andy Asteroids races, which Jim can lose to Psy-Crow."
+      },
+      {
+        "title": "What happens next",
+        "text": "According to Sega Retro, if Jim loses a race in Andy Asteroids, he must fight Psy-Crow himself before the next level starts."
+      }
+    ]
+  }
 }

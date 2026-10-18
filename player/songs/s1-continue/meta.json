@@ -36,5 +36,17 @@
       "name": "Snare",
       "sprite": "snare"
     }
-  ]
+  ],
+  "info": {
+    "pages": [
+      {
+        "title": "Continue",
+        "text": "The Continue screen of Sonic the Hedgehog (Sega, 1991) has a short tune of about nine seconds. Sega Retro credits it to Masato Nakamura. According to Wikipedia, Sonic earns continues in the bonus stages by collecting 50 rings."
+      },
+      {
+        "title": "Back in the sequel",
+        "text": "The Continue tune of Sonic the Hedgehog 2 (1992) starts all 101 of its melody notes on exactly the same beats as this one in the recordings of both games in this player, so the sequel reuses its rhythm."
+      }
+    ]
+  }
 }

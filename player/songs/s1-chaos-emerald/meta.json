@@ -42,5 +42,13 @@
       "color": "#e6b800"
     }
   },
-  "samples": []
+  "samples": [],
+  "info": {
+    "pages": [
+      {
+        "title": "Chaos Emerald",
+        "text": "The Chaos Emerald jingle of Sonic the Hedgehog (Sega, 1991) lasts less than three seconds. It is one of only two pieces of music in the game that Masato Nakamura didn't write. Sega Retro and Wikipedia credit it to the sound programmer Yukifumi Makino."
+      }
+    ]
+  }
 }

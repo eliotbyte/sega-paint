@@ -56,5 +56,21 @@
       "name": "Snare",
       "sprite": "snare"
     }
-  ]
+  ],
+  "info": {
+    "pages": [
+      {
+        "title": "Casino Night Zone",
+        "text": "Casino Night Zone is the fourth level of Sonic the Hedgehog 2 (Sega, 1992). Its tune is one of the longer ones in the game, over two minutes in VGMPF's list."
+      },
+      {
+        "title": "Brass and slap bass",
+        "text": "The Sonic Stadium reviewer BlitzChris praised \"the simulated brass and slap-bass in Casino Night\" in a 2010 review of the soundtrack, and said that the Casino Night tune for two players was his favorite of all."
+      },
+      {
+        "title": "A zone inspired by pinball",
+        "text": "Wikipedia says that Casino Night Zone was inspired by pinball, and that its artwork was reworked shortly before the game came out."
+      }
+    ]
+  }
 }

@@ -54,5 +54,13 @@
       "name": "Snare 3",
       "sprite": "snare"
     }
-  ]
+  ],
+  "info": {
+    "pages": [
+      {
+        "title": "Rodeo Jim",
+        "text": "\"Rodeo Jim\" is the name that the soundtrack rip gives to a short fanfare of Earthworm Jim (Shiny Entertainment, 1994), about eight seconds long. VGMPF lists the composer as unknown, and the sources don't say where in the game it plays."
+      }
+    ]
+  }
 }

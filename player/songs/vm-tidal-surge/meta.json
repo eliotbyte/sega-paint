@@ -32,5 +32,17 @@
       "color": "#1fbfa5"
     }
   },
-  "samples": []
+  "samples": [],
+  "info": {
+    "pages": [
+      {
+        "title": "Day 3: Tidal Surge / Day 12: Nightscape / Bonus Round",
+        "text": "Tidal Surge is Day 3 of Vectorman (BlueSky Software, 1995). The same tune plays on Day 12, Nightscape, and in the bonus round."
+      },
+      {
+        "title": "The bonus round",
+        "text": "In the bonus round of Vectorman, the player is a green sphere in the center of the screen, and enemies come in from the sides. There is a one-minute timer. Surviving gives a Success Bonus of 25,000 points, and losing still gives a Loser Bonus of 5,000, says Sega Retro. To get in, the player has to find and destroy a satellite dish."
+      }
+    ]
+  }
 }

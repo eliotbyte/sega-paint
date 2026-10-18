@@ -56,5 +56,21 @@
       "name": "Snare",
       "sprite": "snare"
     }
-  ]
+  ],
+  "info": {
+    "pages": [
+      {
+        "title": "Opening Theme",
+        "text": "The title screen of Sonic the Hedgehog 2, Sega's 1992 game for the Genesis, plays a short tune of about eight seconds. Like all the music in the game, it was written by Masato Nakamura, the bassist of the Japanese pop band Dreams Come True."
+      },
+      {
+        "title": "Music that shows progress",
+        "text": "Masato Nakamura, who wrote the music for Sonic the Hedgehog 2, said that he \"wanted to create music that showed progress\" after the first game. According to Wikipedia, he compared the step from the first Sonic game to the second with the sequels of the Indiana Jones films. By then Nakamura had become famous in Japan, and he asked for a much higher fee."
+      },
+      {
+        "title": "The tracks Sega rejected",
+        "text": "Sega of America wanted Sonic the Hedgehog 2 to use music by an American composer, but the Japanese team turned it down. Artist Yasushi Yamaguchi told a Japanese magazine in 2017 that \"all of the tracks were awful, so together we rejected all of them\". After that, he said, \"we were allowed to use Dreams Come True\". The rejected tracks have never been found."
+      }
+    ]
+  }
 }

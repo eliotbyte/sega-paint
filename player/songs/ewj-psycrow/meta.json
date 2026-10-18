@@ -54,5 +54,17 @@
       "name": "Tom",
       "sprite": "tom"
     }
-  ]
+  ],
+  "info": {
+    "pages": [
+      {
+        "title": "Psycrow!",
+        "text": "Psy-Crow is Jim's rival in Earthworm Jim (Shiny Entertainment, 1994), a giant crow in a spacesuit who also appears as a boss. In the Sega Retro summary of the story, he works for the evil Queen and blasts the ship that stole the super suit, which then falls on Jim."
+      },
+      {
+        "title": "The fish-hook gun",
+        "text": "When Jim loses a race against Psy-Crow in Earthworm Jim, the crow attacks him with a fish-hook gun. Jim has to shoot him until he's dazed, and then whip him, says Sega Retro."
+      }
+    ]
+  }
 }

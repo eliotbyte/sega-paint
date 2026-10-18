@@ -42,5 +42,17 @@
       "color": "#e6b800"
     }
   },
-  "samples": []
+  "samples": [],
+  "info": {
+    "pages": [
+      {
+        "title": "Chaos Emerald",
+        "text": "The Chaos Emerald jingle of Sonic the Hedgehog 2 (Sega, 1992) lasts about three seconds. Like the drowning jingle, it is credited to the sound assistant Yukifumi Makino, not to the composer Masato Nakamura."
+      },
+      {
+        "title": "Seven emeralds",
+        "text": "Sonic the Hedgehog 2 has seven Chaos Emeralds, one more than the first game, and Dr. Robotnik wants them to power his space station, the Death Egg, says Wikipedia."
+      }
+    ]
+  }
 }

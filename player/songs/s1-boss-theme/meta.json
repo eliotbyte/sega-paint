@@ -55,5 +55,17 @@
       "name": "Timpani low",
       "sprite": "tom"
     }
-  ]
+  ],
+  "info": {
+    "pages": [
+      {
+        "title": "Boss Theme",
+        "text": "The boss theme of Sonic the Hedgehog (Sega, 1991) plays whenever Sonic fights Dr. Eggman, who waits at the end of every zone. VGMPF lists it at 52 seconds."
+      },
+      {
+        "title": "Music for a climax",
+        "text": "In an interview with Sega, Masato Nakamura, the composer of Sonic the Hedgehog, said that he wanted to write \"climactic music for when bosses would show up\". Sega Retro credits the design of the boss fights to Naoto Ohshima, the creator of Sonic."
+      }
+    ]
+  }
 }

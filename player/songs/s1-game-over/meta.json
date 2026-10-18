@@ -37,5 +37,17 @@
       "name": "Kick",
       "sprite": "drum"
     }
-  ]
+  ],
+  "info": {
+    "pages": [
+      {
+        "title": "Game Over",
+        "text": "The Game Over tune of Sonic the Hedgehog (Sega, 1991) plays for about eleven seconds after Sonic loses his last life. Sega Retro credits it to Masato Nakamura."
+      },
+      {
+        "title": "Back in the sequel",
+        "text": "Sonic the Hedgehog 2 (1992) plays a Game Over tune that starts all 66 of its melody notes on exactly the same beats as this one in the recordings of both games in this player, so the sequel reuses its rhythm."
+      }
+    ]
+  }
 }

@@ -64,5 +64,21 @@
       "name": "Tom low",
       "sprite": "tom"
     }
-  ]
+  ],
+  "info": {
+    "pages": [
+      {
+        "title": "Emerald Hill Zone",
+        "text": "Emerald Hill Zone is the first level of Sonic the Hedgehog 2 (Sega, 1992), and the tune that opens the game for most players. Masato Nakamura, who composed it, said in an interview with Sega that the sequel \"happened while recording our fourth album in London\" with his band Dreams Come True."
+      },
+      {
+        "title": "Better than the first game?",
+        "text": "In the Sonic Stadium Soundtrack Squad Review of 2010, the reviewer JezMM said of Emerald Hill Zone that \"this is cooler than Sonic 1\", with a faster tempo and snappier drums. His colleague Extaticus counted it, together with Chemical Plant Zone, among \"the absolute finest pieces of music on the game\"."
+      },
+      {
+        "title": "On the big screen",
+        "text": "Wikipedia says that the Emerald Hill Zone melody was used in a promotion for the second Sonic the Hedgehog movie, about thirty years after Masato Nakamura wrote it."
+      }
+    ]
+  }
 }

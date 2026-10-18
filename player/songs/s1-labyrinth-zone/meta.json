@@ -56,5 +56,17 @@
       "name": "Snare",
       "sprite": "snare"
     }
-  ]
+  ],
+  "info": {
+    "pages": [
+      {
+        "title": "Labyrinth Zone",
+        "text": "Labyrinth Zone is the water level of Sonic the Hedgehog (Sega, 1991). Its background art was made by Rieko Kodama, who is credited in the game as \"Phenix Rie\"."
+      },
+      {
+        "title": "The sound of a bubble",
+        "text": "In Labyrinth Zone, Sonic can breathe in the air bubbles that rise from the floor. Sega Retro credits the little sound of that breath to Yukifumi Makino, one of the two sound programmers of Sonic the Hedgehog, who is credited in the game as \"Macky\"."
+      }
+    ]
+  }
 }

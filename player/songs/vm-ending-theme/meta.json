@@ -42,5 +42,21 @@
       "name": "Kick",
       "sprite": "drum"
     }
-  ]
+  ],
+  "info": {
+    "pages": [
+      {
+        "title": "Ending Theme",
+        "text": "The ending theme of Vectorman (BlueSky Software, 1995) is a short tune of about 33 seconds. The credits of the game can be seen after finishing it and in demo mode."
+      },
+      {
+        "title": "A prize on the cartridge",
+        "text": "Some North American cartridges of Vectorman, chosen at random, show a special \"you win\" screen at the end of the game, with a phone number. Players who sent such a cartridge back to Sega of America before July 31, 1996 could win $25,000, one of ten prizes of $10,000 or one of 90 Sega Saturns, says Sega Retro."
+      },
+      {
+        "title": "A sequel",
+        "text": "Jon Holland, the composer of Vectorman, returned for the sequel Vectorman 2, which came out in 1996, according to Wikipedia."
+      }
+    ]
+  }
 }

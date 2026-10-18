@@ -50,5 +50,13 @@
       "name": "Timpani deep",
       "sprite": "mushroom"
     }
-  ]
+  ],
+  "info": {
+    "pages": [
+      {
+        "title": "Extra Life",
+        "text": "The extra life jingle of Sonic the Hedgehog 2 (Sega, 1992) lasts three seconds. Sega Retro lists it as \"1-UP\", number 18 in the game's table of music."
+      }
+    ]
+  }
 }

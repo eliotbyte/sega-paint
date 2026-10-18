@@ -54,5 +54,13 @@
       "name": "Tom 2",
       "sprite": "tom"
     }
-  ]
+  ],
+  "info": {
+    "pages": [
+      {
+        "title": "Buttville: The Descent",
+        "text": "Buttville is the last place in Earthworm Jim (Shiny Entertainment, 1994). It begins with a short maze of thorns that Jim crosses by spinning his head like a helicopter. Sega Retro calls it short but difficult. VGMPF credits this 1 minute 32 second tune to Mical Pedriana."
+      }
+    ]
+  }
 }

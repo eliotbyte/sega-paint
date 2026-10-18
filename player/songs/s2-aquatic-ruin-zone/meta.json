@@ -72,5 +72,17 @@
       "name": "Tom low",
       "sprite": "tom"
     }
-  ]
+  ],
+  "info": {
+    "pages": [
+      {
+        "title": "Aquatic Ruin Zone",
+        "text": "Aquatic Ruin Zone is the third level of Sonic the Hedgehog 2 (Sega, 1992). VGMPF lists its tune at 1 minute 23 seconds."
+      },
+      {
+        "title": "Catchy or dull?",
+        "text": "The reviewers of the Sonic Stadium Soundtrack Squad Review (2010) were not sure about this one. Extaticus called it one of the \"catchy classics\" that stay in your head for years. But JezMM put Aquatic Ruin Zone with the slower tunes that \"felt either repetitive or just a bit dull\"."
+      }
+    ]
+  }
 }

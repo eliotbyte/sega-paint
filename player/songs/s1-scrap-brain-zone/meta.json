@@ -64,5 +64,17 @@
       "name": "Timpani mid",
       "sprite": "coin"
     }
-  ]
+  ],
+  "info": {
+    "pages": [
+      {
+        "title": "Scrap Brain Zone",
+        "text": "Scrap Brain Zone is the last of the six main levels of Sonic the Hedgehog (Sega, 1991), and it has the longest tune in the game. VGMPF's track list gives it 2 minutes 34 seconds. No other zone tune is longer than 1 minute 41 seconds."
+      },
+      {
+        "title": "The designer who talked to the composer",
+        "text": "Hirokazu Yasuhara, credited as \"Carol Yas\", designed every zone of Sonic the Hedgehog, and Sega Retro says he also coordinated the music with the composer, Masato Nakamura. Nakamura said in an interview with Sonic City that the development staff took him through each stage, describing its color scheme and what the scenery looks like."
+      }
+    ]
+  }
 }

@@ -37,5 +37,17 @@
       "name": "Snare",
       "sprite": "snare"
     }
-  ]
+  ],
+  "info": {
+    "pages": [
+      {
+        "title": "Drowning",
+        "text": "The drowning tune of Sonic the Hedgehog (Sega, 1991) is the warning jingle that plays when Sonic has been under water too long. It is credited to sound programmer Yukifumi Makino, not to the game's main composer Masato Nakamura."
+      },
+      {
+        "title": "Eighteen seconds",
+        "text": "According to Sonic Retro, the countdown music in Sonic the Hedgehog begins after about 18 seconds under water, with warning bells at 5, 10 and 15 seconds. Sonic then has five numbered breaths, about twelve seconds, before he drowns."
+      }
+    ]
+  }
 }

@@ -58,5 +58,21 @@
       "name": "Crash",
       "sprite": "cymbal"
     }
-  ]
+  ],
+  "info": {
+    "pages": [
+      {
+        "title": "New Junk City",
+        "text": "New Junk City is the first level of Earthworm Jim, the 1994 Genesis game by Shiny Entertainment: a giant rubbish dump where Jim bounces on tires, hooks onto ziplines and fights crows. The cartridge credits the game's music and sound effects to one person, \"Mark Miller\". Its tune runs over four minutes in VGMPF's list."
+      },
+      {
+        "title": "Who wrote the music?",
+        "text": "The credits of Earthworm Jim name only \"Music & FX: Mark Miller\". Many sites credit Tommy Tallarico, the composer who worked with the game's programmer David Perry on earlier games. And VGMPF, the video game music wiki, lists different composers for different tracks, such as Keith Arem for this one. It says it checked the list with Arem and with a comment by another credited composer, Tony Bernetich, on a YouTube video."
+      },
+      {
+        "title": "The man from Neuromantic",
+        "text": "The magazine Electronic Games wrote in October 1994 about Mark Miller, the founder of the San Francisco company Neuromantic Productions, who had scored more than 40 games for the Genesis, including Toejam & Earl. Miller said that David Perry had checked him out and he had checked Perry out. The idea of a game as subversive as Earthworm Jim, made by such a polished team, was \"very exciting\" to him."
+      }
+    ]
+  }
 }

@@ -32,5 +32,17 @@
       "color": "#ff5d8f"
     }
   },
-  "samples": []
+  "samples": [],
+  "info": {
+    "pages": [
+      {
+        "title": "Day 1: Terraport / Day 6: Bamboo Mill",
+        "text": "Terraport is Day 1 of Vectorman (BlueSky Software, 1995), and its boss is the Sludge Barge. Its tune plays again on Day 6, Bamboo Mill."
+      },
+      {
+        "title": "Flags from the roof",
+        "text": "The animated flags in the first level of Vectorman are real. According to Sega Retro, Mark Lorenzen, one of the game's designers, filmed the real flags on top of BlueSky's offices on a windy day, and the team digitized the video."
+      }
+    ]
+  }
 }

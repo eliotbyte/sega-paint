@@ -32,5 +32,21 @@
       "color": "#ff6a3d"
     }
   },
-  "samples": []
+  "samples": [],
+  "info": {
+    "pages": [
+      {
+        "title": "Options",
+        "text": "The options screen of Vectorman (BlueSky Software, 1995) has a tune of its own. The menu lists sound effects, music, difficulty, a music test, a sound test, the buttons and an information screen."
+      },
+      {
+        "title": "Lame, Wicked or Insane",
+        "text": "Vectorman has three difficulty levels, named Lame, Wicked and Insane. According to Sega Retro, the player gets an extra life every 10,000 points on Lame, 20,000 on Wicked and 40,000 on Insane."
+      },
+      {
+        "title": "A longer version on CD",
+        "text": "Jon Holland, who wrote the music of Vectorman, also made the CD Sega Tunes: Vectorman in 1996, with new versions of the music. Its track called Options runs 3 minutes 43 seconds, while the tune in the game is 2 minutes 19 seconds in VGMPF's list."
+      }
+    ]
+  }
 }

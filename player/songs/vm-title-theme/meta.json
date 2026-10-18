@@ -42,5 +42,21 @@
       "name": "Kick",
       "sprite": "drum"
     }
-  ]
+  ],
+  "info": {
+    "pages": [
+      {
+        "title": "Title Theme",
+        "text": "The title screen of Vectorman, the 1995 Genesis game by BlueSky Software and Sega, plays a short tune of about 26 seconds. The game's credits list one person under \"Sound And Music\", Jon Holland."
+      },
+      {
+        "title": "The DJ who kept calling",
+        "text": "According to Sega Retro, Jon Holland was an electronic musician and DJ who had been cold-calling BlueSky Software for some time and had left a demo tape with the company's usual composer, Sam Powell. When Powell was busy with other projects, BlueSky hired Holland for Vectorman. The credits of the game thank Sam Powell."
+      },
+      {
+        "title": "Techno, good or bad",
+        "text": "GamePro wrote in its review in November 1995 that in Vectorman \"the music is techno at its worst, but it's still pretty good\"."
+      }
+    ]
+  }
 }

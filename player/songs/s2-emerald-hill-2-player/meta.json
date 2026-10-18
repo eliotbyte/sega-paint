@@ -64,5 +64,17 @@
       "name": "Tom low",
       "sprite": "tom"
     }
-  ]
+  ],
+  "info": {
+    "pages": [
+      {
+        "title": "Emerald Hill (2 Player)",
+        "text": "Emerald Hill Zone is one of the three levels of the two-player race in Sonic the Hedgehog 2 (Sega, 1992), and this is the music for it. It's a different arrangement from the one-player tune."
+      },
+      {
+        "title": "Six months for one mode",
+        "text": "According to Wikipedia, the two-player mode of Sonic the Hedgehog 2 took six months to develop. Programmer Yuji Naka used the interlaced display mode of the Genesis to split the screen in two."
+      }
+    ]
+  }
 }

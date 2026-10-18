@@ -32,5 +32,17 @@
       "color": "#ff70c8"
     }
   },
-  "samples": []
+  "samples": [],
+  "info": {
+    "pages": [
+      {
+        "title": "Day 5: Arctic Ridge / Day 9: Hydroponic Lab",
+        "text": "Arctic Ridge is Day 5 of Vectorman (BlueSky Software, 1995). The same tune, the longest of the game at 3 minutes 17 seconds in VGMPF's list, plays on Day 9, Hydroponic Lab, where the boss is the Acrobat."
+      },
+      {
+        "title": "Eye candy",
+        "text": "GamePro wrote in November 1995 that in Vectorman, \"everything, including the backgrounds, is eye candy\"."
+      }
+    ]
+  }
 }

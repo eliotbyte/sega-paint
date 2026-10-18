@@ -56,5 +56,17 @@
       "name": "Snare",
       "sprite": "snare"
     }
-  ]
+  ],
+  "info": {
+    "pages": [
+      {
+        "title": "Marble Zone",
+        "text": "Marble Zone is the second level of Sonic the Hedgehog (Sega, 1991). The music is by Masato Nakamura of Dreams Come True. Its drums come from the Genesis's noise generator, which is tuned to follow the third tone channel so that the noise gets a pitch. Only this tune and the staff roll use that trick."
+      },
+      {
+        "title": "The unused 8-bit version",
+        "text": "Yuzo Koshiro, a Japanese composer, adapted Masato Nakamura's music for the 8-bit Master System and Game Gear versions of Sonic the Hedgehog. According to Wikipedia, only three of his converted tracks were used. One that wasn't was his 8-bit arrangement of the Marble Zone theme."
+      }
+    ]
+  }
 }

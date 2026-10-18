@@ -56,5 +56,17 @@
       "name": "Snare",
       "sprite": "snare"
     }
-  ]
+  ],
+  "info": {
+    "pages": [
+      {
+        "title": "Death Egg Zone",
+        "text": "Death Egg Zone is the last level of Sonic the Hedgehog 2 (Sega, 1992). The Death Egg is Dr. Robotnik's space station, which needs the Chaos Emeralds to run, according to Wikipedia. VGMPF lists the tune at 1 minute 52 seconds."
+      },
+      {
+        "title": "The part you never hear",
+        "text": "In the Sonic Stadium Soundtrack Squad Review (2010), the reviewer JezMM said that the part heard in the game is great, but \"the unused portion of the song is just weird\"."
+      }
+    ]
+  }
 }

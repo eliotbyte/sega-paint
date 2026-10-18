@@ -56,5 +56,17 @@
       "name": "Snare",
       "sprite": "snare"
     }
-  ]
+  ],
+  "info": {
+    "pages": [
+      {
+        "title": "Sky Chase Zone",
+        "text": "Sky Chase Zone is the ninth level of Sonic the Hedgehog 2 (Sega, 1992), in which Sonic rides a biplane toward Dr. Robotnik's base."
+      },
+      {
+        "title": "All sky, no chase",
+        "text": "In the Sonic Stadium Soundtrack Squad Review (2010), the reviewer JezMM called the Sky Chase Zone tune \"a beautiful song\", but felt it was all \"sky\" and no \"chase\"."
+      }
+    ]
+  }
 }

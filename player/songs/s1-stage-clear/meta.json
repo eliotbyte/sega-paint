@@ -59,5 +59,17 @@
       "name": "Timpani deep",
       "sprite": "mushroom"
     }
-  ]
+  ],
+  "info": {
+    "pages": [
+      {
+        "title": "Stage Clear",
+        "text": "The Stage Clear jingle of Sonic the Hedgehog (Sega, 1991) plays when Sonic finishes an act. It lasts six seconds. Sega Retro's list of the game's music, which calls it \"Act clear\", credits it to Masato Nakamura."
+      },
+      {
+        "title": "Back in the sequel",
+        "text": "Sonic the Hedgehog 2 (1992) has an Act Clear jingle with the same rhythm. In the recordings of both games in this player, all 52 notes of the melody start on exactly the same beats, so the sequel reuses the rhythm of this tune."
+      }
+    ]
+  }
 }

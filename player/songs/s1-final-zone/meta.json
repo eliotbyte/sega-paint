@@ -45,5 +45,13 @@
       "name": "Timpani low",
       "sprite": "tom"
     }
-  ]
+  ],
+  "info": {
+    "pages": [
+      {
+        "title": "Final Zone",
+        "text": "Final Zone is the last level of Sonic the Hedgehog (Sega, 1991), a short single stage. Wikipedia describes it as one last fight with Dr. Eggman inside a large machine. Its tune is among the shortest zone tunes in the game, at 50 seconds in VGMPF's track list."
+      }
+    ]
+  }
 }

@@ -41,5 +41,17 @@
       "name": "Timpani deep",
       "sprite": "mushroom"
     }
-  ]
+  ],
+  "info": {
+    "pages": [
+      {
+        "title": "Wing Fortress Zone",
+        "text": "Wing Fortress Zone is the tenth level of Sonic the Hedgehog 2 (Sega, 1992). In the game's own table of music it comes right before the unused Hidden Palace Zone tune, as number 0F."
+      },
+      {
+        "title": "Eggman's triumph",
+        "text": "In the Sonic Stadium Soundtrack Squad Review (2010), the reviewer JezMM said that the Wing Fortress Zone tune \"perfectly represents Eggman's triumphant creation\"."
+      }
+    ]
+  }
 }

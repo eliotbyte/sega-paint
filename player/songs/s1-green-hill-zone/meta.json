@@ -56,5 +56,21 @@
       "name": "Snare",
       "sprite": "snare"
     }
-  ]
+  ],
+  "info": {
+    "pages": [
+      {
+        "title": "Green Hill Zone",
+        "text": "Green Hill Zone is the first level of Sonic the Hedgehog (Sega, 1991) and the tune that most players remember from it. Composer Masato Nakamura told Sega in an interview that it was the first piece he wrote for the game: \"The first one was the music for the Green Hill zone. After that, I did the opening theme.\""
+      },
+      {
+        "title": "Eight months for one zone",
+        "text": "Programmer Yuji Naka says that Green Hill Zone, the first level of Sonic the Hedgehog, took him about eight months to build, because he kept starting again from scratch. It was redesigned many times so that it would please both Japanese and American players, and its checkered ground was inspired by Yu Suzuki's arcade game Space Harrier. All this is from Wikipedia."
+      },
+      {
+        "title": "Words for the tune",
+        "text": "For Sonic's 30th anniversary in 2021, Dreams Come True released a single called \"Tsugi no Se~no! De – On The Green Hill\". It finally gave the Green Hill Zone theme lyrics. Masato Nakamura, who wrote the original tune for Sonic the Hedgehog, composed the song, and his bandmate Miwa Yoshida wrote the words, according to Video Games Chronicle."
+      }
+    ]
+  }
 }

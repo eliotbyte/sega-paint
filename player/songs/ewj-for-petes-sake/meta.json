@@ -54,5 +54,17 @@
       "name": "Crash",
       "sprite": "cymbal"
     }
-  ]
+  ],
+  "info": {
+    "pages": [
+      {
+        "title": "For Pete's Sake",
+        "text": "For Pete's Sake is the level of Earthworm Jim (Shiny Entertainment, 1994) in which Jim escorts Peter Puppy home. If Peter is hurt or falls off the path, he turns into a demonic beast that grabs Jim in his mouth and flies backward to the last checkpoint. VGMPF credits the music to Keith Arem."
+      },
+      {
+        "title": "A level without a boss",
+        "text": "Sega Retro points out that For Pete's Sake has no boss. The level ends when Peter Puppy goes into a house. Jim can also whip Peter over the house, to reach a harder part of the level with bonus items."
+      }
+    ]
+  }
 }

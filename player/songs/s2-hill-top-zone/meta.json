@@ -41,5 +41,21 @@
       "name": "Snare",
       "sprite": "snare"
     }
-  ]
+  ],
+  "info": {
+    "pages": [
+      {
+        "title": "Hill Top Zone",
+        "text": "Hill Top Zone is the fifth level of Sonic the Hedgehog 2 (Sega, 1992). Its tune is 1 minute 36 seconds long in VGMPF's list."
+      },
+      {
+        "title": "A slower kind of tune",
+        "text": "In the Sonic Stadium Soundtrack Squad Review (2010), the reviewer JezMM listed Hill Top Zone, Aquatic Ruin Zone and Oil Ocean Zone as the slower tunes of Sonic the Hedgehog 2 that felt \"either repetitive or just a bit dull\" to him."
+      },
+      {
+        "title": "A different Sonic 2",
+        "text": "The version of Sonic the Hedgehog 2 for the 8-bit Master System and Game Gear has a completely different soundtrack, by Masafumi Ogata, Naofumi Hataya and Tomonori Sawada, according to Wikipedia."
+      }
+    ]
+  }
 }

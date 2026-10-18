@@ -32,5 +32,17 @@
       "color": "#ffb020"
     }
   },
-  "samples": []
+  "samples": [],
+  "info": {
+    "pages": [
+      {
+        "title": "Day 7: Rock 'n' Roller / Day 14: Underground Vault",
+        "text": "Rock 'N' Roller is Day 7 of Vectorman (BlueSky Software, 1995), an overhead boss stage. The same tune plays on Day 14, Underground Vault."
+      },
+      {
+        "title": "Three bosses",
+        "text": "Day 14 of Vectorman, Underground Vault, has three bosses in a row, according to Sega Retro: Spider Bomber, Piranha and Monkey."
+      }
+    ]
+  }
 }

@@ -46,5 +46,17 @@
       "name": "Snare",
       "sprite": "snare"
     }
-  ]
+  ],
+  "info": {
+    "pages": [
+      {
+        "title": "Super Sonic",
+        "text": "The Super Sonic tune of Sonic the Hedgehog 2 (Sega, 1992) plays when Sonic turns into Super Sonic. According to Wikipedia, he can only do that after collecting all seven Chaos Emeralds, and then by collecting 50 rings."
+      },
+      {
+        "title": "Rings on a clock",
+        "text": "As Super Sonic, Sonic is nearly invincible, runs faster and jumps farther. But he loses one ring every second, and when his rings run out he turns back, says Wikipedia. VGMPF lists the tune at 52 seconds."
+      }
+    ]
+  }
 }

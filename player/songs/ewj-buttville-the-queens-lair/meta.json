@@ -66,5 +66,17 @@
       "name": "Tom 2",
       "sprite": "tom"
     }
-  ]
+  ],
+  "info": {
+    "pages": [
+      {
+        "title": "Buttville: The Queen's Lair",
+        "text": "The Queen's Lair is the end of Earthworm Jim (Shiny Entertainment, 1994), where Jim fights the final boss, Queen Pulsating, Bloated, Festering, Sweaty, Pus-filled, Malformed, Slug-for-a-Butt. VGMPF credits the music to Keith Arem and Mical Pedriana together."
+      },
+      {
+        "title": "The fight",
+        "text": "To beat the Queen in Earthworm Jim, Jim has to stand on the floating Snott platforms that circle her, and shoot her at the 3, 6, 9 and 12 o'clock positions, or whip her once. Then he meets her sister, Princess Whats-Her-Name, says Sega Retro."
+      }
+    ]
+  }
 }

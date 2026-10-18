@@ -56,5 +56,21 @@
       "name": "Snare",
       "sprite": "snare"
     }
-  ]
+  ],
+  "info": {
+    "pages": [
+      {
+        "title": "Special Stage",
+        "text": "The special stage of Sonic the Hedgehog 2 (Sega, 1992) is a half-pipe in three dimensions, where Sonic collects rings for a Chaos Emerald. Sonic can get in by passing a checkpoint with at least 50 rings."
+      },
+      {
+        "title": "Seven stages in a row",
+        "text": "According to Wikipedia, each of the seven special stages in Sonic the Hedgehog 2 asks for a set number of rings, bombs cost ten rings, and the stages get harder and have to be passed in order."
+      },
+      {
+        "title": "Who built the half-pipe",
+        "text": "Sega Retro's credits list Yutaka Sugano for the placement of objects in the special stages of Sonic the Hedgehog 2, and Tim Skelly and Peter Morawiec for their art and computer graphics."
+      }
+    ]
+  }
 }

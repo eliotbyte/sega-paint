@@ -42,5 +42,17 @@
       "name": "Kick",
       "sprite": "drum"
     }
-  ]
+  ],
+  "info": {
+    "pages": [
+      {
+        "title": "Information / Day 8: Death Alley",
+        "text": "This tune plays on the Information screen of Vectorman (BlueSky Software, 1995) and in the level Day 8, Death Alley. VGMPF lists it at 2 minutes 40 seconds."
+      },
+      {
+        "title": "A level that simply ends",
+        "text": "According to Sega Retro, most days of Vectorman end when Vectorman reaches the end of the level, which isn't marked, and does a victory pose. Death Alley, Day 8, is one of them. Bosses end only some of the days."
+      }
+    ]
+  }
 }

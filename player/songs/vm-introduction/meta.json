@@ -32,5 +32,21 @@
       "color": "#1fbfa5"
     }
   },
-  "samples": []
+  "samples": [],
+  "info": {
+    "pages": [
+      {
+        "title": "Introduction",
+        "text": "The introduction of Vectorman (BlueSky Software, 1995) has a tune of its own, about two minutes long. The story that it introduces begins in 2049, when humans have left a polluted Earth and the machines called Orbots clean up after them."
+      },
+      {
+        "title": "The robot who went mad",
+        "text": "In the story of Vectorman, Raster is a high-level Orbot who watches Earth through a planetwide computer network. A lesser Orbot accidentally attaches him to a working nuclear missile, and he goes insane and calls himself Warhead. Vectorman, a sludge barge pilot, comes back from dumping sludge in the sun and finds the other Orbots under Warhead's control."
+      },
+      {
+        "title": "A game against television",
+        "text": "Richard Karpp, a designer of Vectorman, said that in the first discussions of the story, \"we wanted a main theme for the game to be that passive entertainment, like television, was inferior to interactive entertainment\". The plot ended up like the 1987 film The Running Man, with a deadly TV show. One trace of the idea remains in the game: Karpp says \"you destroy a lot of TVs to get powerups\"."
+      }
+    ]
+  }
 }

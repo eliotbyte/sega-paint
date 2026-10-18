@@ -51,5 +51,17 @@
       "name": "Snare",
       "sprite": "snare"
     }
-  ]
+  ],
+  "info": {
+    "pages": [
+      {
+        "title": "Spring Yard Zone",
+        "text": "Spring Yard Zone is the third level of Sonic the Hedgehog (Sega, 1991). Sega Retro credits its level design to Naoto Ohshima, the artist who created Sonic himself."
+      },
+      {
+        "title": "From cassette to chip",
+        "text": "Masato Nakamura, the composer of Sonic the Hedgehog, didn't program the Genesis himself. He told Sega that at the time he had to \"record onto cassette\". Then Hiroshi Kubota, one of the game's two sound programmers, turned his demo tapes into music data for the Genesis and fine-tuned the instrument sounds, according to Sega Retro. Kubota is credited in the game under the name \"Jimita\"."
+      }
+    ]
+  }
 }

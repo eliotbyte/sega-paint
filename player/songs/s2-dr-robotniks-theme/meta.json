@@ -54,5 +54,17 @@
       "name": "Timpani deep",
       "sprite": "mushroom"
     }
-  ]
+  ],
+  "info": {
+    "pages": [
+      {
+        "title": "Dr. Robotnik's Theme",
+        "text": "The boss theme of Sonic the Hedgehog 2 (Sega, 1992) plays when Sonic fights Dr. Robotnik at the end of a zone. In Sega's own list it is just called \"Boss\", and VGMPF lists it at 1 minute 22 seconds."
+      },
+      {
+        "title": "Legendary melodies",
+        "text": "In the Sonic Stadium Soundtrack Squad Review (2010), the reviewer JezMM said: \"the boss themes of 16-bit version have become legendary melodies\"."
+      }
+    ]
+  }
 }

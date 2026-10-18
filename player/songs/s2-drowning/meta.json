@@ -37,5 +37,17 @@
       "name": "Snare",
       "sprite": "snare"
     }
-  ]
+  ],
+  "info": {
+    "pages": [
+      {
+        "title": "Drowning",
+        "text": "The drowning jingle of Sonic the Hedgehog 2 (Sega, 1992) warns the player that Sonic is about to run out of air under water. Sega Retro credits it to Yukifumi Makino, one of the game's sound assistants, who is known in the credits as \"Macky\"."
+      },
+      {
+        "title": "Not by the composer",
+        "text": "Almost every piece of music in Sonic the Hedgehog 2 is credited to Masato Nakamura. The two exceptions, according to Sega Retro, are this drowning jingle and the Chaos Emerald jingle, which are both credited to Yukifumi Makino."
+      }
+    ]
+  }
 }

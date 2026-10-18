@@ -56,5 +56,17 @@
       "name": "Snare",
       "sprite": "snare"
     }
-  ]
+  ],
+  "info": {
+    "pages": [
+      {
+        "title": "Casino Night (2 Player)",
+        "text": "Casino Night Zone is one of the three levels of the two-player race in Sonic the Hedgehog 2 (Sega, 1992), and this is the music for it, a separate arrangement."
+      },
+      {
+        "title": "A favorite tune",
+        "text": "In the Sonic Stadium Soundtrack Squad Review (2010), the reviewer BlitzChris called the two-player tunes \"one of my greatest joys about the soundtrack\" and named this one his favorite of all."
+      }
+    ]
+  }
 }

@@ -32,5 +32,17 @@
       "color": "#a06bff"
     }
   },
-  "samples": []
+  "samples": [],
+  "info": {
+    "pages": [
+      {
+        "title": "Day 4: Absolute Zero / Day 15: Worldlink Center",
+        "text": "Absolute Zero is Day 4 of Vectorman (BlueSky Software, 1995), a stage that ends with the boss Aurora Borealis, which is also the name of the northern lights. The same tune plays on Day 15, Worldlink Center."
+      },
+      {
+        "title": "An aurora with duct tape",
+        "text": "Jeff Jonas, a background artist at BlueSky, solved the problem of the aurora effect in Vectorman with a \"fake effect\" built from two layers of bar patterns, one of them using the parallax scrolling of the Genesis. He said he delivered something close to the designer's idea \"even if I did it with duct tape\"."
+      }
+    ]
+  }
 }

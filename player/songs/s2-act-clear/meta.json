@@ -59,5 +59,17 @@
       "name": "Timpani deep",
       "sprite": "mushroom"
     }
-  ]
+  ],
+  "info": {
+    "pages": [
+      {
+        "title": "Act Clear",
+        "text": "The Act Clear jingle of Sonic the Hedgehog 2 (Sega, 1992) is a six-second fanfare that plays when Sonic finishes an act. Sega Retro credits it to Masato Nakamura."
+      },
+      {
+        "title": "Eleven zones, twenty acts",
+        "text": "According to Wikipedia, Sonic the Hedgehog 2 has eleven zones with twenty acts in all. Most zones have two acts, and the last act of each zone ends with a boss battle against Dr. Robotnik."
+      }
+    ]
+  }
 }

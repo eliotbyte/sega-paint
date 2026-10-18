@@ -52,5 +52,17 @@
       "name": "Kick",
       "sprite": "drum"
     }
-  ]
+  ],
+  "info": {
+    "pages": [
+      {
+        "title": "Star Light Zone",
+        "text": "Star Light Zone is the fifth level of Sonic the Hedgehog (Sega, 1991). Its theme came back in 2021, when a remix of it was used in the opening ceremony of the Tokyo Olympics, the games of 2020 that were held a year late."
+      },
+      {
+        "title": "Four sounds at once",
+        "text": "Masato Nakamura, who wrote the music of Sonic the Hedgehog, said in a Sega interview that his tools gave him only four sounds at the same time. He called it a limit, and he still wrote tunes that people hummed along to, which was his aim from the start."
+      }
+    ]
+  }
 }

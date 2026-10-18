@@ -32,5 +32,17 @@
       "color": "#1fbfa5"
     }
   },
-  "samples": []
+  "samples": [],
+  "info": {
+    "pages": [
+      {
+        "title": "Day 11: Stayin' Alive",
+        "text": "Stayin' Alive is Day 11 of Vectorman (BlueSky Software, 1995), the last of its three boss stages seen from above. VGMPF lists the tune at 2 minutes 29 seconds."
+      },
+      {
+        "title": "Racing the clock",
+        "text": "Every stage of Vectorman has a timer, and Vectorman loses a life if it runs out, says Sega Retro. Electronic Gaming Monthly reminded players in 1995 that \"the clock is always ticking\"."
+      }
+    ]
+  }
 }

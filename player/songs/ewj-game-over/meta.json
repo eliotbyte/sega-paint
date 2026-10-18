@@ -32,5 +32,17 @@
       "color": "#2fb8e8"
     }
   },
-  "samples": []
+  "samples": [],
+  "info": {
+    "pages": [
+      {
+        "title": "Game Over",
+        "text": "The game over jingle of Earthworm Jim (Shiny Entertainment, 1994) lasts only about four seconds. VGMPF lists its composer as unknown."
+      },
+      {
+        "title": "No passwords",
+        "text": "According to Sega Retro, Shiny Entertainment were first against putting a password system into Earthworm Jim, because they believed that it would make the game too easy. They gave in only for the Sega CD version."
+      }
+    ]
+  }
 }

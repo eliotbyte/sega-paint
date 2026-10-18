@@ -46,5 +46,17 @@
       "name": "Snare",
       "sprite": "snare"
     }
-  ]
+  ],
+  "info": {
+    "pages": [
+      {
+        "title": "Invincibility",
+        "text": "The invincibility tune of Sonic the Hedgehog (Sega, 1991) plays while Sonic is protected by a power-up canister. In the recording used here it is a loop of about eleven seconds."
+      },
+      {
+        "title": "Number 87",
+        "text": "Sega Retro lists the music of Sonic the Hedgehog by the numbers the game uses to call each tune. Invincibility is number 87 in hexadecimal, right after Scrap Brain Zone, and the 1-up jingle comes after it as number 88. All of these are credited to Masato Nakamura."
+      }
+    ]
+  }
 }

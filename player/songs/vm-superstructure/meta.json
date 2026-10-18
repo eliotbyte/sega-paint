@@ -32,5 +32,17 @@
       "color": "#ff70c8"
     }
   },
-  "samples": []
+  "samples": [],
+  "info": {
+    "pages": [
+      {
+        "title": "Day 10: Superstructure / Day 13: Dark Ruins",
+        "text": "Superstructure is Day 10 of Vectorman (BlueSky Software, 1995). The same tune plays on Day 13, Dark Ruins."
+      },
+      {
+        "title": "The rocket nobody played",
+        "text": "BlueSky wanted its artists to draw tiles that could be used again on other levels of Vectorman. The first level built that way was Wicker Rocket, in which Vectorman rides a rocket made of wicker. Sega Retro says that the team cut it because they \"could not make it fun\", as designer Mark Lorenzen put it."
+      }
+    ]
+  }
 }

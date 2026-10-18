@@ -68,5 +68,13 @@
       "name": "Low tom low",
       "sprite": "mushroom"
     }
-  ]
+  ],
+  "info": {
+    "pages": [
+      {
+        "title": "Mystic Cave (2 Player)",
+        "text": "Mystic Cave Zone is one of the three levels of the two-player race in Sonic the Hedgehog 2 (Sega, 1992), and this is the music for it, a separate arrangement. Sega Retro lists it as number 03 in the game's table of music."
+      }
+    ]
+  }
 }

@@ -32,5 +32,17 @@
       "color": "#2fb8e8"
     }
   },
-  "samples": []
+  "samples": [],
+  "info": {
+    "pages": [
+      {
+        "title": "Ending",
+        "text": "The ending of Earthworm Jim (Shiny Entertainment, 1994) plays after Jim has defeated the Queen and met her twin sister, Princess Whats-Her-Name. Sega Retro calls the ending bitter-sweet, with one final surprise. VGMPF lists the music at one minute."
+      },
+      {
+        "title": "CD quality",
+        "text": "The Sega CD and Windows versions of Earthworm Jim, called Special Edition, have the music remastered to CD quality. VGMPF says it was well received because it kept the essence of the original soundtrack."
+      }
+    ]
+  }
 }

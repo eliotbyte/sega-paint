@@ -72,5 +72,17 @@
       "name": "Tom low",
       "sprite": "tom"
     }
-  ]
+  ],
+  "info": {
+    "pages": [
+      {
+        "title": "Metropolis Zone",
+        "text": "Metropolis Zone is the eighth level of Sonic the Hedgehog 2 (Sega, 1992). Its graphics were made by the artist Tom Payne, who had first drawn them for a level called Genocide City. That level was renamed Cyber City and then built into Metropolis, according to Wikipedia and Sega Retro."
+      },
+      {
+        "title": "Scratching and guitar",
+        "text": "In the Sonic Stadium Soundtrack Squad Review (2010), the reviewer BlitzChris wrote of \"the scratching and popping of the mechanical Metropolis\". T-BIRD praised its \"wonderful scratch and guitar-riffic chorus\"."
+      }
+    ]
+  }
 }

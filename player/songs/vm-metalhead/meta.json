@@ -32,5 +32,17 @@
       "color": "#e6b800"
     }
   },
-  "samples": []
+  "samples": [],
+  "info": {
+    "pages": [
+      {
+        "title": "Day 2: Metalhead",
+        "text": "Metalhead is Day 2 of Vectorman (BlueSky Software, 1995), an unusual stage seen from above that is just a boss fight. Vectorman has a special form for it."
+      },
+      {
+        "title": "Three days from above",
+        "text": "Only three days of Vectorman are seen from above, Days 2, 7 and 11, says Sega Retro. Electronic Gaming Monthly wrote in 1995 that these levels \"aren't very long but they do break up the monotony of the game\"."
+      }
+    ]
+  }
 }

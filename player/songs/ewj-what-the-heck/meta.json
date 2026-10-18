@@ -70,5 +70,17 @@
       "name": "Wail",
       "sprite": "ghost"
     }
-  ]
+  ],
+  "info": {
+    "pages": [
+      {
+        "title": "What the Heck?",
+        "text": "What the Heck? is the second level of Earthworm Jim (Shiny Entertainment, 1994), a hellish level that is home to Evil the Cat. Sega Retro writes that elevator music plays in the background, with the occasional scream of horror from the musak."
+      },
+      {
+        "title": "Mussorgsky in hell",
+        "text": "A review on Sega-16 by Platonism (2005) heard \"occasional nods to classical pieces\" in Earthworm Jim, giving the second level's use of Mussorgsky's Night on the Bald Mountain as an example. VGMPF lists Modest Mussorgsky as the composer of this track, and Rashad Chichakly as its arranger."
+      }
+    ]
+  }
 }

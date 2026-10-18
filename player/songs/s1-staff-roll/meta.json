@@ -64,5 +64,21 @@
       "name": "Timpani mid",
       "sprite": "coin"
     }
-  ]
+  ],
+  "info": {
+    "pages": [
+      {
+        "title": "Staff Roll",
+        "text": "The staff roll of Sonic the Hedgehog (Sega, 1991) is the longest piece of music after Scrap Brain Zone, 2 minutes in VGMPF's list. It uses the same pitched noise for its drums as Marble Zone, where the Genesis's noise generator follows the third tone channel."
+      },
+      {
+        "title": "Credited as Jimita and Macky",
+        "text": "The credits of Sonic the Hedgehog read \"Sound Produce: Masato Nakamura\" and \"Sound Program: Jimita, Macky\". Jimita and Macky are the programmers Hiroshi Kubota and Yukifumi Makino. Wikipedia says they were credited under nicknames because of company policy."
+      },
+      {
+        "title": "An uplifting finish",
+        "text": "Masato Nakamura, the composer of Sonic the Hedgehog, told Sega that he wanted to \"tie it all together with an uplifting theme for the end credits\". He also said that he wanted the game to feel cinematic, like a movie."
+      }
+    ]
+  }
 }

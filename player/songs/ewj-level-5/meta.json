@@ -78,5 +78,17 @@
       "name": "Tom 2",
       "sprite": "tom"
     }
-  ]
+  ],
+  "info": {
+    "pages": [
+      {
+        "title": "Level 5",
+        "text": "Level 5 is the laboratory of Professor Monkey-For-A-Head in Earthworm Jim (Shiny Entertainment, 1994). Sega Retro calls it a \"rather imaginatively titled\" level. It ends with a boss fight against a chicken in a mech suit. VGMPF credits the music of this level to Keith Arem."
+      },
+      {
+        "title": "Samples going off",
+        "text": "Tommy Tallarico, who is credited with the music of Earthworm Jim by many sites, told Sega-16 in 2005 that if you listen to the first two Earthworm Jim games, \"you'll hear samples going off all the time\". This tune is a good example, because it uses ten different sampled sounds, more than any other tune in the game."
+      }
+    ]
+  }
 }
