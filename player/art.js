@@ -14,7 +14,7 @@ const KINDS = [
   ['notes', 'Notes', 'Note, 8×8. Black outline and the three note yellows (light, body, shade): the player paints them in the track colour.'],
   ['cursors', 'Cursors', 'Mouse pointer, 16×16, drawn as it looks (any colour; empty is see-through). The pivot (red) is the point that clicks: set it with the Pivot tool.'],
   ['clefs', 'Clefs', 'Clef. Black is the clef; the player draws it in the staff colour, at its place on the staff.'],
-  ['pictures', 'Pictures', 'A picture drawn as it is (Sonic on the playhead: sonicIdle, sonicWalk). corner: the rounded top-left corner of every box (mirrored for the others): black = frame colour, white = outside, transparent = the inside.'],
+  ['pictures', 'Pictures', 'A picture drawn as it is (Sonic on the playhead: sonicIdle, sonicWalk). corner: the rounded top-left corner of every box (mirrored for the others): transparent = outside, black = the frame, white = the inside.'],
 ];
 // what the frames of each kind do in the player
 const FRAME_HINT = {
@@ -593,6 +593,7 @@ function cornerSample(cv, th) {
   const t = T(th), W = 86, H = 44, out = newCv(W, H), g = out.getContext('2d');
   const fill = (x, y, w, h, c) => { g.fillStyle = c; g.fillRect(x, y, w, h); };
   const d = cv.getContext('2d').getImageData(0, 0, cv.width, cv.height).data;
+  // 0 transparent = outside, 1 black = the frame, 2 white = the inside
   const cell = (i, j) => { const k = (j * cv.width + i) * 4; return d[k + 3] <= 127 ? 0 : d[k] < 60 && d[k + 1] < 60 && d[k + 2] < 60 ? 1 : 2; };
   const box = (x, y, w, h, face, under) => { // the whole outline: the corner picture alone rounds it (gui.js frame)
     fill(x, y, w, 1, t.ink); fill(x, y + h - 1, w, 1, t.ink); fill(x, y, 1, h, t.ink); fill(x + w - 1, y, 1, h, t.ink);
@@ -602,7 +603,7 @@ function cornerSample(cv, th) {
       for (const [cx, cy, dx, dy] of [[x, y, 1, 1], [x + w - 1, y, -1, 1], [x, y + h - 1, 1, -1], [x + w - 1, y + h - 1, -1, -1]])
         for (let j = 0; j < cv.height; j++) for (let i = 0; i < cv.width; i++) {
           const v = cell(i, j);
-          if (v) fill(cx + i * dx, cy + j * dy, 1, 1, v === 1 ? t.ink : under);
+          fill(cx + i * dx, cy + j * dy, 1, 1, v === 1 ? t.ink : v === 2 ? face : under);
         }
     };
   };
