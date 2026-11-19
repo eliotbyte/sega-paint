@@ -9,7 +9,7 @@ import { unpackSong } from './songpack.js';
 import { PATCH_EXT, isPatchFile, readPatchFile, regsToTfi, regsToDmp, guessSprite, guessNote, voiceToRegs, regsToVoice } from './patches.js';
 import { clone as fmClone, TYPES as FM_TYPES, BLANK as FM_BLANK, KNOBS as FM_KNOBS, OP_PARAMS as FM_OP_PARAMS, VOICE_PARAMS as FM_VOICE_PARAMS, ALG_GRAPH, SLOT_OF_OP, isCarrier, getParam as fmGetParam, setParam as fmSetParam, setKnob, nudgeKnob, knobLive as fmKnobLive, mutate as fmMutate, envelope as fmEnvelope } from './fmedit.js';
 import { BUDGETS as SMP_BUDGETS, SONG_BUDGET_KB, budgetsFor, STEPS as SMP_STEPS, decodeAudio, trimSilence, guessPitch, peaks as wavePeaks, bytesFor, render as renderSample, fitOptions } from './sampler.js';
-import { ui, initScreen, resizeScreen, beginFrame, endFrame, region, hot, fill, frame, text, shadowText, bevel, dither, ants, strip, stripW, BIG, SMALL, button, field, focusField, blurField } from './gui.js';
+import { ui, initScreen, resizeScreen, beginFrame, endFrame, region, hot, fill, frame, round, text, shadowText, bevel, dither, ants, strip, stripW, BIG, SMALL, button, field, focusField, blurField } from './gui.js';
 
 const LAST_KEY = 'segapaint:last', THEME_KEY = 'segapaint:theme', SCALE_KEY = 'segapaint:scale', SOUND_KEY = 'segapaint:sound';
 const VGM_KEY = 'segapaint:vgm'; // the last export's author and DAC choice
@@ -2387,6 +2387,7 @@ function dialogBox(w, h, title) {
   fill(x + 1, y + 1, w - 2, 12, T.sel);
   text(title, x + 4, y + 4, T.selInk);
   fill(x, y + 13, w, 1, T.ink);
+  round(x, y, w, h);
   strip(x + w - 14, y, [{ id: 'dlgClose', icon: 'close', tip: 'Close · Esc', click: () => closeDialog() }], SMALL);
   return { x, y: y + 14, w, h: h - 14 };
 }
@@ -3850,6 +3851,7 @@ function panelHead(x, y, w, h, title, key) {
   fill(x + 1, y + 1, w - 2, (open ? h : PANEL_HEAD) - 2, T.face);
   bevel(x + 1, y + 1, w - 2, PANEL_HEAD - 2); // a raised bar: light edge on top and left
   shadowText(title, x + 4, y + 5);
+  round(x, y, w, open ? h : PANEL_HEAD, T.ink, open ? 't' : 'tb'); // the bottom ones once the panel is drawn (roundPanel)
   region(x + 1, y + 1, w - 15, PANEL_HEAD - 2, { id: 'bar-' + key, tip: open ? `${title} · click to fold` : `${title} · click to unfold`, click: () => togglePanel(key) });
   strip(x + w - 14, y, [{ id: 'fold-' + key, icon: open ? 'minus' : 'plus', tip: open ? 'Fold' : 'Unfold', click: () => togglePanel(key) }], SMALL);
   if (open) fill(x, y + PANEL_HEAD - 1, w, 1, T.ink);
@@ -3891,6 +3893,7 @@ function drawLayers(x, y, w, maxH) {
     { id: 'editTrack', icon: 'gear', disabled: !one, tip: one ? `Track settings · ${L.name}` : 'Track settings · choose one track', click: () => showTrackDialog(L) },
   ];
   strip(x + w - stripW(cells.length, SMALL), by, cells, SMALL);
+  round(x, y, w, h, T.ink, 'b');
   return h;
 }
 
@@ -3991,6 +3994,7 @@ function drawPlaylist(x, y, w, h) {
     if (k >= 0 && (k * 13 < d.scroll || (k + 1) * 13 > d.scroll + inner)) d.scroll = k * 13 - ((inner - 13) >> 1);
   }
   listRows(x, y + PANEL_HEAD - 1, w, h - PANEL_HEAD + 1, rows, d, 13, 'pl');
+  round(x, y, w, h, ui.T.ink, 'b');
 }
 
 function layerSounding(L, i, pos) {

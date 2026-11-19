@@ -133,6 +133,14 @@ export function shadowText(t, x, y, c = ui.T.panelInk, s = ui.T.textShade) {
   drawText(ui.g, t, x + 1, y + 1, s);
   return drawText(ui.g, t, x, y, c);
 }
+// Rounded corners: frame() leaves its corner pixels out; after the inside is filled, this puts the inner corner
+// pixels in the frame colour (three at each corner), so the box looks rounded. which: 'tb' both rows, 't' top, 'b' bottom.
+export function round(x, y, w, h, c = ui.T.ink, which = 'tb') {
+  if (w < 6 || h < 6) return;
+  const corner = (cx, cy, dx, dy) => { fill(cx, cy, 1, 1, c); fill(cx + dx, cy, 1, 1, c); fill(cx, cy + dy, 1, 1, c); };
+  if (which.includes('t')) { corner(x + 1, y + 1, 1, 1); corner(x + w - 2, y + 1, -1, 1); }
+  if (which.includes('b')) { corner(x + 1, y + h - 2, 1, -1); corner(x + w - 2, y + h - 2, -1, -1); }
+}
 // The light edge of a raised bar: 1 px along its top and left (theme colour bevel)
 export function bevel(x, y, w, h, c = ui.T.bevel) { fill(x, y, w, 1, c); fill(x, y, 1, h, c); }
 export function text(t, x, y, c = ui.T.ink) { return drawText(ui.g, t, x, y, c); }
@@ -177,6 +185,7 @@ export function strip(x, y, cells, c = BIG) {
     else if (cell.icon) ui.g.drawImage(c === BIG ? toolIcon(cell.icon, ink, on ? 1 : 0) : smallIcon(cell.icon, ink, on ? 1 : 0), cx, cy); // frame 2 when on, if drawn
     if (cell.id) region(cx, cy, c.w, c.h, { cursor: cell.disabled ? 'default' : 'pointer', ...cell });
   });
+  round(x, y, w, h);
   return w;
 }
 
@@ -188,6 +197,7 @@ export function button(x, y, label, opts = {}) {
   frame(x, y, w, h);
   fill(x + 1, y + 1, w - 2, h - 2, opts.disabled ? T.face : on ? T.sel : hot(opts.id) ? T.hover : T.face);
   text(label, x + ((w - textWidth(label)) >> 1), y + 4, opts.disabled ? T.off : on ? T.selInk : T.ink);
+  round(x, y, w, h);
   region(x, y, w, h, { cursor: opts.disabled ? 'default' : 'pointer', ...opts });
   return w;
 }
@@ -209,7 +219,7 @@ export function field(x, y, w, id, value, opts = {}) {
   const h = opts.h || 13, bg = opts.bg || T.face, ink = opts.ink || T.ink;
   const editing = ui.focus?.id === id;
   if (editing) ui.focus.opts = opts;
-  if (!opts.bare) { frame(x, y, w, h, opts.frame || T.ink); fill(x + 1, y + 1, w - 2, h - 2, bg); }
+  if (!opts.bare) { frame(x, y, w, h, opts.frame || T.ink); fill(x + 1, y + 1, w - 2, h - 2, bg); round(x, y, w, h, opts.frame || T.ink); }
   const tx = x + (opts.bare ? 0 : 3), ty = y + ((h - 5) >> 1);
   if (editing) {
     const inp = ui.input, v = inp.value;
