@@ -3654,6 +3654,22 @@ function popMenu(x, y, items, close) {
 }
 
 // ---------- the screen ----------
+// Redrawing the whole screen 60 times a second costs CPU for nothing while the song is stopped and nobody touches
+// the page: then the screen is drawn ~10 times a second (Sonic's idle frames are slower); any input or playback
+// brings back every frame at once.
+const IDLE_AFTER = 3000, IDLE_FPS_MS = 100;
+let lastInput = 0, idleTimer = 0;
+function nextFrame() {
+  if (S.playing || S.drag || performance.now() - lastInput < IDLE_AFTER) { requestAnimationFrame(draw); return; }
+  idleTimer = setTimeout(() => { idleTimer = 0; requestAnimationFrame(draw); }, IDLE_FPS_MS);
+}
+function wake() {
+  lastInput = performance.now();
+  if (idleTimer) { clearTimeout(idleTimer); idleTimer = 0; requestAnimationFrame(draw); }
+}
+for (const ev of ['pointermove', 'pointerdown', 'pointerup', 'wheel', 'keydown', 'keyup', 'dragover', 'focus'])
+  window.addEventListener(ev, wake, { capture: true, passive: true });
+
 const MARGIN = 2, LPW = 128, TB_H = BIG.h + 2;
 let lastPosStep = 0;
 
@@ -3710,7 +3726,7 @@ function draw() {
   if (ui.hover?.id !== 'staff' && !S.drag) S.hover = null;
   if (ui.hover?.id === 'staff' && !S.dlg) drawCursor();
   else drawPointer();
-  requestAnimationFrame(draw);
+  nextFrame();
 }
 
 function drawToolbar(y) {
