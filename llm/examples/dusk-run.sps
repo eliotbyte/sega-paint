@@ -11,7 +11,7 @@ sound snare = "Skitchin':s16cadc"
 sound hat   = "Skitchin':d42"
 sound ohat  = "Skitchin':d46"
 sound crash = "Skitchin':d49"
-sound sq    = "Skitchin':p0"
+sound sq    = "Mega Drive PSG:p0"
 
 track FM1 "Pluck bass"
 track FM2 "Kit"

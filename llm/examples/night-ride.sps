@@ -8,7 +8,7 @@ sound gtr  = "Skitchin':s168b9e"
 sound kick = "Skitchin':s16c225"
 sound snare = "Skitchin':s16cadc"
 sound hat  = "Skitchin':d42"
-sound sq   = "Skitchin':p0"
+sound sq   = "Mega Drive PSG:p0"
 
 pattern groove 1:
   FM1  bass : A2/2 -/2 A2/2 C3/2 | E3/4 D3/4

@@ -69,7 +69,7 @@ sound hat   = "Skitchin':d42"
 sound kick  = "Skitchin':s16c225"
 sound snare = "Skitchin':s16cadc"
 sound gtr   = "Skitchin':s168b9e"
-sound sq    = "Skitchin':p0"
+sound sq    = "Mega Drive PSG:p0"
 
 track FM1 "Bass"                             # optional track names
 

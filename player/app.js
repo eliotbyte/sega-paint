@@ -102,6 +102,7 @@ async function openDoc(doc) {
 
 // ---------- the shared sound library (project standard): any song can use any sound of any game, every channel ----------
 // My sounds (IndexedDB) come first, as one more group of the library: S.mySounds[sec], entries with game MY.
+const PSG_GROUP = 'Mega Drive PSG'; // the library's one group of PSG / noise sounds (tools/build_sound_library.py CHIP)
 const MY = 'My sounds', MY_SECS = ['fm', 'drums', 'psg', 'noise', 'samples'];
 const gameCatOf = (sec) => S.catalog?.games.flatMap((g) => g[sec] || []) || [];
 const catOf = (sec) => [...(S.mySounds?.[sec] || []), ...gameCatOf(sec)];
@@ -2651,7 +2652,9 @@ function drawTrackDialog(d) {
   // shows is what it plays; picking one swaps it with the sound that had it
   const target = d.lib.find((x) => x.key === d.iconFor && d.chosen.has(x.key)) || d.lib.find((x) => d.chosen.has(x.key));
   const iconOf = (x) => d.icons.get(x.key) || x.sprite;
-  const choices = [...new Set(d.lib.filter((x) => d.chosen.has(x.key)).map(iconOf))];
+  // (a PSG / noise track has one plain sound: any icon goes, user 2026-11-19)
+  const choices = L.kind === 'psg' || L.kind === 'noise' ? SPRITE_POOL
+    : [...new Set(d.lib.filter((x) => d.chosen.has(x.key)).map(iconOf))];
   const iy = r.y + r.h - 24 - 30;
   text(target ? `ICON OF ${target.name.toUpperCase()}` : 'ICON: CLICK A SOUND', r.x + 8, iy, T.dim);
   if (target) {
@@ -2674,7 +2677,7 @@ function drawTrackDialog(d) {
   const gx = r.x + 8, gy = r.y + 42, gw = r.w - 16, gh = r.h - 42 - 24 - 36;
   const cw = 97, ch = 14, hh = 13, cols = Math.max(1, Math.floor((gw - 1) / cw));
   const grouped = true;
-  d.open ??= new Set([MY]);
+  d.open ??= new Set([MY, PSG_GROUP]);
   const groupOf = (snd) => snd.group || 'This song';
   const groups = [{ name: MY, items: [] }]; // My sounds is always there, first
   const canImport = L.kind === 'fm' && !L.kit; // FM patch files (patches.js) become FM sounds
