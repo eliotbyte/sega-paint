@@ -587,6 +587,36 @@ function iconState(a, theme, state) { // a button with this icon, as the player 
   o.drawImage(inkCv(cv, ink), 1 + ((bw - cv.width) >> 1), 1 + ((bh - cv.height) >> 1));
   return out;
 }
+// A few boxes as the player draws them (gui.js frame / round / bevel / shadowText), rounded by the corner picture cv:
+// black = the frame colour, white = what is under the box, transparent = the inside.
+function cornerSample(cv, th) {
+  const t = T(th), W = 86, H = 44, out = newCv(W, H), g = out.getContext('2d');
+  const fill = (x, y, w, h, c) => { g.fillStyle = c; g.fillRect(x, y, w, h); };
+  const d = cv.getContext('2d').getImageData(0, 0, cv.width, cv.height).data;
+  const cell = (i, j) => { const k = (j * cv.width + i) * 4; return d[k + 3] <= 127 ? 0 : d[k] < 60 && d[k + 1] < 60 && d[k + 2] < 60 ? 1 : 2; };
+  const box = (x, y, w, h, face, under) => {
+    fill(x + 1, y, w - 2, 1, t.ink); fill(x + 1, y + h - 1, w - 2, 1, t.ink); fill(x, y + 1, 1, h - 2, t.ink); fill(x + w - 1, y + 1, 1, h - 2, t.ink);
+    fill(x + 1, y + 1, w - 2, h - 2, face);
+    return () => {
+      if (w < 2 * cv.width || h < 2 * cv.height) return;
+      for (const [cx, cy, dx, dy] of [[x, y, 1, 1], [x + w - 1, y, -1, 1], [x, y + h - 1, 1, -1], [x + w - 1, y + h - 1, -1, -1]])
+        for (let j = 0; j < cv.height; j++) for (let i = 0; i < cv.width; i++) {
+          const v = cell(i, j);
+          if (v) fill(cx + i * dx, cy + j * dy, 1, 1, v === 1 ? t.ink : under);
+        }
+    };
+  };
+  fill(0, 0, W, H, t.bg);
+  // a panel bar: LAYERS with its light edge and shadowed text
+  let corners = box(2, 2, W - 4, 16, t.face, t.bg);
+  fill(3, 3, W - 6, 1, t.bevel || t.face); fill(3, 3, 1, 14, t.bevel || t.face);
+  drawText(g, 'LAYERS', 7, 8, t.textShade || t.face); drawText(g, 'LAYERS', 6, 7, t.panelInk || t.ink);
+  corners();
+  // two buttons: a plain one and a chosen one
+  corners = box(4, 24, 36, 15, t.face, t.bg); drawText(g, 'CANCEL', 10, 29, t.ink); corners();
+  corners = box(44, 24, 36, 15, t.sel, t.bg); drawText(g, 'DONE', 54, 29, t.selInk); corners();
+  return out;
+}
 function renderPreview() {
   const box = $('preview'), a = cur();
   box.innerHTML = '';
@@ -611,6 +641,9 @@ function renderPreview() {
       label(th + ' (actual size, ×3)');
       a.frames.forEach((cv) => { add(scaled(cv, 1, T(th).face), 'actual size'); add(scaled(cv, 3, T(th).face), '×3'); });
     }
+  } else if (st.kind === 'pictures' && st.name === 'corner') {
+    // the rounded corner: boxes of the player drawn with it, in both themes, as it is being drawn
+    for (const th of ['light', 'dark']) { label(th + ': a panel bar and buttons (×2)'); add(scaled(cornerSample(a.frames[st.frame] || a.frames[0], th), 2), th); }
   } else if (st.kind === 'clefs') {
     for (const th of ['light', 'dark']) add(scaled(inkCv(a.frames[0], T(th).ink), 2, T(th).paper), th);
   } else add(scaled(a.frames[animFrame(a)], 3, '#fff'), a.frames.length > 1 ? 'playing its frames' : '');
