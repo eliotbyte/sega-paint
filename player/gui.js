@@ -1,6 +1,6 @@
 // A tiny immediate-mode GUI on one low-res canvas. Every frame the app draws the whole screen and
 // registers the clickable rectangles (regions); mouse events go to the topmost region of the last frame.
-import { THEMES, toolIcon, smallIcon, drawText, textWidth, fitText, TOOL_W, TOOL_H, CELL, newCanvas } from './pixel.js';
+import { THEMES, toolIcon, smallIcon, drawText, textWidth, fitText, TOOL_W, TOOL_H, CELL, newCanvas, cornerShape } from './pixel.js';
 
 export const ui = {
   cv: null, g: null, W: 0, H: 0, SC: 1, dpr: 1, T: THEMES.light,
@@ -136,10 +136,33 @@ export function shadowText(t, x, y, c = ui.T.panelInk, s = ui.T.textShade) {
 // Rounded corners: frame() leaves its corner pixels out; after the inside is filled, this puts the inner corner
 // pixels in the frame colour (three at each corner), so the box looks rounded. which: 'tb' both rows, 't' top, 'b' bottom.
 export function round(x, y, w, h, c = ui.T.ink, which = 'tb') {
+  const cs = cornerShape();
+  if (cs) return roundShape(cs, x, y, w, h, c, which);
   if (w < 6 || h < 6) return;
   const corner = (cx, cy, dx, dy) => { fill(cx, cy, 1, 1, c); fill(cx + dx, cy, 1, 1, c); fill(cx, cy + dy, 1, 1, c); };
   if (which.includes('t')) { corner(x + 1, y + 1, 1, 1); corner(x + w - 2, y + 1, -1, 1); }
   if (which.includes('b')) { corner(x + 1, y + h - 2, 1, -1); corner(x + w - 2, y + h - 2, -1, -1); }
+}
+// The corner drawn in the art editor (art/pictures/corner.png). Outside pixels take the colour under the box: the
+// pixel at the box's very corner, which frame() never paints.
+function roundShape(cs, x, y, w, h, c, which) {
+  if (w < 2 * cs.w || h < 2 * cs.h) return;
+  const g = ui.g;
+  const corners = [];
+  if (which.includes('t')) corners.push([x, y, 1, 1], [x + w - 1, y, -1, 1]);
+  if (which.includes('b')) corners.push([x, y + h - 1, 1, -1], [x + w - 1, y + h - 1, -1, -1]);
+  for (const [cx, cy, dx, dy] of corners) {
+    let under = null;
+    for (let j = 0; j < cs.h; j++) for (let i = 0; i < cs.w; i++) {
+      const v = cs.cell[j * cs.w + i];
+      if (!v) continue;
+      const px = cx + i * dx, py = cy + j * dy;
+      if (v === 1) { fill(px, py, 1, 1, c); continue; }
+      if (i === 0 && j === 0) continue; // the corner pixel itself is already what is under the box
+      if (under == null) { const d = g.getImageData(cx * (g.canvas.width / ui.W), cy * (g.canvas.height / ui.H), 1, 1).data; under = `rgb(${d[0]},${d[1]},${d[2]})`; }
+      fill(px, py, 1, 1, under);
+    }
+  }
 }
 // The light edge of a raised bar: 1 px along its top and left (theme colour bevel)
 export function bevel(x, y, w, h, c = ui.T.bevel) { fill(x, y, w, 1, c); fill(x, y, 1, h, c); }

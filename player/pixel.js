@@ -288,6 +288,19 @@ export function pointerIcon(name, frame = 0) {
   return res;
 }
 // A coloured picture as it is drawn (art/pictures), e.g. Sonic on the playhead.
+// The rounded corner of boxes (art/pictures/corner.png, the top-left one; the others are its mirror images):
+// { w, h, cell } with cell[y * w + x] = 1 black (the frame colour), 2 white (outside: what is under the box),
+// 0 transparent (the box's inside, left as it is). null without the picture.
+let cornerCache;
+export function cornerShape() {
+  if (cornerCache !== undefined) return cornerCache;
+  const d = pic('pictures', 'corner');
+  if (!d) return (cornerCache = null);
+  const cell = new Uint8Array(d.w * d.h);
+  for (let i = 0; i < d.w * d.h; i++) { const c = pxOf(d, i); cell[i] = c[3] <= 127 ? 0 : isBlack(c) ? 1 : 2; }
+  return (cornerCache = { w: d.w, h: d.h, cell });
+}
+
 export function picture(name, frame = 0) {
   const key = 'q' + name + frame;
   if (iconCache.has(key)) return iconCache.get(key);

@@ -14,7 +14,7 @@ const KINDS = [
   ['notes', 'Notes', 'Note, 8×8. Black outline and the three note yellows (light, body, shade): the player paints them in the track colour.'],
   ['cursors', 'Cursors', 'Mouse pointer, 16×16, drawn as it looks (any colour; empty is see-through). The pivot (red) is the point that clicks: set it with the Pivot tool.'],
   ['clefs', 'Clefs', 'Clef. Black is the clef; the player draws it in the staff colour, at its place on the staff.'],
-  ['pictures', 'Pictures', 'A picture drawn as it is (Sonic on the playhead: sonicIdle, sonicWalk).'],
+  ['pictures', 'Pictures', 'A picture drawn as it is (Sonic on the playhead: sonicIdle, sonicWalk). corner: the rounded top-left corner of every box (mirrored for the others): black = frame colour, white = outside, transparent = the inside.'],
 ];
 // what the frames of each kind do in the player
 const FRAME_HINT = {
