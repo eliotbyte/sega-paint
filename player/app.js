@@ -1,4 +1,5 @@
 import { prepareSong, buildTimeline, noteTime, stepTime, timeToStep, fmHz, psgHz, hzMidi, MELODIC_VOICE, repeatSpans, playedSteps, writtenStep, performSong, sampleStep } from './engine/song.js';
+import { boxSprite } from './pixel.js';
 import { THEMES, md, LAYER_TONES, NOTE_NAMES, toneOrder, toneCss, loadArt, hasFrame, frameCount, noteSprite, checkered, smallIcon, pointerIcon, picture, artInfo, clef, textWidth, fitText, rgbCss, snap } from './pixel.js';
 import { SPRITE_POOL, ROLE_SPRITE, ROLE_SET, spriteName, sonic } from './sprites.js';
 import { SCALE_LIST, findScale, guessScale } from './scales.js';
@@ -3849,9 +3850,10 @@ function panelHead(x, y, w, h, title, key) {
   const T = ui.T, open = !S.fold[key];
   frame(x, y, w, open ? h : PANEL_HEAD);
   fill(x + 1, y + 1, w - 2, (open ? h : PANEL_HEAD) - 2, T.face);
-  bevel(x + 1, y + 1, w - 2, PANEL_HEAD - 2); // a raised bar: light edge on top and left
+  if (!boxSprite()) bevel(x + 1, y + 1, w - 2, PANEL_HEAD - 2); // a raised bar: light edge (the box sprite has its own)
   shadowText(title, x + 4, y + 5);
-  round(x, y, w, open ? h : PANEL_HEAD, T.ink, open ? 't' : 'tb'); // the bottom ones once the panel is drawn (roundPanel)
+  // the bar as a box of the sprite (its bottom row of slices: where the panel ends, drawLayers / drawPlaylist)
+  round(x, y, w, open ? PANEL_HEAD : PANEL_HEAD, T.ink, open ? 'ts' : 'tbs');
   region(x + 1, y + 1, w - 15, PANEL_HEAD - 2, { id: 'bar-' + key, tip: open ? `${title} · click to fold` : `${title} · click to unfold`, click: () => togglePanel(key) });
   strip(x + w - 14, y, [{ id: 'fold-' + key, icon: open ? 'minus' : 'plus', tip: open ? 'Fold' : 'Unfold', click: () => togglePanel(key) }], SMALL);
   if (open) fill(x, y + PANEL_HEAD - 1, w, 1, T.ink);

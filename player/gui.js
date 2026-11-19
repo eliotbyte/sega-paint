@@ -1,6 +1,6 @@
 // A tiny immediate-mode GUI on one low-res canvas. Every frame the app draws the whole screen and
 // registers the clickable rectangles (regions); mouse events go to the topmost region of the last frame.
-import { THEMES, toolIcon, smallIcon, drawText, textWidth, fitText, TOOL_W, TOOL_H, CELL, newCanvas, cornerShape } from './pixel.js';
+import { THEMES, toolIcon, smallIcon, drawText, textWidth, fitText, TOOL_W, TOOL_H, CELL, newCanvas, boxSprite } from './pixel.js';
 
 export const ui = {
   cv: null, g: null, W: 0, H: 0, SC: 1, dpr: 1, T: THEMES.light,
@@ -131,9 +131,9 @@ function pixelAt(x, y) {
   return `rgb(${d[0]},${d[1]},${d[2]})`;
 }
 export function frame(x, y, w, h, c = ui.T.ink) { // 1 px outline, outer size w x h (corners: round())
-  const cs = cornerShape();
+  const cs = boxSprite();
   if (cs || w < 4 || h < 4) {
-    if (cs?.outside) unders.set(x + ',' + y + ',' + w + ',' + h, pixelAt(x, y)); // what is under the box, for its corners
+    if (cs?.outside) unders.set(x + ',' + y, pixelAt(x, y)); // what is under the box, for its corners
     fill(x, y, w, 1, c); fill(x, y + h - 1, w, 1, c); fill(x, y, 1, h, c); fill(x + w - 1, y, 1, h, c);
     return;
   }
@@ -146,27 +146,45 @@ export function shadowText(t, x, y, c = ui.T.panelInk, s = ui.T.textShade) {
 }
 // Rounded corners: frame() leaves its corner pixels out; after the inside is filled, this puts the inner corner
 // pixels in the frame colour (three at each corner), so the box looks rounded. which: 'tb' both rows, 't' top, 'b' bottom.
-export function round(x, y, w, h, c = ui.T.ink, which = 'tb') {
-  const cs = cornerShape();
-  if (cs) return roundShape(cs, x, y, w, h, c, which);
+export function round(x, y, w, h, c = ui.T.ink, which = 'tbs') {
+  const cs = boxSprite();
+  if (cs) return nineSlice(cs, x, y, w, h, c, which);
   if (w < 6 || h < 6) return;
   const corner = (cx, cy, dx, dy) => { fill(cx, cy, 1, 1, c); fill(cx + dx, cy, 1, 1, c); fill(cx, cy + dy, 1, 1, c); };
   if (which.includes('t')) { corner(x + 1, y + 1, 1, 1); corner(x + w - 2, y + 1, -1, 1); }
   if (which.includes('b')) { corner(x + 1, y + h - 2, 1, -1); corner(x + w - 2, y + h - 2, -1, -1); }
 }
-// The corner drawn in the art editor (art/pictures/corner.png, the top-left one): transparent pixels show what is
-// under the box (frame() keeps that colour), black ones the frame colour, white ones the box's inside.
-function roundShape(cs, x, y, w, h, c, which) {
-  if (w < 2 * cs.w || h < 2 * cs.h) return;
-  const under = unders.get(x + ',' + y + ',' + w + ',' + h);
-  const inside = cs.inside ? (which.includes('t') ? pixelAt(x + cs.w, y + cs.h) : pixelAt(x + cs.w, y + h - 1 - cs.h)) : null;
-  const corners = [];
-  if (which.includes('t')) corners.push([x, y, 1, 1], [x + w - 1, y, -1, 1]);
-  if (which.includes('b')) corners.push([x, y + h - 1, 1, -1], [x + w - 1, y + h - 1, -1, -1]);
-  for (const [cx, cy, dx, dy] of corners) {
-    for (let j = 0; j < cs.h; j++) for (let i = 0; i < cs.w; i++) {
-      const v = cs.cell[j * cs.w + i], col = v === 1 ? c : v === 2 ? inside : under;
-      if (col) fill(cx + i * dx, cy + j * dy, 1, 1, col);
+// The box sprite of the art editor (art/pictures/button.png, 9-slice) over a box already drawn: transparent pixels
+// show what is under the box (frame() keeps that colour), black ones the frame colour, white ones leave the box's own
+// fill (and what is drawn on it), others are the light edge (theme colour bevel). which: 't' the top row of slices,
+// 'b' the bottom row, 's' the sides between them (to the box's bottom when 'b' is not there).
+function nineSlice(cs, x, y, w, h, c, which = 'tbs') {
+  const [L, Tp, R, B] = cs.slice, top = which.includes('t'), bot = which.includes('b'), sides = which.includes('s');
+  if (w < L + R + 1 || h < (top ? Tp : 0) + (bot ? B : 0) + 1) return;
+  const under = unders.get(x + ',' + y), bev = ui.T.bevel;
+  const mw = cs.w - L - R, mh = cs.h - Tp - B;
+  const put = (sx, sy, px, py) => {
+    const v = cs.cell[sy * cs.w + sx];
+    const col = v === 1 ? c : v === 3 ? bev : v === 0 ? under : null;
+    if (col) fill(px, py, 1, 1, col);
+  };
+  // one row band of slices (sy0..sy0+n source rows) onto box rows py0..: left corner, repeated middle, right corner
+  const band = (sy0, n, py0, rows) => {
+    for (let r = 0; r < rows; r++) {
+      const sy = sy0 + (n ? r % n : 0), py = py0 + r;
+      for (let i = 0; i < L; i++) put(i, sy, x + i, py);
+      if (mw > 0) for (let px = x + L; px < x + w - R; px++) put(L + (px - x - L) % mw, sy, px, py);
+      for (let i = 0; i < R; i++) put(cs.w - R + i, sy, x + w - R + i, py);
+    }
+  };
+  if (top) band(0, Tp, y, Tp);
+  if (bot) band(cs.h - B, B, y + h - B, B);
+  if (sides && mh > 0) {
+    const y0 = y + (top ? Tp : 0), y1 = bot ? y + h - B : y + h;
+    for (let py = y0; py < y1; py++) {
+      const sy = Tp + (py - y0) % mh;
+      for (let i = 0; i < L; i++) put(i, sy, x + i, py);
+      for (let i = 0; i < R; i++) put(cs.w - R + i, sy, x + w - R + i, py);
     }
   }
 }

@@ -1,5 +1,5 @@
 {
- "version": 98,
+ "version": 102,
  "tools": {
   "undo": {
    "frames": 1
@@ -411,8 +411,14 @@
     1
    ]
   },
-  "corner": {
-   "frames": 1
+  "button": {
+   "frames": 1,
+   "slice": [
+    3,
+    3,
+    3,
+    3
+   ]
   }
  }
 }

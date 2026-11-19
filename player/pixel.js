@@ -288,17 +288,22 @@ export function pointerIcon(name, frame = 0) {
   return res;
 }
 // A coloured picture as it is drawn (art/pictures), e.g. Sonic on the playhead.
-// The rounded corner of boxes (art/pictures/corner.png, the top-left one; the others are its mirror images):
-// { w, h, cell } with cell[y * w + x] = 0 transparent (outside: what is under the box), 1 black (the frame colour),
-// 2 white or any other colour (the box's inside). null without the picture.
-let cornerCache;
-export function cornerShape() {
-  if (cornerCache !== undefined) return cornerCache;
-  const d = pic('pictures', 'corner');
-  if (!d) return (cornerCache = null);
+// The box sprite (art/pictures/button.png), sliced like a Unity 9-slice sprite: art.json pictures.button.slice =
+// [left, top, right, bottom] widths of the border; the corners are drawn as they are, the edges and the middle repeat.
+// { w, h, cell, slice } with cell[y * w + x] = 0 transparent (outside: what is under the box), 1 black (the frame
+// colour), 2 white (the box's own fill: left as it is), 3 any other colour (the light edge: theme colour bevel).
+let spriteCache;
+export function boxSprite() {
+  if (spriteCache !== undefined) return spriteCache;
+  const d = pic('pictures', 'button');
+  if (!d) return (spriteCache = null);
   const cell = new Uint8Array(d.w * d.h);
-  for (let i = 0; i < d.w * d.h; i++) { const c = pxOf(d, i); cell[i] = c[3] <= 127 ? 0 : isBlack(c) ? 1 : 2; }
-  return (cornerCache = { w: d.w, h: d.h, cell, outside: cell.includes(0), inside: cell.includes(2) });
+  for (let i = 0; i < d.w * d.h; i++) {
+    const c = pxOf(d, i);
+    cell[i] = c[3] <= 127 ? 0 : isBlack(c) ? 1 : c[0] > 200 && c[1] > 200 && c[2] > 200 ? 2 : 3;
+  }
+  const sl = ART.man?.pictures?.button?.slice || [Math.floor(d.w / 3), Math.floor(d.h / 3), Math.floor(d.w / 3), Math.floor(d.h / 3)];
+  return (spriteCache = { w: d.w, h: d.h, cell, slice: sl, outside: cell.includes(0) });
 }
 
 export function picture(name, frame = 0) {

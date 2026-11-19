@@ -14,7 +14,7 @@ const KINDS = [
   ['notes', 'Notes', 'Note, 8×8. Black outline and the three note yellows (light, body, shade): the player paints them in the track colour.'],
   ['cursors', 'Cursors', 'Mouse pointer, 16×16, drawn as it looks (any colour; empty is see-through). The pivot (red) is the point that clicks: set it with the Pivot tool.'],
   ['clefs', 'Clefs', 'Clef. Black is the clef; the player draws it in the staff colour, at its place on the staff.'],
-  ['pictures', 'Pictures', 'A picture drawn as it is (Sonic on the playhead: sonicIdle, sonicWalk). corner: the rounded top-left corner of every box (mirrored for the others): transparent = outside, black = the frame, white = the inside.'],
+  ['pictures', 'Pictures', 'A picture drawn as it is (Sonic on the playhead: sonicIdle, sonicWalk). button: the sprite every box is drawn with, sliced in 9 by the red lines (Slices…): the corners as drawn, the edges and the middle repeat. Transparent = outside, black = the frame, white = the fill, any other colour = the light edge.'],
 ];
 // what the frames of each kind do in the player
 const FRAME_HINT = {
@@ -206,6 +206,17 @@ function buildBar() {
     pick(st.kind, st.art[st.kind].keys().next().value);
   }));
   if (!SIZES[st.kind]) bar.append(btn('Size…', () => resizePicture(a))); // pictures and clefs: any size
+  if (isBoxSprite()) {
+    bar.append(btn('Slices…', () => {
+      const v = (prompt('Border widths (red lines): left top right bottom', sliceOf(a).join(' ')) || '').trim().split(/[\s,]+/).map(Number);
+      if (v.length !== 4 || v.some((n) => !(n >= 0))) return;
+      const [w, h] = [a.frames[0].width, a.frames[0].height];
+      if (v[0] + v[2] >= w || v[1] + v[3] >= h) { alert('The borders must leave at least one column and row in the middle.'); return; }
+      a.info.slice = v; dirty(); buildBar(); renderPreview(); render();
+    }));
+    const sl = document.createElement('span'); sl.className = 'hint'; sl.textContent = 'slices ' + sliceOf(a).join(' ');
+    bar.append(sl);
+  }
   const hint = document.createElement('span');
   hint.className = 'hint';
   hint.textContent = st.kind === 'cursors' ? `pivot ${a.info.hot || [0, 0]}` : '';
@@ -385,6 +396,12 @@ function render() {
     for (let y = 0; y <= cv.height; y++) c.fillRect(x0, y0 + y * z, cv.width * z, 1);
   }
   c.strokeStyle = '#000'; c.lineWidth = 1; c.strokeRect(x0 - 0.5, y0 - 0.5, cv.width * z + 1, cv.height * z + 1);
+  if (isBoxSprite()) { // the 9-slice borders, as in Unity's sprite editor
+    const [l, t, r, b] = sliceOf(cur());
+    c.fillStyle = '#ff0000';
+    for (const x of [l, cv.width - r]) c.fillRect(x0 + x * z - 1, y0 - 6, 2, cv.height * z + 12);
+    for (const y of [t, cv.height - b]) c.fillRect(x0 - 6, y0 + y * z - 1, cv.width * z + 12, 2);
+  }
   if (st.kind === 'cursors') {
     const [hx, hy] = cur().info.hot || [0, 0];
     c.strokeStyle = '#ff2400'; c.lineWidth = 2;
@@ -587,35 +604,36 @@ function iconState(a, theme, state) { // a button with this icon, as the player 
   o.drawImage(inkCv(cv, ink), 1 + ((bw - cv.width) >> 1), 1 + ((bh - cv.height) >> 1));
   return out;
 }
-// A few boxes as the player draws them (gui.js frame / round / bevel / shadowText), rounded by the corner picture cv:
-// black = the frame colour, white = what is under the box, transparent = the inside.
-function cornerSample(cv, th) {
+// The box sprite (pictures/button): a 9-slice picture every box of the player is drawn with (gui.js round)
+const isBoxSprite = () => st.tab === 'pictures' && st.kind === 'pictures' && st.name === 'button';
+const sliceOf = (a) => a.info.slice || [Math.floor(a.frames[0].width / 3), Math.floor(a.frames[0].height / 3), Math.floor(a.frames[0].width / 3), Math.floor(a.frames[0].height / 3)];
+// A few boxes as the player draws them with the box sprite cv sliced at sl (gui.js nineSlice): transparent = what is
+// under the box, black = the frame, white = the box's fill, any other colour = the light edge (theme colour bevel).
+function boxSample(cv, sl, th) {
   const t = T(th), W = 86, H = 44, out = newCv(W, H), g = out.getContext('2d');
   const fill = (x, y, w, h, c) => { g.fillStyle = c; g.fillRect(x, y, w, h); };
   const d = cv.getContext('2d').getImageData(0, 0, cv.width, cv.height).data;
-  // 0 transparent = outside, 1 black = the frame, 2 white = the inside
-  const cell = (i, j) => { const k = (j * cv.width + i) * 4; return d[k + 3] <= 127 ? 0 : d[k] < 60 && d[k + 1] < 60 && d[k + 2] < 60 ? 1 : 2; };
-  const box = (x, y, w, h, face, under) => { // the whole outline: the corner picture alone rounds it (gui.js frame)
-    fill(x, y, w, 1, t.ink); fill(x, y + h - 1, w, 1, t.ink); fill(x, y, 1, h, t.ink); fill(x + w - 1, y, 1, h, t.ink);
-    fill(x + 1, y + 1, w - 2, h - 2, face);
+  const cell = (i, j) => { const k = (j * cv.width + i) * 4; return d[k + 3] <= 127 ? 0 : d[k] < 60 && d[k + 1] < 60 && d[k + 2] < 60 ? 1 : d[k] > 200 && d[k + 1] > 200 && d[k + 2] > 200 ? 2 : 3; };
+  const [L, Tp, R, B] = sl, mw = cv.width - L - R, mh = cv.height - Tp - B;
+  const box = (x, y, w, h, face) => {
+    fill(x, y, w, h, t.ink); fill(x + 1, y + 1, w - 2, h - 2, face);
     return () => {
-      if (w < 2 * cv.width || h < 2 * cv.height) return;
-      for (const [cx, cy, dx, dy] of [[x, y, 1, 1], [x + w - 1, y, -1, 1], [x, y + h - 1, 1, -1], [x + w - 1, y + h - 1, -1, -1]])
-        for (let j = 0; j < cv.height; j++) for (let i = 0; i < cv.width; i++) {
-          const v = cell(i, j);
-          fill(cx + i * dx, cy + j * dy, 1, 1, v === 1 ? t.ink : v === 2 ? face : under);
-        }
+      if (w < L + R + 1 || h < Tp + B + 1 || mw < 1 || mh < 1) return;
+      const sx = (px) => (px - x < L ? px - x : px >= x + w - R ? cv.width - (x + w - px) : L + (px - x - L) % mw);
+      const sy = (py) => (py - y < Tp ? py - y : py >= y + h - B ? cv.height - (y + h - py) : Tp + (py - y - Tp) % mh);
+      for (let py = y; py < y + h; py++) for (let px = x; px < x + w; px++) {
+        const i = sx(px), j = sy(py);
+        if (i >= L && i < cv.width - R && j >= Tp && j < cv.height - B) continue; // the middle: the box's own
+        const v = cell(i, j);
+        if (v === 0) fill(px, py, 1, 1, t.bg); else if (v === 1) fill(px, py, 1, 1, t.ink); else if (v === 3) fill(px, py, 1, 1, t.bevel || t.face);
+      }
     };
   };
   fill(0, 0, W, H, t.bg);
-  // a panel bar: LAYERS with its light edge and shadowed text
-  let corners = box(2, 2, W - 4, 16, t.face, t.bg);
-  fill(3, 3, W - 6, 1, t.bevel || t.face); fill(3, 3, 1, 14, t.bevel || t.face);
-  drawText(g, 'LAYERS', 7, 8, t.textShade || t.face); drawText(g, 'LAYERS', 6, 7, t.panelInk || t.ink);
-  corners();
-  // two buttons: a plain one and a chosen one
-  corners = box(4, 24, 36, 15, t.face, t.bg); drawText(g, 'CANCEL', 10, 29, t.ink); corners();
-  corners = box(44, 24, 36, 15, t.sel, t.bg); drawText(g, 'DONE', 54, 29, t.selInk); corners();
+  let done = box(2, 2, W - 4, 16, t.face);
+  drawText(g, 'LAYERS', 7, 8, t.textShade || t.face); drawText(g, 'LAYERS', 6, 7, t.panelInk || t.ink); done();
+  done = box(4, 24, 36, 15, t.face); drawText(g, 'CANCEL', 10, 29, t.ink); done();
+  done = box(44, 24, 36, 15, t.sel); drawText(g, 'DONE', 54, 29, t.selInk); done();
   return out;
 }
 function renderPreview() {
@@ -642,9 +660,9 @@ function renderPreview() {
       label(th + ' (actual size, ×3)');
       a.frames.forEach((cv) => { add(scaled(cv, 1, T(th).face), 'actual size'); add(scaled(cv, 3, T(th).face), '×3'); });
     }
-  } else if (st.kind === 'pictures' && st.name === 'corner') {
-    // the rounded corner: boxes of the player drawn with it, in both themes, as it is being drawn
-    for (const th of ['light', 'dark']) { label(th + ': a panel bar and buttons (×2)'); add(scaled(cornerSample(a.frames[st.frame] || a.frames[0], th), 2), th); }
+  } else if (st.kind === 'pictures' && st.name === 'button') {
+    // the box sprite: boxes of the player drawn with it, in both themes, as it is being drawn
+    for (const th of ['light', 'dark']) { label(th + ': a panel bar and buttons (×2)'); add(scaled(boxSample(a.frames[st.frame] || a.frames[0], sliceOf(a), th), 2), th); }
   } else if (st.kind === 'clefs') {
     for (const th of ['light', 'dark']) add(scaled(inkCv(a.frames[0], T(th).ink), 2, T(th).paper), th);
   } else add(scaled(a.frames[animFrame(a)], 3, '#fff'), a.frames.length > 1 ? 'playing its frames' : '');
