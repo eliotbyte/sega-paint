@@ -1,0 +1,31 @@
+{
+  "game": "Streets of Rage 3",
+  "layers": {
+    "L0": {
+      "name": "Pluck 1",
+      "role": "lead",
+      "color": "#ffb020"
+    },
+    "L1": {
+      "name": "Pluck 2",
+      "role": "lead",
+      "color": "#ff5d8f"
+    },
+    "L2": {
+      "name": "Pluck 3",
+      "role": "bass",
+      "color": "#a06bff"
+    },
+    "L3": {
+      "name": "Pluck 4",
+      "role": "lead",
+      "color": "#5a7bff"
+    },
+    "L4": {
+      "name": "Pluck 5",
+      "role": "lead",
+      "color": "#4cc24c"
+    }
+  },
+  "samples": []
+}

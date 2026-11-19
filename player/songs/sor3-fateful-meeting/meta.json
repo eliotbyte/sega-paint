@@ -1,0 +1,21 @@
+{
+  "game": "Streets of Rage 3",
+  "layers": {
+    "L0": {
+      "name": "Synth bass 1",
+      "role": "bass",
+      "color": "#ffb020"
+    },
+    "L1": {
+      "name": "Synth bass 2",
+      "role": "lead",
+      "color": "#ff5d8f"
+    },
+    "L2": {
+      "name": "Synth bass 3",
+      "role": "lead",
+      "color": "#a06bff"
+    }
+  },
+  "samples": []
+}

@@ -1,0 +1,26 @@
+{
+  "game": "Streets of Rage 3",
+  "layers": {
+    "L0": {
+      "name": "Tom 1",
+      "role": "lead",
+      "color": "#ffb020"
+    },
+    "L1": {
+      "name": "Synth",
+      "role": "lead",
+      "color": "#ff5d8f"
+    },
+    "L2": {
+      "name": "Tom 2",
+      "role": "lead",
+      "color": "#a06bff"
+    },
+    "L3": {
+      "name": "Tom 3",
+      "role": "lead",
+      "color": "#5a7bff"
+    }
+  },
+  "samples": []
+}
