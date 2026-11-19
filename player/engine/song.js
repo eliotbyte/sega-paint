@@ -1,4 +1,5 @@
 // Song model -> chip write timeline ("sound driver").
+import { unpackSong } from '../songpack.js';
 import { TimelineBuilder, KIND_YM0, KIND_PSG } from './vgm.js';
 import { YM_CLOCK } from './renderer.js';
 
@@ -22,6 +23,7 @@ export function psgTranspose(tone, k) {
 }
 
 export function prepareSong(song) {
+  if (song.$pack) song = unpackSong(song); // a song.json of player/songs as stored (tools/songpack.py)
   // base pitch of every macro, used for transposition of edited notes
   for (const m of song.macros) {
     // pitched noise (m.tone: PSG 3's tone, which clocks noise modes 3 / 7) is transposed like a square

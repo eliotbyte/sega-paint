@@ -1,4 +1,5 @@
 // Song library: reference tracks (read-only, served from songs/), the user's songs and sounds (IndexedDB).
+import { unpackSong } from './songpack.js';
 const DB_NAME = 'segapaint', STORE = 'songs', SOUNDS = 'sounds';
 
 function db() {
@@ -49,7 +50,7 @@ export const newId = () => 'u' + Date.now().toString(36) + Math.random().toStrin
 export async function fetchRef(dir) {
   const base = `songs/${dir}/`;
   const [song, meta] = await Promise.all([
-    fetch(base + 'song.json').then((r) => r.json()),
+    fetch(base + 'song.json').then((r) => r.json()).then(unpackSong), // stored by column (tools/songpack.py)
     fetch(base + 'meta.json').then((r) => (r.ok ? r.json() : {})).catch(() => ({})),
   ]);
   for (const L of song.layers) Object.assign(L, meta.layers?.[L.id] || {});

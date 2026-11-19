@@ -5,6 +5,7 @@ import { SCALE_LIST, findScale, guessScale } from './scales.js';
 import { listRefs, listMine, getMine, putMine, deleteMine, newId, fetchRef, fetchBank, fetchCatalog, listMySounds, putMySound, deleteMySound } from './library.js';
 import { SOUND_EXT, isSoundFile, readSoundFile, writeSound, writeKit } from './soundfile.js';
 import { writeVGM } from './engine/vgm.js';
+import { unpackSong } from './songpack.js';
 import { PATCH_EXT, isPatchFile, readPatchFile, regsToTfi, regsToDmp, guessSprite, guessNote, voiceToRegs, regsToVoice } from './patches.js';
 import { clone as fmClone, TYPES as FM_TYPES, BLANK as FM_BLANK, KNOBS as FM_KNOBS, OP_PARAMS as FM_OP_PARAMS, VOICE_PARAMS as FM_VOICE_PARAMS, ALG_GRAPH, SLOT_OF_OP, isCarrier, getParam as fmGetParam, setParam as fmSetParam, setKnob, nudgeKnob, knobLive as fmKnobLive, mutate as fmMutate, envelope as fmEnvelope } from './fmedit.js';
 import { BUDGETS as SMP_BUDGETS, SONG_BUDGET_KB, budgetsFor, STEPS as SMP_STEPS, decodeAudio, trimSilence, guessPitch, peaks as wavePeaks, bytesFor, render as renderSample, fitOptions } from './sampler.js';
@@ -350,7 +351,7 @@ async function showOpenDialog() {
 }
 
 async function importFile(file) {
-  const song = JSON.parse(await file.text());
+  const song = unpackSong(JSON.parse(await file.text()));
   if (!Array.isArray(song.layers) || !song.stepTimes) throw new Error('Not a Sega Paint song');
   const base = song.base || baseRef();
   const name = song.title || file.name.replace(/\.json$/i, '');

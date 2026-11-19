@@ -5,6 +5,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { prepareSong, buildTimeline, stepTime, timeToStep, hzMidi, fmHz, psgHz, MELODIC_VOICE } from '../player/engine/song.js';
 import { Renderer, useWasm } from '../player/engine/renderer.js';
+import { unpackSong } from '../player/songpack.js';
 // the chip as WebAssembly (3x faster, same samples); the JavaScript one if it cannot load
 try { useWasm(new WebAssembly.Module(fs.readFileSync(new URL('../player/engine/ym2612.wasm', import.meta.url)))); } catch (e) { /* JS chip */ }
 
@@ -18,7 +19,7 @@ export const STEPS_PER_BAR = 16; // the app draws a bar every 16 steps (app.js b
 // a text file without the BOM some editors put first (Notepad's "UTF-8 with BOM")
 export const noBom = (t) => (t.charCodeAt(0) === 0xfeff ? t.slice(1) : t);
 export const readText = (f) => noBom(fs.readFileSync(f, 'utf8'));
-export const readJson = (f) => JSON.parse(readText(f));
+export const readJson = (f) => unpackSong(JSON.parse(readText(f))); // the songs of player/songs are packed
 export const outPath = (name) => { fs.mkdirSync(OUT, { recursive: true }); return path.join(OUT, name); };
 // every output file goes through here: its folder is made first (llm/out/ is not in git)
 export const writeOut = (file, data) => { fs.mkdirSync(path.dirname(path.resolve(file)), { recursive: true }); fs.writeFileSync(file, data); };
