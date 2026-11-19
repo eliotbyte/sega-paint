@@ -298,7 +298,7 @@ export function cornerShape() {
   if (!d) return (cornerCache = null);
   const cell = new Uint8Array(d.w * d.h);
   for (let i = 0; i < d.w * d.h; i++) { const c = pxOf(d, i); cell[i] = c[3] <= 127 ? 0 : isBlack(c) ? 1 : 2; }
-  return (cornerCache = { w: d.w, h: d.h, cell });
+  return (cornerCache = { w: d.w, h: d.h, cell, outside: cell.includes(2) });
 }
 
 export function picture(name, frame = 0) {

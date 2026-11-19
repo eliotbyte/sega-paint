@@ -102,6 +102,7 @@ function onWheel(e) {
 
 // ---------- frame ----------
 export function beginFrame() {
+  unders.clear();
   ui.frame++;
   ui.regions = [];
 }
@@ -124,8 +125,18 @@ export const pressed = (id) => ui.pressedId === id;
 
 // ---------- drawing helpers ----------
 export const fill = (x, y, w, h, c) => { ui.g.fillStyle = c; ui.g.fillRect(x, y, w, h); };
-export function frame(x, y, w, h, c = ui.T.ink) { // 1 px outline, outer size w x h, the corner pixels left out (rounded)
-  if (w < 4 || h < 4) { fill(x, y, w, 1, c); fill(x, y + h - 1, w, 1, c); fill(x, y, 1, h, c); fill(x + w - 1, y, 1, h, c); return; }
+const unders = new Map(); // box -> the colours under its four corners (read before frame() paints them)
+export function frame(x, y, w, h, c = ui.T.ink) { // 1 px outline, outer size w x h (corners: round())
+  const cs = cornerShape();
+  if (cs || w < 4 || h < 4) {
+    if (cs?.outside) { // the corner picture shows what is under the box there: keep it
+      const gg = ui.g, sx = gg.canvas.width / ui.W, sy = gg.canvas.height / ui.H;
+      const px = (a, b) => { const d = gg.getImageData(a * sx, b * sy, 1, 1).data; return `rgb(${d[0]},${d[1]},${d[2]})`; };
+      unders.set(x + ',' + y + ',' + w + ',' + h, [px(x, y), px(x + w - 1, y), px(x, y + h - 1), px(x + w - 1, y + h - 1)]);
+    }
+    fill(x, y, w, 1, c); fill(x, y + h - 1, w, 1, c); fill(x, y, 1, h, c); fill(x + w - 1, y, 1, h, c);
+    return;
+  }
   fill(x + 1, y, w - 2, 1, c); fill(x + 1, y + h - 1, w - 2, 1, c); fill(x, y + 1, 1, h - 2, c); fill(x + w - 1, y + 1, 1, h - 2, c);
 }
 // Text with a 1 px shadow down and right (the panels: theme colours panelInk / textShade)
@@ -143,24 +154,19 @@ export function round(x, y, w, h, c = ui.T.ink, which = 'tb') {
   if (which.includes('t')) { corner(x + 1, y + 1, 1, 1); corner(x + w - 2, y + 1, -1, 1); }
   if (which.includes('b')) { corner(x + 1, y + h - 2, 1, -1); corner(x + w - 2, y + h - 2, -1, -1); }
 }
-// The corner drawn in the art editor (art/pictures/corner.png). Outside pixels take the colour under the box: the
-// pixel at the box's very corner, which frame() never paints.
+// The corner drawn in the art editor (art/pictures/corner.png): black pixels in the frame colour, white ones in the
+// colour under the box (frame() keeps it), transparent ones left as they are (an empty picture: square corners).
 function roundShape(cs, x, y, w, h, c, which) {
   if (w < 2 * cs.w || h < 2 * cs.h) return;
-  const g = ui.g;
+  const under = unders.get(x + ',' + y + ',' + w + ',' + h) || [];
   const corners = [];
-  if (which.includes('t')) corners.push([x, y, 1, 1], [x + w - 1, y, -1, 1]);
-  if (which.includes('b')) corners.push([x, y + h - 1, 1, -1], [x + w - 1, y + h - 1, -1, -1]);
-  for (const [cx, cy, dx, dy] of corners) {
-    let under = null;
+  if (which.includes('t')) corners.push([x, y, 1, 1, under[0]], [x + w - 1, y, -1, 1, under[1]]);
+  if (which.includes('b')) corners.push([x, y + h - 1, 1, -1, under[2]], [x + w - 1, y + h - 1, -1, -1, under[3]]);
+  for (const [cx, cy, dx, dy, u] of corners) {
     for (let j = 0; j < cs.h; j++) for (let i = 0; i < cs.w; i++) {
       const v = cs.cell[j * cs.w + i];
-      if (!v) continue;
-      const px = cx + i * dx, py = cy + j * dy;
-      if (v === 1) { fill(px, py, 1, 1, c); continue; }
-      if (i === 0 && j === 0) continue; // the corner pixel itself is already what is under the box
-      if (under == null) { const d = g.getImageData(cx * (g.canvas.width / ui.W), cy * (g.canvas.height / ui.H), 1, 1).data; under = `rgb(${d[0]},${d[1]},${d[2]})`; }
-      fill(px, py, 1, 1, under);
+      if (v === 1) fill(cx + i * dx, cy + j * dy, 1, 1, c);
+      else if (v === 2 && u) fill(cx + i * dx, cy + j * dy, 1, 1, u);
     }
   }
 }

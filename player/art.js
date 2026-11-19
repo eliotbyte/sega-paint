@@ -594,8 +594,8 @@ function cornerSample(cv, th) {
   const fill = (x, y, w, h, c) => { g.fillStyle = c; g.fillRect(x, y, w, h); };
   const d = cv.getContext('2d').getImageData(0, 0, cv.width, cv.height).data;
   const cell = (i, j) => { const k = (j * cv.width + i) * 4; return d[k + 3] <= 127 ? 0 : d[k] < 60 && d[k + 1] < 60 && d[k + 2] < 60 ? 1 : 2; };
-  const box = (x, y, w, h, face, under) => {
-    fill(x + 1, y, w - 2, 1, t.ink); fill(x + 1, y + h - 1, w - 2, 1, t.ink); fill(x, y + 1, 1, h - 2, t.ink); fill(x + w - 1, y + 1, 1, h - 2, t.ink);
+  const box = (x, y, w, h, face, under) => { // the whole outline: the corner picture alone rounds it (gui.js frame)
+    fill(x, y, w, 1, t.ink); fill(x, y + h - 1, w, 1, t.ink); fill(x, y, 1, h, t.ink); fill(x + w - 1, y, 1, h, t.ink);
     fill(x + 1, y + 1, w - 2, h - 2, face);
     return () => {
       if (w < 2 * cv.width || h < 2 * cv.height) return;
