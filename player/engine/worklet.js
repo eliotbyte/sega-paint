@@ -1,5 +1,5 @@
 // AudioWorklet: runs the chip emulators in the audio thread.
-import { Renderer } from './renderer.js';
+import { Renderer, useWasm } from './renderer.js';
 
 class SegaPlayer extends AudioWorkletProcessor {
   constructor() {
@@ -16,6 +16,14 @@ class SegaPlayer extends AudioWorkletProcessor {
 
   onMessage(m) {
     switch (m.type) {
+      // the page sends the compiled ym2612.wasm first thing: the main renderer starts over on it
+      case 'wasm': {
+        useWasm(m.module);
+        const r = new Renderer(sampleRate);
+        r.loop = this.main.loop; r.gain = this.main.gain; r.setClean(this.clean);
+        this.main = r;
+        break;
+      }
       case 'timeline': {
         const pos = m.pos ?? this.main.pos;
         this.main.setTimeline(m.tl, pos);

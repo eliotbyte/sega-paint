@@ -1,0 +1,16 @@
+[package]
+name = "ym2612-wasm"
+version = "0.1.0"
+edition = "2021"
+license = "LGPL-2.1-or-later"
+description = "YM2612 (Nuked OPN2 port) for Sega Paint, built to WebAssembly"
+
+[lib]
+crate-type = ["cdylib"]
+path = "src/lib.rs"
+
+[profile.release]
+opt-level = 3
+lto = true
+panic = "abort"
+codegen-units = 1

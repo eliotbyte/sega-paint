@@ -742,10 +742,17 @@ function setBars(bars) {
 }
 
 // ---------- audio ----------
+// The YM2612 compiled to WebAssembly (same sound as engine/ym2612.js, a third of the CPU); compiled while the page loads.
+const ymWasm = fetch('engine/ym2612.wasm')
+  .then((r) => (r.ok ? r.arrayBuffer() : Promise.reject(new Error(r.status))))
+  .then((b) => WebAssembly.compile(b))
+  .catch(() => null);
 async function startAudio() {
   const ctx = new AudioContext({ latencyHint: 'interactive' });
   await ctx.audioWorklet.addModule('engine/worklet.js');
   const node = new AudioWorkletNode(ctx, 'sega-player', { numberOfInputs: 0, outputChannelCount: [2] });
+  const wasm = await ymWasm;
+  if (wasm) try { node.port.postMessage({ type: 'wasm', module: wasm }); } catch (e) { /* the chip stays JavaScript */ }
   const analyser = ctx.createAnalyser();
   analyser.fftSize = 1024;
   node.connect(ctx.destination);

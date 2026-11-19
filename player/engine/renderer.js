@@ -1,5 +1,5 @@
 // Plays a write timeline through YM2612 + SN76489 and resamples to the output rate.
-import { YM2612Chip } from './ym2612.js';
+import { YM2612Chip, YM2612Wasm } from './ym2612.js';
 import { SN76489 } from './sn76489.js';
 import { KIND_PSG } from './vgm.js';
 
@@ -10,10 +10,19 @@ const FM_SCALE = 1 / 4608;     // 6 channels * 256 * 3
 // one PSG square = +-2800 x 1.5 (psg_preamp 150). In our units: 4200 / 11 / 4608.
 const PSG_SCALE = 4200 / 11 * FM_SCALE;
 
+// The compiled ym2612.wasm, once someone hands it over (the worklet gets it from the page); until then, and where
+// WebAssembly fails, the chip runs as JavaScript. Both sound the same.
+let ymModule = null;
+export function useWasm(module) { ymModule = module || null; }
+export function wasmChip() {
+  if (ymModule) try { return new YM2612Wasm(ymModule); } catch (e) { ymModule = null; }
+  return new YM2612Chip();
+}
+
 export class Renderer {
   constructor(outRate) {
     this.outRate = outRate;
-    this.ym = new YM2612Chip();
+    this.ym = wasmChip();
     this.psg = new SN76489(3579545, CHIP_RATE);
     this.tl = null;
     this.idx = 0;
@@ -76,7 +85,7 @@ export class Renderer {
     while (this.ym.qLen) this.ym.render(out);
   }
 
-  setClean(on) { this.ym.core.clean = on; }
+  setClean(on) { this.ym.setClean(on); }
 
   setMute(ymMask, psgMask) { this.ym.setMuteMask(ymMask); this.psg.muteMask = psgMask; }
 

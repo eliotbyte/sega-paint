@@ -4,7 +4,9 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { prepareSong, buildTimeline, stepTime, timeToStep, hzMidi, fmHz, psgHz, MELODIC_VOICE } from '../player/engine/song.js';
-import { Renderer } from '../player/engine/renderer.js';
+import { Renderer, useWasm } from '../player/engine/renderer.js';
+// the chip as WebAssembly (3x faster, same samples); the JavaScript one if it cannot load
+try { useWasm(new WebAssembly.Module(fs.readFileSync(new URL('../player/engine/ym2612.wasm', import.meta.url)))); } catch (e) { /* JS chip */ }
 
 export const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 export const PLAYER = path.join(ROOT, 'player');

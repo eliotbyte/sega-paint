@@ -64,12 +64,30 @@ const fm_algorithm = [
 ];
 
 const EG_ATTACK = 0, EG_DECAY = 1, EG_SUSTAIN = 2, EG_RELEASE = 3;
-const s16 = (v) => (v << 16) >> 16;
+
+// Per-cycle lookups (the original computes (cycles + k) % 24, slot / 6 and walks nested tables every cycle).
+const ADD = (k) => Uint8Array.from({ length: 24 }, (_, c) => (c + k) % 24);
+const C6 = ADD(6), C18 = ADD(18), C19 = ADD(19), C20 = ADD(20), C22 = ADD(22), C23 = ADD(23);
+const OPOF = Uint8Array.from({ length: 24 }, (_, c) => (c / 6) | 0); // operator of a slot
+const NEXTCH = Uint8Array.from({ length: 24 }, (_, c) => ((c % 6) + 1) % 6);
+// fm_algorithm[op][j][connect] as bit j of ALG[op * 8 + connect]
+const ALG = new Uint8Array(32);
+for (let op = 0; op < 4; op++) for (let cn = 0; cn < 8; cn++) {
+  let m = 0;
+  for (let j = 0; j < 6; j++) if (fm_algorithm[op][j][cn]) m |= 1 << j;
+  ALG[op * 8 + cn] = m;
+}
+const EG_STEPHI = Uint8Array.from(eg_stephi.flat());
+const LFO_SH1 = Uint8Array.from(pg_lfo_sh1.flat()), LFO_SH2 = Uint8Array.from(pg_lfo_sh2.flat());
+const PG_DETUNE = Uint8Array.from(pg_detune);
+const FN_NOTE = Uint8Array.from(fn_note);
+const AM_SHIFT = Uint8Array.from(eg_am_shift);
+const LFO_CYCLES = Uint8Array.from(lfo_cycles);
 
 export class YM2612 {
   // clean: no discrete-DAC "ladder" distortion and no 9-bit rounding of the channel sum (like a YM3438 with a fine DAC);
   // false: the Model 1 YM2612 as it is.
-  constructor() { this.muteMask = 0; this.clean = false; this.reset(); }
+  constructor() { this.muteMask = 0; this.clean = false; this.sumL = 0; this.sumR = 0; this.reset(); }
 
   reset() {
     this.cycles = 0; this.channel = 0; this.mol = 0; this.mor = 0;
@@ -82,7 +100,7 @@ export class YM2612 {
     this.eg_cycle = 0; this.eg_cycle_stop = 0; this.eg_shift = 0; this.eg_shift_lock = 0; this.eg_timer_low_lock = 0;
     this.eg_timer = 0; this.eg_timer_inc = 0; this.eg_quotient = 0; this.eg_custom_timer = 0;
     this.eg_rate = 0; this.eg_ksv = 0; this.eg_inc = 0; this.eg_ratemax = 0;
-    this.eg_sl = new Uint8Array(2); this.eg_lfo_am = 0; this.eg_tl = new Uint8Array(2);
+    this.eg_sl0 = 0; this.eg_sl1 = 0; this.eg_lfo_am = 0; this.eg_tl0 = 0; this.eg_tl1 = 0;
     this.eg_state = new Uint8Array(24).fill(EG_RELEASE);
     this.eg_level = new Uint16Array(24).fill(0x3ff);
     this.eg_out = new Uint16Array(24).fill(0x3ff);
@@ -94,7 +112,8 @@ export class YM2612 {
     this.fm_op2 = new Int16Array(6); this.fm_out = new Int16Array(24); this.fm_mod = new Uint16Array(24);
     this.ch_acc = new Int16Array(6); this.ch_out = new Int16Array(6);
     this.ch_lock = 0; this.ch_lock_l = 0; this.ch_lock_r = 0; this.ch_lock_mute = 0;
-    this.mode_test_21 = new Uint8Array(8); this.mode_test_2c = new Uint8Array(8);
+    // test registers 21 / 2C as bytes (bit n = the original mode_test_xx[n])
+    this.test21 = 0; this.test2c = 0;
     this.mode_ch3 = 0; this.mode_kon_channel = 0; this.mode_kon_operator = new Uint8Array(4);
     this.mode_kon = new Uint8Array(24); this.mode_csm = 0; this.mode_kon_csm = 0;
     this.dacen = 0; this.dacdata = 0;
@@ -109,19 +128,8 @@ export class YM2612 {
     this.ams = new Uint8Array(6); this.pms = new Uint8Array(6);
   }
 
-  doIO() {
-    this.write_a_en = (this.write_a & 3) === 1 ? 1 : 0;
-    this.write_d_en = (this.write_d & 3) === 1 ? 1 : 0;
-    this.write_a = (this.write_a << 1) & 0xff;
-    this.write_d = (this.write_d << 1) & 0xff;
-    this.write_busy_cnt = (this.write_busy_cnt + this.write_busy) & 0xff;
-    this.write_busy = ((this.write_busy && !(this.write_busy_cnt >> 5)) || this.write_d_en) ? 1 : 0;
-    this.write_busy_cnt &= 0x1f;
-  }
-
-  doRegWrite() {
-    let slot = this.cycles % 12;
-    const channel = this.channel;
+  doRegWrite(cycles, channel) {
+    let slot = cycles >= 12 ? cycles - 12 : cycles;
     if (this.write_fm_data) {
       if (op_offset[slot] === (this.address & 0x107)) {
         if (this.address & 0x08) slot += 12;
@@ -139,9 +147,9 @@ export class YM2612 {
           case 0x70: this.sr[slot] = d & 0x1f; break;
           case 0x80: {
             this.rr[slot] = d & 0x0f;
-            let sl = (d >> 4) & 0x0f;
-            sl |= (sl + 1) & 0x10;
-            this.sl[slot] = sl;
+            let s = (d >> 4) & 0x0f;
+            s |= (s + 1) & 0x10;
+            this.sl[slot] = s;
             break;
           }
           case 0x90: this.ssg_eg[slot] = d & 0x0f; break;
@@ -153,13 +161,13 @@ export class YM2612 {
           case 0xa0:
             this.fnum[channel] = (d & 0xff) | ((this.reg_a4 & 7) << 8);
             this.block[channel] = (this.reg_a4 >> 3) & 7;
-            this.kcode[channel] = (this.block[channel] << 2) | fn_note[this.fnum[channel] >> 7];
+            this.kcode[channel] = (this.block[channel] << 2) | FN_NOTE[this.fnum[channel] >> 7];
             break;
           case 0xa4: this.reg_a4 = d & 0xff; break;
           case 0xa8:
             this.fnum_3ch[channel] = (d & 0xff) | ((this.reg_ac & 7) << 8);
             this.block_3ch[channel] = (this.reg_ac >> 3) & 7;
-            this.kcode_3ch[channel] = (this.block_3ch[channel] << 2) | fn_note[this.fnum_3ch[channel] >> 7];
+            this.kcode_3ch[channel] = (this.block_3ch[channel] << 2) | FN_NOTE[this.fnum_3ch[channel] >> 7];
             break;
           case 0xac: this.reg_ac = d & 0xff; break;
           case 0xb0: this.connect[channel] = d & 7; this.fb[channel] = (d >> 3) & 7; break;
@@ -181,7 +189,7 @@ export class YM2612 {
       if (this.write_d_en && (this.write_data & 0x100) === 0) {
         const wd = this.write_data;
         switch (this.write_fm_mode_a) {
-          case 0x21: for (let i = 0; i < 8; i++) this.mode_test_21[i] = (wd >> i) & 1; break;
+          case 0x21: this.test21 = wd & 0xff; break;
           case 0x22: this.lfo_en = ((wd >> 3) & 1) ? 0x7f : 0; this.lfo_freq = wd & 7; break;
           case 0x27: this.mode_ch3 = (wd & 0xc0) >> 6; this.mode_csm = this.mode_ch3 === 2 ? 1 : 0; break;
           case 0x28:
@@ -191,9 +199,9 @@ export class YM2612 {
           case 0x2a: this.dacdata = (this.dacdata & 1) | (((wd ^ 0x80) & 0xff) << 1); break;
           case 0x2b: this.dacen = (wd >> 7) & 1; break;
           case 0x2c:
-            for (let i = 0; i < 8; i++) this.mode_test_2c[i] = (wd >> i) & 1;
-            this.dacdata = (this.dacdata & 0x1fe) | this.mode_test_2c[3];
-            this.eg_custom_timer = (!this.mode_test_2c[7] && this.mode_test_2c[6]) ? 1 : 0;
+            this.test2c = wd & 0xff;
+            this.dacdata = (this.dacdata & 0x1fe) | ((wd >> 3) & 1);
+            this.eg_custom_timer = (!((wd >> 7) & 1) && ((wd >> 6) & 1)) ? 1 : 0;
             break;
         }
       }
@@ -202,359 +210,380 @@ export class YM2612 {
     if (this.write_fm_data) this.data = this.write_data & 0xff;
   }
 
-  phaseCalcIncrement() {
-    const chan = this.channel, slot = this.cycles;
-    let fnum = this.pg_fnum;
-    const fnum_h = fnum >> 4;
-    const lfo = this.lfo_pm;
-    let lfo_l = lfo & 0x0f;
-    const pms = this.pms[chan];
-    const dt = this.dt[slot];
-    const dt_l = dt & 3;
-    let detune = 0;
-    let kcode = this.pg_kcode;
-    fnum <<= 1;
-    if (lfo_l & 8) lfo_l ^= 0x0f;
-    let fm = (fnum_h >> pg_lfo_sh1[pms][lfo_l]) + (fnum_h >> pg_lfo_sh2[pms][lfo_l]);
-    if (pms > 5) fm <<= pms - 5;
-    fm >>= 2;
-    if (lfo & 0x10) fnum -= fm; else fnum += fm;
-    fnum &= 0xfff;
-    let basefreq = (fnum << this.pg_block) >> 2;
-    if (dt_l) {
-      if (kcode > 0x1c) kcode = 0x1c;
-      const block = kcode >> 2, note = kcode & 3;
-      const sum = block + 9 + ((dt_l === 3 ? 1 : 0) | (dt_l & 2));
-      detune = pg_detune[((sum & 1) << 2) | note] >> (9 - (sum >> 1));
-    }
-    if (dt & 4) basefreq -= detune; else basefreq += detune;
-    basefreq &= 0x1ffff;
-    this.pg_inc[slot] = ((basefreq * this.multi[slot]) >> 1) & 0xfffff;
-  }
+  // Runs n chip cycles (the original OPN2_Clock n times); the summed left / right output goes to sumL / sumR.
+  // All stages of a cycle are inlined, in the order of Nuked OPN2's OPN2_Clock.
+  run(n) {
+    const clean = this.clean;
+    const pg_inc = this.pg_inc, pg_phase = this.pg_phase, pg_reset = this.pg_reset;
+    const eg_state = this.eg_state, eg_level = this.eg_level, eg_out = this.eg_out;
+    const eg_kon = this.eg_kon, eg_kon_csm = this.eg_kon_csm, eg_kon_latch = this.eg_kon_latch;
+    const eg_ssg_enable = this.eg_ssg_enable, eg_ssg_pgrst_latch = this.eg_ssg_pgrst_latch;
+    const eg_ssg_repeat_latch = this.eg_ssg_repeat_latch, eg_ssg_hold_up_latch = this.eg_ssg_hold_up_latch;
+    const eg_ssg_dir = this.eg_ssg_dir, eg_ssg_inv = this.eg_ssg_inv;
+    const fm_op1 = this.fm_op1, fm_op2 = this.fm_op2, fm_out = this.fm_out, fm_mod = this.fm_mod;
+    const ch_acc = this.ch_acc, ch_out = this.ch_out;
+    const mode_kon = this.mode_kon, mode_kon_operator = this.mode_kon_operator;
+    const ks = this.ks, ar = this.ar, sr = this.sr, dt = this.dt, multi = this.multi, sl = this.sl, rr = this.rr;
+    const dr = this.dr, am = this.am, tl = this.tl, ssg_eg = this.ssg_eg;
+    const fnum = this.fnum, block = this.block, kcode = this.kcode;
+    const fnum_3ch = this.fnum_3ch, block_3ch = this.block_3ch, kcode_3ch = this.kcode_3ch;
+    const connect = this.connect, fb = this.fb, pan_l = this.pan_l, pan_r = this.pan_r, ams = this.ams, pms = this.pms;
+    const lim = clean ? 8192 : 256;
+    let sumL = 0, sumR = 0;
+    // hot state in locals for the loop (written back at the end)
+    let _eg_cycle = this.eg_cycle, _eg_cycle_stop = this.eg_cycle_stop, _eg_shift = this.eg_shift,
+      _eg_shift_lock = this.eg_shift_lock, _eg_timer_low_lock = this.eg_timer_low_lock, _eg_timer = this.eg_timer,
+      _eg_timer_inc = this.eg_timer_inc, _eg_quotient = this.eg_quotient, _eg_rate = this.eg_rate,
+      _eg_ksv = this.eg_ksv, _eg_inc = this.eg_inc, _eg_ratemax = this.eg_ratemax, _eg_sl0 = this.eg_sl0,
+      _eg_sl1 = this.eg_sl1, _eg_tl0 = this.eg_tl0, _eg_tl1 = this.eg_tl1, _eg_lfo_am = this.eg_lfo_am,
+      _lfo_pm = this.lfo_pm, _lfo_am = this.lfo_am, _lfo_cnt = this.lfo_cnt, _lfo_inc = this.lfo_inc,
+      _lfo_quotient = this.lfo_quotient, _pg_fnum = this.pg_fnum, _pg_block = this.pg_block,
+      _pg_kcode = this.pg_kcode, _ch_lock = this.ch_lock, _ch_lock_l = this.ch_lock_l, _ch_lock_r = this.ch_lock_r,
+      _ch_lock_mute = this.ch_lock_mute, _cycles = this.cycles, _channel = this.channel;
 
-  phaseGenerate() {
-    let slot = (this.cycles + 20) % 24;
-    if (this.pg_reset[slot]) this.pg_inc[slot] = 0;
-    slot = (this.cycles + 19) % 24;
-    if (this.pg_reset[slot] || this.mode_test_21[3]) this.pg_phase[slot] = 0;
-    this.pg_phase[slot] = (this.pg_phase[slot] + this.pg_inc[slot]) & 0xfffff;
-  }
+    for (let k = 0; k < n; k++) {
+      const cycles = _cycles, chan = _channel;
+      const t21 = this.test21;
+      const test_dac = (this.test2c >> 5) & 1;
 
-  envelopeSSGEG() {
-    const slot = this.cycles;
-    let direction = 0;
-    this.eg_ssg_pgrst_latch[slot] = 0;
-    this.eg_ssg_repeat_latch[slot] = 0;
-    this.eg_ssg_hold_up_latch[slot] = 0;
-    const ssg = this.ssg_eg[slot];
-    if (ssg & 8) {
-      direction = this.eg_ssg_dir[slot];
-      if (this.eg_level[slot] & 0x200) {
-        if ((ssg & 3) === 0) this.eg_ssg_pgrst_latch[slot] = 1;
-        if ((ssg & 1) === 0) this.eg_ssg_repeat_latch[slot] = 1;
-        if ((ssg & 3) === 2) direction ^= 1;
-        if ((ssg & 3) === 3) direction = 1;
+      // ---- timers (start of OPN2_Clock)
+      _lfo_inc = (t21 >> 1) & 1;
+      _eg_cycle++;
+      if (cycles === 1 && _eg_quotient === 2) {
+        _eg_shift_lock = _eg_cycle_stop ? 0 : _eg_shift + 1;
+        _eg_timer_low_lock = _eg_timer & 3;
       }
-      if (this.eg_kon_latch[slot] && ((ssg & 7) === 5 || (ssg & 7) === 3)) this.eg_ssg_hold_up_latch[slot] = 1;
-      direction &= this.eg_kon[slot];
-    }
-    this.eg_ssg_dir[slot] = direction;
-    this.eg_ssg_enable[slot] = (ssg >> 3) & 1;
-    this.eg_ssg_inv[slot] = (direction ^ (((ssg >> 2) & 1) & ((ssg >> 3) & 1))) & this.eg_kon[slot];
-  }
-
-  envelopeADSR() {
-    const slot = (this.cycles + 22) % 24;
-    const nkon = this.eg_kon_latch[slot];
-    const okon = this.eg_kon[slot];
-    let nextstate = this.eg_state[slot];
-    let inc = 0;
-    this.pg_reset[slot] = ((nkon && !okon) || this.eg_ssg_pgrst_latch[slot]) ? 1 : 0;
-    const kon_event = (nkon && !okon) || (okon && this.eg_ssg_repeat_latch[slot]);
-    const koff_event = okon && !nkon;
-    let level = this.eg_level[slot];
-    let ssg_level = level;
-    if (this.eg_ssg_inv[slot]) ssg_level = (512 - level) & 0x3ff;
-    if (koff_event) level = ssg_level;
-    let eg_off;
-    if (this.eg_ssg_enable[slot]) eg_off = level >> 9;
-    else eg_off = (level & 0x3f0) === 0x3f0 ? 1 : 0;
-    let nextlevel = level;
-    if (kon_event) {
-      nextstate = EG_ATTACK;
-      if (this.eg_ratemax) nextlevel = 0;
-      else if (this.eg_state[slot] === EG_ATTACK && level !== 0 && this.eg_inc && nkon) {
-        inc = s16((~level << this.eg_inc) >> 5);
+      if (cycles === 0) {
+        const lc = _lfo_cnt;
+        _lfo_pm = lc >> 2;
+        _lfo_am = ((lc & 0x40) ? (lc & 0x3f) : (lc ^ 0x3f)) << 1;
+      } else if (cycles === 1) {
+        _eg_quotient = _eg_quotient === 2 ? 0 : _eg_quotient + 1;
+        _eg_cycle = 0; _eg_cycle_stop = 1; _eg_shift = 0;
+        _eg_timer_inc |= _eg_quotient >> 1;
+        const t = _eg_timer + _eg_timer_inc;
+        _eg_timer_inc = t >> 12;
+        _eg_timer = t & 0xfff;
+      } else if (cycles === 13) {
+        _eg_cycle = 0; _eg_cycle_stop = 1; _eg_shift = 0;
+        const t = _eg_timer + _eg_timer_inc;
+        _eg_timer_inc = t >> 12;
+        _eg_timer = t & 0xfff;
+      } else if (cycles === 23) {
+        _lfo_inc |= 1;
       }
-    } else {
-      switch (this.eg_state[slot]) {
-        case EG_ATTACK:
-          if (level === 0) nextstate = EG_DECAY;
-          else if (this.eg_inc && !this.eg_ratemax && nkon) inc = s16((~level << this.eg_inc) >> 5);
-          break;
-        case EG_DECAY:
-          if ((level >> 4) === (this.eg_sl[1] << 1)) nextstate = EG_SUSTAIN;
-          else if (!eg_off && this.eg_inc) {
-            inc = 1 << (this.eg_inc - 1);
-            if (this.eg_ssg_enable[slot]) inc <<= 2;
-          }
-          break;
-        case EG_SUSTAIN:
-        case EG_RELEASE:
-          if (!eg_off && this.eg_inc) {
-            inc = 1 << (this.eg_inc - 1);
-            if (this.eg_ssg_enable[slot]) inc <<= 2;
-          }
-          break;
+      if (t21 & 0x20) _eg_timer &= ~(1 << _eg_cycle) & 0xffff;
+      if ((_eg_timer >> _eg_cycle) & _eg_cycle_stop) {
+        _eg_shift = _eg_cycle;
+        _eg_cycle_stop = 0;
       }
-      if (!nkon) nextstate = EG_RELEASE;
-    }
-    if (this.eg_kon_csm[slot]) nextlevel |= this.eg_tl[1] << 3;
-    if (!kon_event && !this.eg_ssg_hold_up_latch[slot] && this.eg_state[slot] !== EG_ATTACK && eg_off) {
-      nextstate = EG_RELEASE;
-      nextlevel = 0x3ff;
-    }
-    nextlevel += inc;
-    this.eg_kon[slot] = this.eg_kon_latch[slot];
-    this.eg_level[slot] = nextlevel & 0x3ff;
-    this.eg_state[slot] = nextstate;
-  }
 
-  envelopePrepare() {
-    let inc = 0;
-    const slot = this.cycles;
-    let rate = (this.eg_rate << 1) + this.eg_ksv;
-    if (rate > 0x3f) rate = 0x3f;
-    const sum = ((rate >> 2) + this.eg_shift_lock) & 0x0f;
-    if (this.eg_rate !== 0 && this.eg_quotient === 2) {
-      if (rate < 48) {
-        switch (sum) {
-          case 12: inc = 1; break;
-          case 13: inc = (rate >> 1) & 1; break;
-          case 14: inc = rate & 1; break;
-        }
+      // ---- doIO
+      if (this.write_a | this.write_d | this.write_busy) {
+        this.write_a_en = (this.write_a & 3) === 1 ? 1 : 0;
+        this.write_d_en = (this.write_d & 3) === 1 ? 1 : 0;
+        this.write_a = (this.write_a << 1) & 0xff;
+        this.write_d = (this.write_d << 1) & 0xff;
+        this.write_busy_cnt = (this.write_busy_cnt + this.write_busy) & 0xff;
+        this.write_busy = ((this.write_busy && !(this.write_busy_cnt >> 5)) || this.write_d_en) ? 1 : 0;
+        this.write_busy_cnt &= 0x1f;
       } else {
-        inc = eg_stephi[rate & 3][this.eg_timer_low_lock] + (rate >> 2) - 11;
-        if (inc > 4) inc = 4;
+        this.write_a_en = 0; this.write_d_en = 0;
       }
-    }
-    this.eg_inc = inc;
-    this.eg_ratemax = (rate >> 1) === 0x1f ? 1 : 0;
 
-    let rate_sel = this.eg_state[slot];
-    if ((this.eg_kon[slot] && this.eg_ssg_repeat_latch[slot]) || (!this.eg_kon[slot] && this.eg_kon_latch[slot])) {
-      rate_sel = EG_ATTACK;
-    }
-    switch (rate_sel) {
-      case EG_ATTACK: this.eg_rate = this.ar[slot]; break;
-      case EG_DECAY: this.eg_rate = this.dr[slot]; break;
-      case EG_SUSTAIN: this.eg_rate = this.sr[slot]; break;
-      case EG_RELEASE: this.eg_rate = (this.rr[slot] << 1) | 1; break;
-    }
-    this.eg_ksv = this.pg_kcode >> (this.ks[slot] ^ 3);
-    this.eg_lfo_am = this.am[slot] ? (this.lfo_am >> eg_am_shift[this.ams[this.channel]]) : 0;
-    this.eg_tl[1] = this.eg_tl[0];
-    this.eg_tl[0] = this.tl[slot];
-    this.eg_sl[1] = this.eg_sl[0];
-    this.eg_sl[0] = this.sl[slot];
-  }
-
-  envelopeGenerate() {
-    const slot = (this.cycles + 23) % 24;
-    let level = this.eg_level[slot];
-    if (this.eg_ssg_inv[slot]) level = 512 - level;
-    if (this.mode_test_21[5]) level = 0;
-    level &= 0x3ff;
-    level += this.eg_lfo_am;
-    if (!(this.mode_csm && this.channel === 3)) level += this.eg_tl[0] << 3;
-    if (level > 0x3ff) level = 0x3ff;
-    this.eg_out[slot] = level;
-  }
-
-  updateLFO() {
-    const c = lfo_cycles[this.lfo_freq];
-    if ((this.lfo_quotient & c) === c) {
-      this.lfo_quotient = 0;
-      this.lfo_cnt = (this.lfo_cnt + 1) & 0xff;
-    } else {
-      this.lfo_quotient = (this.lfo_quotient + this.lfo_inc) & 0xff;
-    }
-    this.lfo_cnt &= this.lfo_en;
-  }
-
-  fmPrepare() {
-    let slot = (this.cycles + 6) % 24;
-    const channel = this.channel;
-    const op = (slot / 6) | 0;
-    const connect = this.connect[channel];
-    const prevslot = (this.cycles + 18) % 24;
-    const alg = fm_algorithm[op];
-    let mod1 = 0, mod2 = 0;
-    if (alg[0][connect]) mod2 |= this.fm_op1[channel * 2];
-    if (alg[1][connect]) mod1 |= this.fm_op1[channel * 2 + 1];
-    if (alg[2][connect]) mod1 |= this.fm_op2[channel];
-    if (alg[3][connect]) mod2 |= this.fm_out[prevslot];
-    if (alg[4][connect]) mod1 |= this.fm_out[prevslot];
-    let mod = s16(mod1 + mod2);
-    if (op === 0) {
-      mod = mod >> (10 - this.fb[channel]);
-      if (!this.fb[channel]) mod = 0;
-    } else {
-      mod >>= 1;
-    }
-    this.fm_mod[slot] = mod & 0xffff;
-
-    slot = (this.cycles + 18) % 24;
-    const sop = (slot / 6) | 0;
-    if (sop === 0) {
-      this.fm_op1[channel * 2 + 1] = this.fm_op1[channel * 2];
-      this.fm_op1[channel * 2] = this.fm_out[slot];
-    }
-    if (sop === 2) this.fm_op2[channel] = this.fm_out[slot];
-  }
-
-  chGenerate() {
-    const slot = (this.cycles + 18) % 24;
-    const channel = this.channel;
-    const op = (slot / 6) | 0;
-    const test_dac = this.mode_test_2c[5];
-    let acc = this.ch_acc[channel];
-    let add = test_dac;
-    if (op === 0 && !test_dac) acc = 0;
-    // clean mode keeps the operator's full 14 bits (the sum is in 1/32 steps of the 9-bit DAC)
-    const fine = this.clean ? 32 : 1;
-    if (fm_algorithm[op][5][this.connect[channel]] && !test_dac) add += this.clean ? this.fm_out[slot] : this.fm_out[slot] >> 5;
-    let sum = acc + add;
-    if (sum > 256 * fine - 1) sum = 256 * fine - 1; else if (sum < -256 * fine) sum = -256 * fine;
-    if (op === 0 || test_dac) this.ch_out[channel] = this.ch_acc[channel];
-    this.ch_acc[channel] = sum;
-  }
-
-  chOutput() {
-    const cycles = this.cycles;
-    let channel = this.channel;
-    const test_dac = this.mode_test_2c[5];
-    if (cycles < 12) channel++;
-    if ((cycles & 3) === 0) {
-      if (!test_dac) this.ch_lock = this.ch_out[channel];
-      this.ch_lock_l = this.pan_l[channel];
-      this.ch_lock_r = this.pan_r[channel];
-      this.ch_lock_mute = (this.muteMask >> channel) & 1; // mute is decided for the channel being latched
-    }
-    let out;
-    if (((cycles >> 2) === 1 && this.dacen) || test_dac) {
-      const v = this.dacdata;
-      out = (this.muteMask & 0x40) ? 0 : (v & 0xff) - (v & 0x100);
-      if (this.clean) out *= 32;
-    } else {
-      out = this.ch_lock_mute ? 0 : this.ch_lock;
-    }
-    if (this.clean) { // YM3438 mode: output on 3 of every 4 cycles, no offset
-      const en = ((cycles & 3) !== 0) || test_dac;
-      this.mol = this.ch_lock_l && en ? out / 32 : 0;
-      this.mor = this.ch_lock_r && en ? out / 32 : 0;
-      return;
-    }
-    // YM2612 mode (discrete DAC "ladder" effect)
-    const out_en = ((cycles & 3) === 3) || test_dac;
-    let sign = out >> 8;
-    if (out >= 0) { out++; sign++; }
-    this.mol = (this.ch_lock_l && out_en ? out : sign) * 3;
-    this.mor = (this.ch_lock_r && out_en ? out : sign) * 3;
-  }
-
-  fmGenerate() {
-    const slot = (this.cycles + 19) % 24;
-    const phase = (this.fm_mod[slot] + (this.pg_phase[slot] >> 10)) & 0x3ff;
-    const quarter = (phase & 0x100) ? ((phase ^ 0xff) & 0xff) : (phase & 0xff);
-    let level = logsinrom[quarter] + (this.eg_out[slot] << 2);
-    if (level > 0x1fff) level = 0x1fff;
-    let output = ((exprom[(level & 0xff) ^ 0xff] | 0x400) << 2) >> (level >> 8);
-    const t = this.mode_test_21[4] << 13;
-    if (phase & 0x200) output = ((~output) ^ t) + 1;
-    else output = output ^ t;
-    this.fm_out[slot] = (output & 0x1fff) - (output & 0x2000);
-  }
-
-  keyOn() {
-    const slot = this.cycles, chan = this.channel;
-    this.eg_kon_latch[slot] = this.mode_kon[slot];
-    this.eg_kon_csm[slot] = 0;
-    if (this.cycles === this.mode_kon_channel) {
-      this.mode_kon[chan] = this.mode_kon_operator[0];
-      this.mode_kon[chan + 12] = this.mode_kon_operator[1];
-      this.mode_kon[chan + 6] = this.mode_kon_operator[2];
-      this.mode_kon[chan + 18] = this.mode_kon_operator[3];
-    }
-  }
-
-  clock() {
-    const slot = this.cycles;
-    this.lfo_inc = this.mode_test_21[1];
-    this.eg_cycle++;
-    if (this.cycles === 1 && this.eg_quotient === 2) {
-      this.eg_shift_lock = this.eg_cycle_stop ? 0 : this.eg_shift + 1;
-      this.eg_timer_low_lock = this.eg_timer & 3;
-    }
-    switch (this.cycles) {
-      case 0:
-        this.lfo_pm = this.lfo_cnt >> 2;
-        this.lfo_am = ((this.lfo_cnt & 0x40) ? (this.lfo_cnt & 0x3f) : (this.lfo_cnt ^ 0x3f)) << 1;
-        break;
-      case 1:
-        this.eg_quotient = (this.eg_quotient + 1) % 3;
-        this.eg_cycle = 0; this.eg_cycle_stop = 1; this.eg_shift = 0;
-        this.eg_timer_inc |= this.eg_quotient >> 1;
-        this.eg_timer = this.eg_timer + this.eg_timer_inc;
-        this.eg_timer_inc = this.eg_timer >> 12;
-        this.eg_timer &= 0xfff;
-        break;
-      case 13:
-        this.eg_cycle = 0; this.eg_cycle_stop = 1; this.eg_shift = 0;
-        this.eg_timer = this.eg_timer + this.eg_timer_inc;
-        this.eg_timer_inc = this.eg_timer >> 12;
-        this.eg_timer &= 0xfff;
-        break;
-      case 23:
-        this.lfo_inc |= 1;
-        break;
-    }
-    this.eg_timer &= ~(this.mode_test_21[5] << this.eg_cycle) & 0xffff;
-    if (((this.eg_timer >> this.eg_cycle) | (0 & this.eg_custom_timer)) & this.eg_cycle_stop) {
-      this.eg_shift = this.eg_cycle;
-      this.eg_cycle_stop = 0;
-    }
-
-    this.doIO();
-    this.keyOn();
-    this.chOutput();
-    this.chGenerate();
-    this.fmPrepare();
-    this.fmGenerate();
-    this.phaseGenerate();
-    this.phaseCalcIncrement();
-    this.envelopeADSR();
-    this.envelopeGenerate();
-    this.envelopeSSGEG();
-    this.envelopePrepare();
-
-    const nch = (this.channel + 1) % 6;
-    if (this.mode_ch3) {
-      switch (slot) {
-        case 1: this.pg_fnum = this.fnum_3ch[1]; this.pg_block = this.block_3ch[1]; this.pg_kcode = this.kcode_3ch[1]; break;
-        case 7: this.pg_fnum = this.fnum_3ch[0]; this.pg_block = this.block_3ch[0]; this.pg_kcode = this.kcode_3ch[0]; break;
-        case 13: this.pg_fnum = this.fnum_3ch[2]; this.pg_block = this.block_3ch[2]; this.pg_kcode = this.kcode_3ch[2]; break;
-        default: this.pg_fnum = this.fnum[nch]; this.pg_block = this.block[nch]; this.pg_kcode = this.kcode[nch]; break;
+      // ---- keyOn
+      eg_kon_latch[cycles] = mode_kon[cycles];
+      eg_kon_csm[cycles] = 0;
+      if (cycles === this.mode_kon_channel) {
+        mode_kon[chan] = mode_kon_operator[0];
+        mode_kon[chan + 12] = mode_kon_operator[1];
+        mode_kon[chan + 6] = mode_kon_operator[2];
+        mode_kon[chan + 18] = mode_kon_operator[3];
       }
-    } else {
-      this.pg_fnum = this.fnum[nch]; this.pg_block = this.block[nch]; this.pg_kcode = this.kcode[nch];
-    }
 
-    this.updateLFO();
-    this.doRegWrite();
-    this.cycles = (this.cycles + 1) % 24;
-    this.channel = this.cycles % 6;
+      // ---- chOutput
+      {
+        const channel = cycles < 12 ? chan + 1 : chan;
+        if ((cycles & 3) === 0) {
+          if (!test_dac) _ch_lock = ch_out[channel];
+          _ch_lock_l = pan_l[channel];
+          _ch_lock_r = pan_r[channel];
+          _ch_lock_mute = (this.muteMask >> channel) & 1; // mute is decided for the channel being latched
+        }
+        let out;
+        if (((cycles >> 2) === 1 && this.dacen) || test_dac) {
+          const v = this.dacdata;
+          out = (this.muteMask & 0x40) ? 0 : (v & 0xff) - (v & 0x100);
+          if (clean) out *= 32;
+        } else {
+          out = _ch_lock_mute ? 0 : _ch_lock;
+        }
+        if (clean) { // YM3438 mode: output on 3 of every 4 cycles, no offset
+          if (((cycles & 3) !== 0) || test_dac) {
+            if (_ch_lock_l) sumL += out * 0.03125;
+            if (_ch_lock_r) sumR += out * 0.03125;
+          }
+        } else { // YM2612 mode (discrete DAC "ladder" effect)
+          const out_en = ((cycles & 3) === 3) || test_dac;
+          let sign = out >> 8;
+          if (out >= 0) { out++; sign++; }
+          sumL += (_ch_lock_l && out_en ? out : sign) * 3;
+          sumR += (_ch_lock_r && out_en ? out : sign) * 3;
+        }
+      }
+
+      // ---- chGenerate
+      const s18 = C18[cycles];
+      const op18 = OPOF[s18];
+      const cn = connect[chan];
+      {
+        let acc = ch_acc[chan];
+        let add = test_dac;
+        if (op18 === 0 && !test_dac) acc = 0;
+        if ((ALG[op18 * 8 + cn] & 0x20) && !test_dac) add += clean ? fm_out[s18] : fm_out[s18] >> 5;
+        let sum = acc + add;
+        if (sum > lim - 1) sum = lim - 1; else if (sum < -lim) sum = -lim;
+        if (op18 === 0 || test_dac) ch_out[chan] = ch_acc[chan];
+        ch_acc[chan] = sum;
+      }
+
+      // ---- fmPrepare
+      {
+        const slot = C6[cycles];
+        const op = OPOF[slot];
+        const alg = ALG[op * 8 + cn];
+        let mod1 = 0, mod2 = 0;
+        if (alg & 1) mod2 |= fm_op1[chan * 2];
+        if (alg & 2) mod1 |= fm_op1[chan * 2 + 1];
+        if (alg & 4) mod1 |= fm_op2[chan];
+        if (alg & 8) mod2 |= fm_out[s18];
+        if (alg & 16) mod1 |= fm_out[s18];
+        let mod = ((mod1 + mod2) << 16) >> 16;
+        if (op === 0) {
+          const f = fb[chan];
+          mod = f ? mod >> (10 - f) : 0;
+        } else {
+          mod >>= 1;
+        }
+        fm_mod[slot] = mod & 0xffff;
+        if (op18 === 0) {
+          fm_op1[chan * 2 + 1] = fm_op1[chan * 2];
+          fm_op1[chan * 2] = fm_out[s18];
+        } else if (op18 === 2) fm_op2[chan] = fm_out[s18];
+      }
+
+      // ---- fmGenerate
+      const s19 = C19[cycles];
+      {
+        const phase = (fm_mod[s19] + (pg_phase[s19] >> 10)) & 0x3ff;
+        const quarter = (phase & 0x100) ? ((phase ^ 0xff) & 0xff) : (phase & 0xff);
+        let level = logsinrom[quarter] + (eg_out[s19] << 2);
+        if (level > 0x1fff) level = 0x1fff;
+        let output = ((exprom[(level & 0xff) ^ 0xff] | 0x400) << 2) >> (level >> 8);
+        const t = ((t21 >> 4) & 1) << 13;
+        if (phase & 0x200) output = ((~output) ^ t) + 1;
+        else output = output ^ t;
+        fm_out[s19] = (output & 0x1fff) - (output & 0x2000);
+      }
+
+      // ---- phaseGenerate
+      {
+        const s20 = C20[cycles];
+        if (pg_reset[s20]) pg_inc[s20] = 0;
+        if (pg_reset[s19] || (t21 & 8)) pg_phase[s19] = 0;
+        pg_phase[s19] = (pg_phase[s19] + pg_inc[s19]) & 0xfffff;
+      }
+
+      // ---- phaseCalcIncrement
+      {
+        let fn = _pg_fnum;
+        const fnum_h = fn >> 4;
+        const lfo = _lfo_pm;
+        let lfo_l = lfo & 0x0f;
+        const p = pms[chan];
+        const d = dt[cycles];
+        const dt_l = d & 3;
+        let detune = 0;
+        fn <<= 1;
+        if (lfo_l & 8) lfo_l ^= 0x0f;
+        let fm = (fnum_h >> LFO_SH1[p * 8 + lfo_l]) + (fnum_h >> LFO_SH2[p * 8 + lfo_l]);
+        if (p > 5) fm <<= p - 5;
+        fm >>= 2;
+        if (lfo & 0x10) fn -= fm; else fn += fm;
+        fn &= 0xfff;
+        let basefreq = (fn << _pg_block) >> 2;
+        if (dt_l) {
+          let kc = _pg_kcode;
+          if (kc > 0x1c) kc = 0x1c;
+          const s = (kc >> 2) + 9 + ((dt_l === 3 ? 1 : 0) | (dt_l & 2));
+          detune = PG_DETUNE[((s & 1) << 2) | (kc & 3)] >> (9 - (s >> 1));
+        }
+        if (d & 4) basefreq -= detune; else basefreq += detune;
+        basefreq &= 0x1ffff;
+        pg_inc[cycles] = ((basefreq * multi[cycles]) >> 1) & 0xfffff;
+      }
+
+      // ---- envelopeADSR
+      {
+        const slot = C22[cycles];
+        const nkon = eg_kon_latch[slot];
+        const okon = eg_kon[slot];
+        const state = eg_state[slot];
+        let nextstate = state;
+        let inc = 0;
+        pg_reset[slot] = ((nkon && !okon) || eg_ssg_pgrst_latch[slot]) ? 1 : 0;
+        const kon_event = (nkon && !okon) || (okon && eg_ssg_repeat_latch[slot]);
+        let level = eg_level[slot];
+        if (okon && !nkon && eg_ssg_inv[slot]) level = (512 - level) & 0x3ff;
+        const ssgen = eg_ssg_enable[slot];
+        const eg_off = ssgen ? level >> 9 : ((level & 0x3f0) === 0x3f0 ? 1 : 0);
+        let nextlevel = level;
+        const egi = _eg_inc;
+        if (kon_event) {
+          nextstate = EG_ATTACK;
+          if (_eg_ratemax) nextlevel = 0;
+          else if (state === EG_ATTACK && level !== 0 && egi && nkon) inc = (((~level << egi) >> 5) << 16) >> 16;
+        } else {
+          if (state === EG_ATTACK) {
+            if (level === 0) nextstate = EG_DECAY;
+            else if (egi && !_eg_ratemax && nkon) inc = (((~level << egi) >> 5) << 16) >> 16;
+          } else if (state === EG_DECAY) {
+            if ((level >> 4) === (_eg_sl1 << 1)) nextstate = EG_SUSTAIN;
+            else if (!eg_off && egi) {
+              inc = 1 << (egi - 1);
+              if (ssgen) inc <<= 2;
+            }
+          } else if (!eg_off && egi) {
+            inc = 1 << (egi - 1);
+            if (ssgen) inc <<= 2;
+          }
+          if (!nkon) nextstate = EG_RELEASE;
+        }
+        if (eg_kon_csm[slot]) nextlevel |= _eg_tl1 << 3;
+        if (!kon_event && !eg_ssg_hold_up_latch[slot] && state !== EG_ATTACK && eg_off) {
+          nextstate = EG_RELEASE;
+          nextlevel = 0x3ff;
+        }
+        nextlevel += inc;
+        eg_kon[slot] = nkon;
+        eg_level[slot] = nextlevel & 0x3ff;
+        eg_state[slot] = nextstate;
+      }
+
+      // ---- envelopeGenerate
+      {
+        const slot = C23[cycles];
+        let level = eg_level[slot];
+        if (eg_ssg_inv[slot]) level = 512 - level;
+        if (t21 & 0x20) level = 0;
+        level &= 0x3ff;
+        level += _eg_lfo_am;
+        if (!(this.mode_csm && chan === 3)) level += _eg_tl0 << 3;
+        if (level > 0x3ff) level = 0x3ff;
+        eg_out[slot] = level;
+      }
+
+      // ---- envelopeSSGEG
+      {
+        const ssg = ssg_eg[cycles];
+        if (ssg & 8) {
+          let direction = eg_ssg_dir[cycles];
+          eg_ssg_pgrst_latch[cycles] = 0;
+          eg_ssg_repeat_latch[cycles] = 0;
+          eg_ssg_hold_up_latch[cycles] = 0;
+          if (eg_level[cycles] & 0x200) {
+            if ((ssg & 3) === 0) eg_ssg_pgrst_latch[cycles] = 1;
+            if ((ssg & 1) === 0) eg_ssg_repeat_latch[cycles] = 1;
+            if ((ssg & 3) === 2) direction ^= 1;
+            if ((ssg & 3) === 3) direction = 1;
+          }
+          if (eg_kon_latch[cycles] && ((ssg & 7) === 5 || (ssg & 7) === 3)) eg_ssg_hold_up_latch[cycles] = 1;
+          direction &= eg_kon[cycles];
+          eg_ssg_dir[cycles] = direction;
+          eg_ssg_enable[cycles] = 1;
+          eg_ssg_inv[cycles] = (direction ^ ((ssg >> 2) & 1)) & eg_kon[cycles];
+        } else {
+          eg_ssg_pgrst_latch[cycles] = 0;
+          eg_ssg_repeat_latch[cycles] = 0;
+          eg_ssg_hold_up_latch[cycles] = 0;
+          eg_ssg_dir[cycles] = 0;
+          eg_ssg_enable[cycles] = 0;
+          eg_ssg_inv[cycles] = 0;
+        }
+      }
+
+      // ---- envelopePrepare
+      {
+        let inc = 0;
+        let rate = (_eg_rate << 1) + _eg_ksv;
+        if (rate > 0x3f) rate = 0x3f;
+        if (_eg_rate !== 0 && _eg_quotient === 2) {
+          if (rate < 48) {
+            const sum = ((rate >> 2) + _eg_shift_lock) & 0x0f;
+            if (sum === 12) inc = 1;
+            else if (sum === 13) inc = (rate >> 1) & 1;
+            else if (sum === 14) inc = rate & 1;
+          } else {
+            inc = EG_STEPHI[(rate & 3) * 4 + _eg_timer_low_lock] + (rate >> 2) - 11;
+            if (inc > 4) inc = 4;
+          }
+        }
+        _eg_inc = inc;
+        _eg_ratemax = (rate >> 1) === 0x1f ? 1 : 0;
+
+        let rate_sel = eg_state[cycles];
+        if ((eg_kon[cycles] && eg_ssg_repeat_latch[cycles]) || (!eg_kon[cycles] && eg_kon_latch[cycles])) rate_sel = EG_ATTACK;
+        if (rate_sel === EG_ATTACK) _eg_rate = ar[cycles];
+        else if (rate_sel === EG_DECAY) _eg_rate = dr[cycles];
+        else if (rate_sel === EG_SUSTAIN) _eg_rate = sr[cycles];
+        else _eg_rate = (rr[cycles] << 1) | 1;
+        _eg_ksv = _pg_kcode >> (ks[cycles] ^ 3);
+        _eg_lfo_am = am[cycles] ? (_lfo_am >> AM_SHIFT[ams[chan]]) : 0;
+        _eg_tl1 = _eg_tl0;
+        _eg_tl0 = tl[cycles];
+        _eg_sl1 = _eg_sl0;
+        _eg_sl0 = sl[cycles];
+      }
+
+      // ---- the next channel's frequency
+      const nch = NEXTCH[cycles];
+      if (this.mode_ch3 && (cycles === 1 || cycles === 7 || cycles === 13)) {
+        const i = cycles === 1 ? 1 : cycles === 7 ? 0 : 2;
+        _pg_fnum = fnum_3ch[i]; _pg_block = block_3ch[i]; _pg_kcode = kcode_3ch[i];
+      } else {
+        _pg_fnum = fnum[nch]; _pg_block = block[nch]; _pg_kcode = kcode[nch];
+      }
+
+      // ---- updateLFO
+      {
+        const c = LFO_CYCLES[this.lfo_freq];
+        if ((_lfo_quotient & c) === c) {
+          _lfo_quotient = 0;
+          _lfo_cnt = (_lfo_cnt + 1) & 0xff;
+        } else {
+          _lfo_quotient = (_lfo_quotient + _lfo_inc) & 0xff;
+        }
+        _lfo_cnt &= this.lfo_en;
+      }
+
+      if (this.write_fm_data || this.write_a_en || this.write_d_en) this.doRegWrite(cycles, chan);
+      _cycles = cycles === 23 ? 0 : cycles + 1;
+      _channel = nch;
+    }
+    this.eg_cycle = _eg_cycle; this.eg_cycle_stop = _eg_cycle_stop; this.eg_shift = _eg_shift;
+    this.eg_shift_lock = _eg_shift_lock; this.eg_timer_low_lock = _eg_timer_low_lock; this.eg_timer = _eg_timer;
+    this.eg_timer_inc = _eg_timer_inc; this.eg_quotient = _eg_quotient; this.eg_rate = _eg_rate;
+    this.eg_ksv = _eg_ksv; this.eg_inc = _eg_inc; this.eg_ratemax = _eg_ratemax; this.eg_sl0 = _eg_sl0;
+    this.eg_sl1 = _eg_sl1; this.eg_tl0 = _eg_tl0; this.eg_tl1 = _eg_tl1; this.eg_lfo_am = _eg_lfo_am;
+    this.lfo_pm = _lfo_pm; this.lfo_am = _lfo_am; this.lfo_cnt = _lfo_cnt; this.lfo_inc = _lfo_inc;
+    this.lfo_quotient = _lfo_quotient; this.pg_fnum = _pg_fnum; this.pg_block = _pg_block; this.pg_kcode = _pg_kcode;
+    this.ch_lock = _ch_lock; this.ch_lock_l = _ch_lock_l; this.ch_lock_r = _ch_lock_r;
+    this.ch_lock_mute = _ch_lock_mute; this.cycles = _cycles; this.channel = _channel;
+    this.sumL = sumL; this.sumR = sumR;
   }
+
+  // one cycle, as the original's OPN2_Clock (output in mol / mor)
+  clock() { this.run(1); this.mol = this.sumL; this.mor = this.sumR; }
 
   // Raw bus write. port: 0 = addr (part I), 1 = data, 2 = addr (part II), 3 = data.
   write(port, data) {
@@ -573,6 +602,7 @@ export class YM2612Chip {
     this.qHead = 0; this.qLen = 0;
   }
   reset() { this.core.reset(); this.qHead = 0; this.qLen = 0; }
+  setClean(on) { this.core.clean = on; }
   // bit n = mute FM channel n (0..5), bit 6 = mute DAC
   setMuteMask(m) { this.core.muteMask = m; }
   writeReg(part, reg, val) {
@@ -590,11 +620,25 @@ export class YM2612Chip {
       const i = this.qHead;
       const part = this.qPart[i], reg = this.qReg[i], val = this.qVal[i];
       this.qHead = (this.qHead + 1) & 4095; this.qLen--;
-      c.write(part << 1, reg); c.clock(); l += c.mol; r += c.mor;
-      c.write((part << 1) | 1, val); c.clock(); l += c.mol; r += c.mor;
+      c.write(part << 1, reg); c.run(1); l += c.sumL; r += c.sumR;
+      c.write((part << 1) | 1, val); c.run(1); l += c.sumL; r += c.sumR;
       n = 2;
     }
-    for (; n < 24; n++) { c.clock(); l += c.mol; r += c.mor; }
-    out[0] = l; out[1] = r;
+    c.run(24 - n);
+    out[0] = l + c.sumL; out[1] = r + c.sumR;
   }
+}
+
+// The same chip compiled to WebAssembly (engine-src/ym2612-wasm, bit for bit the code above, about twice as fast).
+// module: a compiled WebAssembly.Module of player/engine/ym2612.wasm; every chip gets its own instance.
+export class YM2612Wasm {
+  constructor(module) {
+    this.x = new WebAssembly.Instance(module, {}).exports;
+  }
+  get qLen() { return this.x.q_len(); }
+  reset() { this.x.reset(); }
+  setClean(on) { this.x.set_clean(on ? 1 : 0); }
+  setMuteMask(m) { this.x.set_mute(m); }
+  writeReg(part, reg, val) { this.x.write_reg(part, reg, val); }
+  render(out) { out[0] = this.x.render(); out[1] = this.x.out_r(); }
 }
