@@ -1,0 +1,31 @@
+{
+  "game": "Shinobi III",
+  "layers": {
+    "L0": {
+      "name": "Synth 1",
+      "role": "lead",
+      "color": "#ffb020"
+    },
+    "L1": {
+      "name": "Synth 2",
+      "role": "lead",
+      "color": "#ff5d8f"
+    },
+    "L2": {
+      "name": "Strings 1",
+      "role": "bass",
+      "color": "#a06bff"
+    },
+    "L3": {
+      "name": "Strings 2",
+      "role": "lead",
+      "color": "#5a7bff"
+    },
+    "L4": {
+      "name": "Tom",
+      "role": "lead",
+      "color": "#4cc24c"
+    }
+  },
+  "samples": []
+}
