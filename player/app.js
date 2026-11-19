@@ -566,8 +566,18 @@ function sampleSound(i, p, d) {
   return { key: 's' + i, smp: i, p: p ?? 36 + 24 - (smp.transp || 0), d: d ?? Math.round(S.song.step * 2), sprite: smp.sprite, name: smp.name };
 }
 
+// A PSG track plays a bare square: nothing to choose, the track dialog shows only name, colour and icon (user,
+// 2026-11-19). Its one sound: the track's own, or the library's Square for a new track.
+const plainSound = (L) => L.kind === 'psg';
+function plainSoundOf(L) {
+  if (L.palette.length) return [...L.palette];
+  const c = gameCatOf('psg')[0];
+  return c ? [addCatalogSound(c)] : [];
+}
+
 // Everything a layer of this kind could play (the track settings picker).
 function soundLibrary(L) {
+  if (plainSound(L)) return plainSoundOf(L);
   if (L.kind === 'sample') {
     // DAC4 resamples to pitch, so it only offers samples that have a pitch table.
     // Every sample of the library (all games), then the song's own ones the library does not have.
@@ -1032,7 +1042,8 @@ function addTrack(v) {
   }
   const lib = soundLibrary(L);
   if (!lib.length) { showStatus(`No ${v.what} sounds to choose from`); return; }
-  openDialog({ kind: 'track', isNew: true, L, name: L.name, lib, chosen: new Set(), scroll: 0, tone, iconFor: null, icons: new Map() });
+  openDialog({ kind: 'track', isNew: true, L, name: L.name, lib, chosen: new Set(plainSound(L) ? lib.map((x) => x.key) : []), scroll: 0,
+    tone, iconFor: null, icons: new Map() });
 }
 function createTrack(L, palette) {
   L.palette = uniqueSprites(palette.map((x) => ({ ...x, sprite: spriteName(x.sprite) })));
@@ -2635,7 +2646,7 @@ function drawAddDialog(d) {
 
 function drawTrackDialog(d) {
   const T = ui.T, L = d.L;
-  const r = dialogBox(316, 290, `${d.isNew ? 'ADD TRACK' : 'TRACK'} · ${chipName(L)}`);
+  const r = dialogBox(316, plainSound(L) ? 100 : 290, `${d.isNew ? 'ADD TRACK' : 'TRACK'} · ${chipName(L)}`);
   text('NAME', r.x + 8, r.y + 7, T.dim);
   field(r.x + 8, r.y + 15, 140, 'trackName', d.name, { max: 24, onInput: (v) => { d.name = v; }, onEnter: () => applyTrackDialog(d) });
   // the track's colour: one of the Mega Drive tones (other tracks' colours can be taken too)
@@ -2656,7 +2667,7 @@ function drawTrackDialog(d) {
   const choices = L.kind === 'psg' || L.kind === 'noise' ? SPRITE_POOL
     : [...new Set(d.lib.filter((x) => d.chosen.has(x.key)).map(iconOf))];
   const iy = r.y + r.h - 24 - 30;
-  text(target ? `ICON OF ${target.name.toUpperCase()}` : 'ICON: CLICK A SOUND', r.x + 8, iy, T.dim);
+  text(plainSound(L) ? 'ICON' : target ? `ICON OF ${target.name.toUpperCase()}` : 'ICON: CLICK A SOUND', r.x + 8, iy, T.dim);
   if (target) {
     const curIcon = d.icons.get(target.key) || target.sprite, per = Math.floor((r.w - 16) / 13);
     choices.forEach((nm, k) => {
@@ -2672,106 +2683,108 @@ function drawTrackDialog(d) {
       } });
     });
   }
-  text('SOUNDS IN PALETTE', r.x + 8, r.y + 34, T.dim);
-  // grid of sounds: click to put in / take out of the palette. Sounds come in groups by game, folded at first.
-  const gx = r.x + 8, gy = r.y + 42, gw = r.w - 16, gh = r.h - 42 - 24 - 36;
-  const cw = 97, ch = 14, hh = 13, cols = Math.max(1, Math.floor((gw - 1) / cw));
-  const grouped = true;
-  d.open ??= new Set([MY, PSG_GROUP]);
-  const groupOf = (snd) => snd.group || 'This song';
-  const groups = [{ name: MY, items: [] }]; // My sounds is always there, first
-  const canImport = L.kind === 'fm' && !L.kit; // FM patch files (patches.js) become FM sounds
-  const canSample = L.kind === 'sample'; // audio files become samples (sampler.js)
-  if (canSample) { // what the song's samples take, against the budget of one song
-    const kb = songSampleBytes() / 1024, t = `SONG SAMPLES ${kb.toFixed(1)} OF ${SONG_BUDGET_KB} KB`;
-    text(t, r.x + r.w - 8 - textWidth(t), r.y + 34, kb > SONG_BUDGET_KB ? T.red : T.dim);
-  }
-  d.lib.forEach((snd, k) => {
-    const name = grouped ? groupOf(snd) : '';
-    let grp = groups.find((x) => x.name === name);
-    if (!grp) groups.push((grp = { name, items: [] }));
-    grp.items.push({ snd, k });
-  });
-  // layout: a header row per group, then its cells when open
-  const rows = [];
-  let yy = 0;
-  for (const grp of groups) {
-    const open = !grouped || d.open.has(grp.name);
-    if (grouped) { rows.push({ head: grp, y: yy, open }); yy += hh + 1; }
-    if (open && !grp.items.length) { rows.push({ hint: 'Empty', y: yy }); yy += ch + 3; }
-    if (open) {
-      grp.items.forEach((it, n) => rows.push({ cell: it, x: (n % cols) * cw, y: yy + Math.floor(n / cols) * ch }));
-      yy += Math.ceil(grp.items.length / cols) * ch + (grouped ? 3 : 0);
+  if (!plainSound(L)) {
+    text('SOUNDS IN PALETTE', r.x + 8, r.y + 34, T.dim);
+    // grid of sounds: click to put in / take out of the palette. Sounds come in groups by game, folded at first.
+    const gx = r.x + 8, gy = r.y + 42, gw = r.w - 16, gh = r.h - 42 - 24 - 36;
+    const cw = 97, ch = 14, hh = 13, cols = Math.max(1, Math.floor((gw - 1) / cw));
+    const grouped = true;
+    d.open ??= new Set([MY, PSG_GROUP]);
+    const groupOf = (snd) => snd.group || 'This song';
+    const groups = [{ name: MY, items: [] }]; // My sounds is always there, first
+    const canImport = L.kind === 'fm' && !L.kit; // FM patch files (patches.js) become FM sounds
+    const canSample = L.kind === 'sample'; // audio files become samples (sampler.js)
+    if (canSample) { // what the song's samples take, against the budget of one song
+      const kb = songSampleBytes() / 1024, t = `SONG SAMPLES ${kb.toFixed(1)} OF ${SONG_BUDGET_KB} KB`;
+      text(t, r.x + r.w - 8 - textWidth(t), r.y + 34, kb > SONG_BUDGET_KB ? T.red : T.dim);
     }
-  }
-  d.scroll = Math.max(0, Math.min(Math.max(0, yy - gh), d.scroll || 0));
-  const wheel = (e) => { d.scroll += e.deltaY > 0 ? 28 : -28; };
-  region(gx, gy, gw, gh, { wheel });
-  g.save(); g.beginPath(); g.rect(gx, gy, gw, gh); g.clip();
-  for (const row of rows) {
-    const ry = gy + row.y - d.scroll;
-    const h = row.head ? hh : ch;
-    if (ry + h < gy || ry > gy + gh) continue;
-    const vis = Math.max(ry, gy), visH = Math.min(ry + h, gy + gh) - vis;
-    if (row.hint) { text(row.hint, gx + 13, ry + 4, T.dim); continue; }
-    if (row.head) {
-      const grp = row.head, id = 'grp' + grp.name;
-      const n = grp.items.filter((it) => d.chosen.has(it.snd.key)).length;
-      fill(gx, ry, gw, hh, hot(id) ? T.hover : T.bg);
-      const tri = (x, y) => { for (let k = 0; k < 4; k++) row.open ? fill(x + k, y + k, 7 - 2 * k, 1, T.ink) : fill(x + k, y + k, 1, 7 - 2 * k, T.ink); };
-      row.open ? tri(gx + 3, ry + 4) : tri(gx + 4, ry + 3);
-      text(grp.name.toUpperCase(), gx + 13, ry + 4, T.ink);
-      const cnt = `${n}/${grp.items.length}`;
-      text(cnt, gx + gw - 4 - textWidth(cnt), ry + 4, T.dim);
-      if (visH > 0) region(gx, vis, gw, visH, { id, cursor: 'pointer', wheel, tip: row.open ? 'Fold' : 'Show the sounds',
-        click: () => { if (d.open.has(grp.name)) d.open.delete(grp.name); else d.open.add(grp.name); } });
-      if (grp.name === MY && visH === hh) {
-        const wI = textWidth('IMPORT…') + 8, ix = gx + gw - 4 - textWidth(cnt) - 6 - wI;
-        fill(ix, ry + 1, wI, hh - 2, hot('myImport') ? T.hover : T.face); frame(ix, ry + 1, wI, hh - 2);
-        text('IMPORT…', ix + 4, ry + 4, T.ink);
-        region(ix, ry + 1, wI, hh - 2, { id: 'myImport', cursor: 'pointer', tip: 'Sound file · or drop it here', click: () => $('anyFile').click() });
-      }
-      if (grp.name === MY && canImport && visH === hh) {
-        const ix = gx + gw - 4 - textWidth(cnt) - 6 - textWidth('IMPORT…') - 8;
-        const wN = textWidth('NEW…') + 8, nx = ix - 3 - wN;
-        fill(nx, ry + 1, wN, hh - 2, hot('myNew') ? T.hover : T.face); frame(nx, ry + 1, wN, hh - 2);
-        text('NEW…', nx + 4, ry + 4, T.ink);
-        region(nx, ry + 1, wN, hh - 2, { id: 'myNew', cursor: 'pointer', tip: 'New FM sound',
-          click: () => openFmEditor(d, null, blankFmRecord(), true) });
-      }
-      continue;
-    }
-    const { snd, k } = row.cell, cx = gx + row.x;
-    const on = d.chosen.has(snd.key), id = 'snd' + k;
-    frame(cx, ry, cw - 2, ch + 1);
-    fill(cx + 1, ry + 1, cw - 4, ch - 1, on ? T.sel : hot(id) ? T.hover : T.face);
-    g.drawImage(noteSprite(d.icons.get(snd.key) || snd.sprite, d.tone, 0, on ? 'normal' : 'ghost', T), cx + 1, ry + 1);
-    if (snd.key === d.iconFor) fill(cx + 1, ry + ch - 1, cw - 4, 1, T.head);
-    text(fitText(snd.name, cw - 20), cx + 15, ry + 5, on ? T.selInk : T.ink);
-    if (visH > 0) region(cx, vis, cw - 2, visH, {
-      id, cursor: 'pointer', wheel,
-      tip: `${snd.name} · ${on ? 'click: take out' : 'click: add'} · right click: more`,
-      dbl: () => { const c = myEntryOf(L, snd); if (c?.ins && L.kind === 'fm') openFmEditor(d, c, myRec(c)); },
-      click: (m, e) => {
-        if (e?.button === 2) { d.ctxAt = { x: m.x, y: m.y }; d.ctx = { ...d.ctxAt, items: mySoundMenu(d, snd) }; return; }
-        let x = snd;
-        if (x.cat) { // a library sound joins the song when it is first picked
-          if (L.kind === 'sample') {
-            const i = addCatalogSample(x.cat);
-            d.lib = soundLibrary(L);
-            x = d.lib.find((y) => y.smp === i);
-          } else {
-            const snd = addCatalogSound(x.cat);
-            d.lib = soundLibrary(L);
-            x = d.lib.find((y) => y.key === snd.key) || snd;
-          }
-        }
-        if (d.chosen.has(x.key)) { d.chosen.delete(x.key); if (d.iconFor === x.key) d.iconFor = null; } else { d.chosen.add(x.key); d.iconFor = x.key; }
-        previewNote(L, { ...newNote(L, null), ...(L.kind === 'sample' ? { smp: x.smp, p: x.p } : { i: x.i, m: x.m, p: x.p, gm: x.gm }) });
-      },
+    d.lib.forEach((snd, k) => {
+      const name = grouped ? groupOf(snd) : '';
+      let grp = groups.find((x) => x.name === name);
+      if (!grp) groups.push((grp = { name, items: [] }));
+      grp.items.push({ snd, k });
     });
+    // layout: a header row per group, then its cells when open
+    const rows = [];
+    let yy = 0;
+    for (const grp of groups) {
+      const open = !grouped || d.open.has(grp.name);
+      if (grouped) { rows.push({ head: grp, y: yy, open }); yy += hh + 1; }
+      if (open && !grp.items.length) { rows.push({ hint: 'Empty', y: yy }); yy += ch + 3; }
+      if (open) {
+        grp.items.forEach((it, n) => rows.push({ cell: it, x: (n % cols) * cw, y: yy + Math.floor(n / cols) * ch }));
+        yy += Math.ceil(grp.items.length / cols) * ch + (grouped ? 3 : 0);
+      }
+    }
+    d.scroll = Math.max(0, Math.min(Math.max(0, yy - gh), d.scroll || 0));
+    const wheel = (e) => { d.scroll += e.deltaY > 0 ? 28 : -28; };
+    region(gx, gy, gw, gh, { wheel });
+    g.save(); g.beginPath(); g.rect(gx, gy, gw, gh); g.clip();
+    for (const row of rows) {
+      const ry = gy + row.y - d.scroll;
+      const h = row.head ? hh : ch;
+      if (ry + h < gy || ry > gy + gh) continue;
+      const vis = Math.max(ry, gy), visH = Math.min(ry + h, gy + gh) - vis;
+      if (row.hint) { text(row.hint, gx + 13, ry + 4, T.dim); continue; }
+      if (row.head) {
+        const grp = row.head, id = 'grp' + grp.name;
+        const n = grp.items.filter((it) => d.chosen.has(it.snd.key)).length;
+        fill(gx, ry, gw, hh, hot(id) ? T.hover : T.bg);
+        const tri = (x, y) => { for (let k = 0; k < 4; k++) row.open ? fill(x + k, y + k, 7 - 2 * k, 1, T.ink) : fill(x + k, y + k, 1, 7 - 2 * k, T.ink); };
+        row.open ? tri(gx + 3, ry + 4) : tri(gx + 4, ry + 3);
+        text(grp.name.toUpperCase(), gx + 13, ry + 4, T.ink);
+        const cnt = `${n}/${grp.items.length}`;
+        text(cnt, gx + gw - 4 - textWidth(cnt), ry + 4, T.dim);
+        if (visH > 0) region(gx, vis, gw, visH, { id, cursor: 'pointer', wheel, tip: row.open ? 'Fold' : 'Show the sounds',
+          click: () => { if (d.open.has(grp.name)) d.open.delete(grp.name); else d.open.add(grp.name); } });
+        if (grp.name === MY && visH === hh) {
+          const wI = textWidth('IMPORT…') + 8, ix = gx + gw - 4 - textWidth(cnt) - 6 - wI;
+          fill(ix, ry + 1, wI, hh - 2, hot('myImport') ? T.hover : T.face); frame(ix, ry + 1, wI, hh - 2);
+          text('IMPORT…', ix + 4, ry + 4, T.ink);
+          region(ix, ry + 1, wI, hh - 2, { id: 'myImport', cursor: 'pointer', tip: 'Sound file · or drop it here', click: () => $('anyFile').click() });
+        }
+        if (grp.name === MY && canImport && visH === hh) {
+          const ix = gx + gw - 4 - textWidth(cnt) - 6 - textWidth('IMPORT…') - 8;
+          const wN = textWidth('NEW…') + 8, nx = ix - 3 - wN;
+          fill(nx, ry + 1, wN, hh - 2, hot('myNew') ? T.hover : T.face); frame(nx, ry + 1, wN, hh - 2);
+          text('NEW…', nx + 4, ry + 4, T.ink);
+          region(nx, ry + 1, wN, hh - 2, { id: 'myNew', cursor: 'pointer', tip: 'New FM sound',
+            click: () => openFmEditor(d, null, blankFmRecord(), true) });
+        }
+        continue;
+      }
+      const { snd, k } = row.cell, cx = gx + row.x;
+      const on = d.chosen.has(snd.key), id = 'snd' + k;
+      frame(cx, ry, cw - 2, ch + 1);
+      fill(cx + 1, ry + 1, cw - 4, ch - 1, on ? T.sel : hot(id) ? T.hover : T.face);
+      g.drawImage(noteSprite(d.icons.get(snd.key) || snd.sprite, d.tone, 0, on ? 'normal' : 'ghost', T), cx + 1, ry + 1);
+      if (snd.key === d.iconFor) fill(cx + 1, ry + ch - 1, cw - 4, 1, T.head);
+      text(fitText(snd.name, cw - 20), cx + 15, ry + 5, on ? T.selInk : T.ink);
+      if (visH > 0) region(cx, vis, cw - 2, visH, {
+        id, cursor: 'pointer', wheel,
+        tip: `${snd.name} · ${on ? 'click: take out' : 'click: add'} · right click: more`,
+        dbl: () => { const c = myEntryOf(L, snd); if (c?.ins && L.kind === 'fm') openFmEditor(d, c, myRec(c)); },
+        click: (m, e) => {
+          if (e?.button === 2) { d.ctxAt = { x: m.x, y: m.y }; d.ctx = { ...d.ctxAt, items: mySoundMenu(d, snd) }; return; }
+          let x = snd;
+          if (x.cat) { // a library sound joins the song when it is first picked
+            if (L.kind === 'sample') {
+              const i = addCatalogSample(x.cat);
+              d.lib = soundLibrary(L);
+              x = d.lib.find((y) => y.smp === i);
+            } else {
+              const snd = addCatalogSound(x.cat);
+              d.lib = soundLibrary(L);
+              x = d.lib.find((y) => y.key === snd.key) || snd;
+            }
+          }
+          if (d.chosen.has(x.key)) { d.chosen.delete(x.key); if (d.iconFor === x.key) d.iconFor = null; } else { d.chosen.add(x.key); d.iconFor = x.key; }
+          previewNote(L, { ...newNote(L, null), ...(L.kind === 'sample' ? { smp: x.smp, p: x.p } : { i: x.i, m: x.m, p: x.p, gm: x.gm }) });
+        },
+      });
+    }
+    g.restore();
   }
-  g.restore();
   // Windows-style: Cancel forgets everything clicked here; ADD / DONE need at least one sound
   const by = r.y + r.h - 19, okLabel = d.isNew ? 'ADD' : 'DONE', none = !d.chosen.size;
   const wOk = textWidth(okLabel) + 14, wC = textWidth('CANCEL') + 10;
