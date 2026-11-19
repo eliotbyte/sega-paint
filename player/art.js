@@ -37,6 +37,8 @@ const THEME_INFO = {
   red: 'Mute button', green: 'Solo button', white: 'Text on red / green', hiRep: 'Repeat tool: bars under the mouse',
   hiLoop: 'Repeat tool: loop bars', hiDel: 'Repeat tool: bars to remove', ghostTo: 'Other tracks’ notes fade to this',
   ghostOutline: 'Other tracks’ note outline',
+  bevel: 'Panel bars: light edge (left and top)', panelInk: 'Text in the panels (tracks, playlist)',
+  textShade: 'Shadow of the panel text',
 };
 
 const st = {

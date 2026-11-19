@@ -26,6 +26,7 @@ export const THEMES = {
     head: md(7, 2, 0), loop: md(1, 4, 1), rep: md(5, 1, 2), red: md(6, 1, 1), green: md(2, 5, 1), white: md(7, 7, 7),
     hiRep: md(7, 6, 4), hiLoop: md(5, 7, 5), hiDel: md(7, 5, 5), // the bars the repeat tool points at
     ghostTo: [182, 182, 182], ghostOutline: md(4, 4, 4),
+    bevel: md(7, 7, 7), panelInk: md(0, 0, 0), textShade: md(5, 5, 6), // panel bars: light edge, text, its shadow
   },
   dark: {
     bg: md(1, 1, 1), face: md(0, 0, 0), hover: md(2, 2, 2), ink: md(6, 6, 6), dim: md(4, 4, 4), off: md(3, 3, 3),
@@ -36,6 +37,7 @@ export const THEMES = {
     head: md(7, 3, 0), loop: md(2, 6, 2), rep: md(7, 3, 4), red: md(6, 1, 1), green: md(2, 5, 1), white: md(7, 7, 7),
     hiRep: md(2, 1, 0), hiLoop: md(0, 2, 0), hiDel: md(2, 0, 0),
     ghostTo: [36, 36, 36], ghostOutline: md(2, 2, 2),
+    bevel: md(4, 4, 6), panelInk: md(6, 6, 7), textShade: md(0, 0, 1),
   },
 };
 

@@ -124,9 +124,17 @@ export const pressed = (id) => ui.pressedId === id;
 
 // ---------- drawing helpers ----------
 export const fill = (x, y, w, h, c) => { ui.g.fillStyle = c; ui.g.fillRect(x, y, w, h); };
-export function frame(x, y, w, h, c = ui.T.ink) { // 1 px outline, outer size w x h
-  fill(x, y, w, 1, c); fill(x, y + h - 1, w, 1, c); fill(x, y, 1, h, c); fill(x + w - 1, y, 1, h, c);
+export function frame(x, y, w, h, c = ui.T.ink) { // 1 px outline, outer size w x h, the corner pixels left out (rounded)
+  if (w < 4 || h < 4) { fill(x, y, w, 1, c); fill(x, y + h - 1, w, 1, c); fill(x, y, 1, h, c); fill(x + w - 1, y, 1, h, c); return; }
+  fill(x + 1, y, w - 2, 1, c); fill(x + 1, y + h - 1, w - 2, 1, c); fill(x, y + 1, 1, h - 2, c); fill(x + w - 1, y + 1, 1, h - 2, c);
 }
+// Text with a 1 px shadow down and right (the panels: theme colours panelInk / textShade)
+export function shadowText(t, x, y, c = ui.T.panelInk, s = ui.T.textShade) {
+  drawText(ui.g, t, x + 1, y + 1, s);
+  return drawText(ui.g, t, x, y, c);
+}
+// The light edge of a raised bar: 1 px along its top and left (theme colour bevel)
+export function bevel(x, y, w, h, c = ui.T.bevel) { fill(x, y, w, 1, c); fill(x, y, 1, h, c); }
 export function text(t, x, y, c = ui.T.ink) { return drawText(ui.g, t, x, y, c); }
 const patterns = new Map();
 // Every other pixel in colour c (a checkerboard), the pixel-art way to shade.

@@ -9,7 +9,7 @@ import { unpackSong } from './songpack.js';
 import { PATCH_EXT, isPatchFile, readPatchFile, regsToTfi, regsToDmp, guessSprite, guessNote, voiceToRegs, regsToVoice } from './patches.js';
 import { clone as fmClone, TYPES as FM_TYPES, BLANK as FM_BLANK, KNOBS as FM_KNOBS, OP_PARAMS as FM_OP_PARAMS, VOICE_PARAMS as FM_VOICE_PARAMS, ALG_GRAPH, SLOT_OF_OP, isCarrier, getParam as fmGetParam, setParam as fmSetParam, setKnob, nudgeKnob, knobLive as fmKnobLive, mutate as fmMutate, envelope as fmEnvelope } from './fmedit.js';
 import { BUDGETS as SMP_BUDGETS, SONG_BUDGET_KB, budgetsFor, STEPS as SMP_STEPS, decodeAudio, trimSilence, guessPitch, peaks as wavePeaks, bytesFor, render as renderSample, fitOptions } from './sampler.js';
-import { ui, initScreen, resizeScreen, beginFrame, endFrame, region, hot, fill, frame, text, dither, ants, strip, stripW, BIG, SMALL, button, field, focusField, blurField } from './gui.js';
+import { ui, initScreen, resizeScreen, beginFrame, endFrame, region, hot, fill, frame, text, shadowText, bevel, dither, ants, strip, stripW, BIG, SMALL, button, field, focusField, blurField } from './gui.js';
 
 const LAST_KEY = 'segapaint:last', THEME_KEY = 'segapaint:theme', SCALE_KEY = 'segapaint:scale', SOUND_KEY = 'segapaint:sound';
 const VGM_KEY = 'segapaint:vgm'; // the last export's author and DAC choice
@@ -2500,15 +2500,16 @@ function listRows(x, y, w, h, rows, d, rowH = 13, idp = '') {
     // a group's header (a game): ▸ folded, ▾ open, like the sound groups; its rows go in under it
     if (row.fold) {
       if (!hot(id)) fill(x + 1, ry, w - 2, rowH - 1, T.bg);
-      const tri = (tx, ty) => { for (let k = 0; k < 4; k++) row.fold === 'open' ? fill(tx + k, ty + k, 7 - 2 * k, 1, T.ink) : fill(tx + k, ty + k, 1, 7 - 2 * k, T.ink); };
+      bevel(x + 1, ry, w - 2, rowH - 1);
+      const tri = (tx, ty) => { for (let k = 0; k < 4; k++) row.fold === 'open' ? fill(tx + k, ty + k, 7 - 2 * k, 1, T.panelInk) : fill(tx + k, ty + k, 1, 7 - 2 * k, T.panelInk); };
       row.fold === 'open' ? tri(x + 4, ry + 4) : tri(x + 5, ry + 3);
     }
     const ix = x + 5 + (row.fold || row.inGroup ? 9 : 0);
     // a song from the games: its number on the "disc" first, in a column of its own
     const nw = row.num ? textWidth('00') + 5 : 0;
-    if (row.num) text(row.num, ix, ry + 4, row.sel ? T.selInk : T.dim);
-    text(fitText(row.label, x + rw - 3 - mw - ix - nw), ix + nw, ry + 4, row.sel ? T.selInk : row.dim ? T.dim : T.ink);
-    if (meta) text(meta, x + 1 + rw - 3 - textWidth(meta), ry + 4, row.sel ? T.selInk : T.dim);
+    if (row.num) shadowText(row.num, ix, ry + 4, row.sel ? T.selInk : T.dim);
+    shadowText(fitText(row.label, x + rw - 3 - mw - ix - nw), ix + nw, ry + 4, row.sel ? T.selInk : row.dim ? T.dim : T.panelInk);
+    if (meta) shadowText(meta, x + 1 + rw - 3 - textWidth(meta), ry + 4, row.sel ? T.selInk : T.dim);
     const vis = Math.max(ry, y + 1), visH = Math.min(ry + rowH, y + 1 + inner) - vis;
     if (visH > 0 && row.click) region(x + 1, vis, rw, visH, { id, cursor: 'pointer', tip: row.tip, click: row.click, dbl: row.dbl, wheel: (e) => { d.scroll += e.deltaY > 0 ? rowH * 2 : -rowH * 2; } });
     if (row.del) {
@@ -3847,7 +3848,8 @@ function panelHead(x, y, w, h, title, key) {
   const T = ui.T, open = !S.fold[key];
   frame(x, y, w, open ? h : PANEL_HEAD);
   fill(x + 1, y + 1, w - 2, (open ? h : PANEL_HEAD) - 2, T.face);
-  text(title, x + 4, y + 5, T.ink);
+  bevel(x + 1, y + 1, w - 2, PANEL_HEAD - 2); // a raised bar: light edge on top and left
+  shadowText(title, x + 4, y + 5);
   region(x + 1, y + 1, w - 15, PANEL_HEAD - 2, { id: 'bar-' + key, tip: open ? `${title} · click to fold` : `${title} · click to unfold`, click: () => togglePanel(key) });
   strip(x + w - 14, y, [{ id: 'fold-' + key, icon: open ? 'minus' : 'plus', tip: open ? 'Fold' : 'Unfold', click: () => togglePanel(key) }], SMALL);
   if (open) fill(x, y + PANEL_HEAD - 1, w, 1, T.ink);
@@ -3881,7 +3883,8 @@ function drawLayers(x, y, w, maxH) {
   // the tool strip under the tracks: they act on the chosen track (one track: several chosen ones are not deleted at once)
   const by = y + h - PANEL_HEAD, L = activeLayer(), one = !!L && !multiLayer();
   fill(x, by, w, 1, T.ink);
-  text(n === 1 ? '1 TRACK' : `${n} TRACKS`, x + 4, by + 5, T.dim);
+  bevel(x + 1, by + 1, w - 15, PANEL_HEAD - 2);
+  shadowText(n === 1 ? '1 TRACK' : `${n} TRACKS`, x + 4, by + 5, T.dim);
   const cells = [
     { id: 'addTrack', icon: 'plus', tip: 'Add a track', click: add },
     { id: 'delTrack', icon: 'trash', disabled: !one || n <= 1, tip: one ? `Delete “${L.name}”` : 'Delete the track · choose one track', click: () => deleteTrack(L) },
@@ -4017,11 +4020,11 @@ function drawLayerRow(L, i, x, y, w, pos, clipTop, clipH) {
   g.drawImage(noteSprite(L.sel?.sprite || 'star', L.tone, playing ? 1 : 0, hidden ? 'ghost' : 'normal', T), x + 14, cy);
   fill(x + 26, cy, 1, ch, T.ink);
   fill(nameX, cy, nameW, ch, active ? T.sel : hot(rowId) ? T.hover : T.face);
-  const ink = active ? T.selInk : hidden ? T.dim : T.ink;
+  const ink = active ? T.selInk : hidden ? T.dim : T.panelInk;
   const chip = chipName(L);
   const cw = textWidth(chip);
-  text(fitText(L.name, nameW - cw - 8), nameX + 3, cy + 4, ink);
-  text(chip, nameX + nameW - 3 - cw, cy + 4, active ? T.selInk : T.dim);
+  shadowText(fitText(L.name, nameW - cw - 8), nameX + 3, cy + 4, ink);
+  shadowText(chip, nameX + nameW - 3 - cw, cy + 4, active ? T.selInk : T.dim);
   const vis = Math.max(y, clipTop), visH = Math.min(y + 13, clipTop + clipH) - vis;
   if (visH > 0) region(x + 1, vis, nameX + nameW - x - 1, visH, { id: rowId, cursor: 'pointer', tip: `${L.name} · double-click: edit`, click: (m, e) => selectLayer(i, e), dbl: () => showTrackDialog(L), wheel: (e) => { S.layerScroll += e.deltaY > 0 ? 13 : -13; } });
   const btns = [
