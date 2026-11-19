@@ -205,10 +205,23 @@ function buildBar() {
     dirty();
     pick(st.kind, st.art[st.kind].keys().next().value);
   }));
+  if (!SIZES[st.kind]) bar.append(btn('Size…', () => resizePicture(a))); // pictures and clefs: any size
   const hint = document.createElement('span');
   hint.className = 'hint';
   hint.textContent = st.kind === 'cursors' ? `pivot ${a.info.hot || [0, 0]}` : '';
   bar.append(hint);
+}
+// A new size for every frame of a picture: what is drawn stays at the top left (the rest is cut or left empty).
+function resizePicture(a) {
+  const w0 = a.frames[0].width, h0 = a.frames[0].height;
+  const s = (prompt('New size, width×height:', `${w0}x${h0}`) || '').match(/(\d+)\s*[x×*]\s*(\d+)/);
+  if (!s) return;
+  const w = Math.max(1, Math.min(128, +s[1])), h = Math.max(1, Math.min(128, +s[2]));
+  if (w === w0 && h === h0) return;
+  pushUndo(framesUndo());
+  a.frames = a.frames.map((cv) => { const n = newCv(w, h); n.getContext('2d').drawImage(cv, 0, 0); return n; });
+  restructured();
+  buildBar();
 }
 function btn(text, onclick, on = false) {
   const b = document.createElement('button');
