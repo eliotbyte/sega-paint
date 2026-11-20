@@ -1,5 +1,5 @@
 {
- "version": 102,
+ "version": 233,
  "tools": {
   "undo": {
    "frames": 1
@@ -419,6 +419,27 @@
     3,
     3
    ]
+  },
+  "listItem": {
+   "frames": 1,
+   "slice": [
+    2,
+    2,
+    2,
+    2
+   ]
+  },
+  "keys": {
+   "frames": 3
+  },
+  "volIcon": {
+   "frames": 1
+  },
+  "volLine": {
+   "frames": 1
+  },
+  "volKnob": {
+   "frames": 2
   }
  }
 }

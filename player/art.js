@@ -9,12 +9,12 @@ const $ = (id) => document.getElementById(id);
 const css = (c) => (c ? `rgb(${c[0]},${c[1]},${c[2]})` : 'transparent');
 const lv = (c) => c.map((v) => LV[v]); // 3-bit levels -> 0..255
 const KINDS = [
-  ['tools', 'Buttons', 'Toolbar icon, 16×15 (in the middle of a 20×19 button). Black is the icon: the interface colours paint it, anything else is ignored.'],
+  ['tools', 'Buttons', 'Toolbar icon, 16×15 (in the middle of a 20×19 button). Theme colours: black = the outline (edge, as the buttons’ frames), white = the fill (dim, the second text), a light grey = the light edge (ink, icons and text), a dark grey = the shadow (iconShade), transparent = the button. On a disabled button all of it is off.'],
   ['small', 'Small icons', 'Small button icon, 12×12. Black is the icon.'],
   ['notes', 'Notes', 'Note, 8×8. Black outline and the three note yellows (light, body, shade): the player paints them in the track colour.'],
   ['cursors', 'Cursors', 'Mouse pointer, 16×16, drawn as it looks (any colour; empty is see-through). The pivot (red) is the point that clicks: set it with the Pivot tool.'],
   ['clefs', 'Clefs', 'Clef. Black is the clef; the player draws it in the staff colour, at its place on the staff.'],
-  ['pictures', 'Pictures', 'A picture drawn as it is (Sonic on the playhead: sonicIdle, sonicWalk). button: the sprite every box is drawn with, sliced in 9 by the red lines (Slices…): the corners as drawn, the edges and the middle repeat. Transparent = outside, black = the frame, white = the fill, any other colour = the light edge.'],
+  ['pictures', 'Pictures', 'A picture drawn as it is (Sonic on the playhead: sonicIdle, sonicWalk). button: the sprite boxes are drawn with, listItem: the rows of lists (a smaller corner); sliced in 9 by the red lines (Slices…): the corners as drawn, the edges and the middle repeat. Transparent = outside, black = the frame, white = the fill, a light grey = the light edge (theme: bevel), a dark grey = the shadow (theme: boxShade). keys: one octave of the piano keys (B at the top, C at the bottom), frame 1 = as they are, 2 = pressed, 3 = keys the pen cannot use. volIcon, volLine, volKnob: the volume control (the line’s width is how far the knob goes; knob frame 2 = held or under the mouse).'],
 ];
 // what the frames of each kind do in the player
 const FRAME_HINT = {
@@ -28,7 +28,7 @@ const SIZES = { tools: [ICON_W, ICON_H], small: [CELL, CELL], notes: [NOTE_PX, N
 const TONE_NAMES = ['Yellow', 'Red', 'Green', 'Blue', 'Purple', 'Orange', 'Cyan', 'Pink', 'Brown', 'Grey', 'Lime', 'Teal'];
 // What each interface colour paints
 const THEME_INFO = {
-  bg: 'Window background', face: 'Buttons and panels', hover: 'Button under the mouse', ink: 'Icons and text',
+  bg: 'Window background', face: 'Buttons and panels', hover: 'Button under the mouse', ink: 'Icons and text', edge: 'Outlines of buttons, panels and list rows',
   dim: 'Second text (hints, shortcuts)', off: 'Disabled icons and text', sel: 'Pressed / chosen button, selection, title bars',
   selInk: 'Icon and text on a pressed button', soft: 'Current row in a list', paper: 'Staff paper', staff: 'Staff lines',
   bar: 'Bar lines, repeat signs', faded: 'Faint staff lines (8va)', beat: 'Beat grid', keys: 'Piano keys',
@@ -39,6 +39,10 @@ const THEME_INFO = {
   ghostOutline: 'Other tracks’ note outline',
   bevel: 'Panel bars: light edge (left and top)', panelInk: 'Text in the panels (tracks, playlist)',
   textShade: 'Shadow of the panel text',
+  boxShade: 'Boxes: shadow (the box sprites’ dark pixels)',
+  iconShade: 'Toolbar icons: shadow (their dark grey pixels)',
+  dropShadow: 'Shadow under menus and dialogs',
+  selBevel: 'Pressed / chosen boxes: light edge', selShade: 'Pressed / chosen boxes: shadow',
 };
 
 const st = {
@@ -47,7 +51,7 @@ const st = {
   kind: 'tools', name: null, frame: 0, tool: 'pen', color: [0, 0, 0],
   zoom: 16, ox: 0, oy: 0, pan: null, painting: null,
   undo: [], redo: [], dirtyFiles: new Set(), deleted: new Set(), dirty: false,
-  tones: [], theme: {}, themeName: 'light', tab: 'pictures', colourKey: null, tone: [0, 1], mockHits: [],
+  tones: [], theme: {}, themeName: 'dark', tab: 'pictures', colourKey: null, tone: [0, 1], mockHits: [],
   bg: loadBg(),
 };
 
@@ -70,7 +74,7 @@ async function init() {
   st.theme = themeLevels();
   st.tones = (pal?.tones || LAYER_TONES.map((t) => t.map((c) => c.map(lvOf)))).map((t) => t.map((c) => c.slice()));
   st.outline = (pal?.outline || [0, 0, 0]).slice();
-  st.ghostOutline = (pal?.ghostOutline || parseColor(THEMES.light.ghostOutline).map(lvOf)).slice();
+  st.ghostOutline = (pal?.ghostOutline || parseColor(THEMES.dark.ghostOutline).map(lvOf)).slice();
   // one body colour per track colour (older files had [light, body, shade]: keep the body)
   st.ghost = Array.isArray(pal?.ghost) ? pal.ghost.map((g) => (Array.isArray(g[0]) ? g[1] : g).slice()) : defaultGhost();
   const v = '?v=' + Date.now();
@@ -93,10 +97,10 @@ async function init() {
 }
 
 // Inactive notes (other tracks): two colours only. One body colour per track colour (light and body are painted
-// with it) and one outline for all (outline and shade); 3-bit levels, the same in both themes. Default: the body
+// with it) and one outline for all (outline and shade); 3-bit levels. Default: the body
 // faded towards grey, as the player drew them before they had their own colours.
 function defaultGhost() {
-  const to = THEMES.light.ghostTo;
+  const to = THEMES.dark.ghostTo;
   return st.tones.map((t) => t[1].map((v, i) => lvOf(LV[v] + (to[i] - LV[v]) * 0.62)));
 }
 const MODES = [['active', 'Active'], ['inactive', 'Inactive']];
@@ -104,7 +108,7 @@ const MODES = [['active', 'Active'], ['inactive', 'Inactive']];
 const notePal = (tone, mode) => (mode === 'active' ? [st.outline, ...st.tones[tone]]
   : [st.ghostOutline, st.ghost[tone], st.ghost[tone], st.ghostOutline]).map(lv);
 // the paper the notes are shown on: the chosen theme's
-const modeBg = () => THEMES[st.paperTheme || 'light'].paper;
+const modeBg = () => THEMES.dark.paper;
 // the frame an animated preview shows now
 const animFrame = (a) => (a.frames.length > 1 ? st.tick % a.frames.length : 0);
 
@@ -149,8 +153,11 @@ function thumb(cv, s = 2) {
   const t = newCv(cv.width * s, cv.height * s), c = t.getContext('2d');
   c.imageSmoothingEnabled = false;
   c.drawImage(cv, 0, 0, t.width, t.height);
+  if (st.art.tools && [...st.art.tools.values()].some((a) => a.frames.includes(cv))) t.style.background = TOOL_CHECKS[0]; // white icons: on blue
   return t;
 }
+// toolbar icons are white, black and greys: their checks are blue
+const TOOL_CHECKS = ['#3f5f8f', '#4a6c9e'];
 function buildList() {
   const box = $('left');
   box.innerHTML = '';
@@ -187,10 +194,7 @@ function buildBar() {
     bar.append(span);
     if (st.tab === 'tones') {
       for (const [m, title] of MODES) bar.append(btn(title, () => { st.toneMode = m; st.tone = [0, 1]; buildBar(); buildColours(); showColour(); render(); }, st.toneMode === m));
-      bar.append(document.createTextNode(' on '));
-      for (const th of ['light', 'dark']) bar.append(btn(th === 'light' ? 'light paper' : 'dark paper', () => { st.paperTheme = th; buildBar(); render(); renderPreview(); }, (st.paperTheme || 'light') === th));
     }
-    if (st.tab === 'theme') for (const t of ['light', 'dark']) bar.append(btn(t === 'light' ? 'Light theme' : 'Dark theme', () => { st.themeName = t; buildColours(); render(); }, st.themeName === t));
     return;
   }
   if (!a) return;
@@ -383,19 +387,28 @@ function render() {
   // under the picture: see-through checks, or the solid background colour chosen on the right
   if (st.bg.checks) {
     for (let y = 0; y < cv.height; y++) for (let x = 0; x < cv.width; x++) {
-      c.fillStyle = (x + y) % 2 ? '#e6e6e6' : '#ffffff';
+      c.fillStyle = st.kind === 'tools' ? TOOL_CHECKS[(x + y) % 2] : (x + y) % 2 ? '#e6e6e6' : '#ffffff';
       c.fillRect(x0 + x * z, y0 + y * z, z, z);
     }
   } else { c.fillStyle = css(st.bg.c.map((v) => LV[v])); c.fillRect(x0, y0, cv.width * z, cv.height * z); }
   // onion skin: the frame before, faint, under this one
   if ($('fOnion').checked && !st.playing && st.frame > 0) { c.globalAlpha = 0.25; c.drawImage(cur().frames[st.frame - 1], x0, y0, cv.width * z, cv.height * z); c.globalAlpha = 1; }
+  if (st.sel && !selHere()) dropSel(true); // another picture or frame: the selection lands where it was
   c.drawImage(cv, x0, y0, cv.width * z, cv.height * z);
+  if (st.sel?.float) c.drawImage(st.sel.float, x0 + st.sel.x * z, y0 + st.sel.y * z, st.sel.w * z, st.sel.h * z);
   if (z >= 6) {
     c.fillStyle = 'rgba(0,0,0,0.15)';
     for (let x = 0; x <= cv.width; x++) c.fillRect(x0 + x * z, y0, 1, cv.height * z);
     for (let y = 0; y <= cv.height; y++) c.fillRect(x0, y0 + y * z, cv.width * z, 1);
   }
   c.strokeStyle = '#000'; c.lineWidth = 1; c.strokeRect(x0 - 0.5, y0 - 0.5, cv.width * z + 1, cv.height * z + 1);
+  if (st.sel) { // the selection: marching black and white dashes
+    const s = st.sel, r = [x0 + s.x * z + 0.5, y0 + s.y * z + 0.5, s.w * z - 1, s.h * z - 1];
+    c.lineWidth = 1; c.setLineDash([4, 4]);
+    c.strokeStyle = '#fff'; c.lineDashOffset = 0; c.strokeRect(...r);
+    c.strokeStyle = '#000'; c.lineDashOffset = 4; c.strokeRect(...r);
+    c.setLineDash([]);
+  }
   if (isBoxSprite()) { // the 9-slice borders, as in Unity's sprite editor
     const [l, t, r, b] = sliceOf(cur());
     c.fillStyle = '#ff0000';
@@ -455,6 +468,65 @@ function line(cv, a, b, col) { // every pixel between two points, so a fast stro
     if (e2 <= dx) { err += dx; y0 += sy; }
   }
 }
+// ---------- the selection (tool Select): a box on one frame; dragged, its pixels float over the frame till dropped ----------
+// st.sel = { kind, name, frame, x, y, w, h, float }: float is the lifted pixels (a canvas) or null
+const selCv = (s) => st.art[s.kind]?.get(s.name)?.frames[s.frame];
+const selHere = () => st.sel && st.sel.kind === st.kind && st.sel.name === st.name && st.sel.frame === st.frame;
+const inSel = (s, [x, y]) => x >= s.x && y >= s.y && x < s.x + s.w && y < s.y + s.h;
+function liftSel(copy = false) { // the pixels in the box leave the frame and float (copy: they stay there too)
+  const s = st.sel, cv = selCv(s);
+  if (s.float || !cv) return;
+  pushUndo({ kind: s.kind, name: s.name, frame: s.frame, data: cv.getContext('2d').getImageData(0, 0, cv.width, cv.height) });
+  s.float = newCv(s.w, s.h);
+  s.float.getContext('2d').drawImage(cv, -s.x, -s.y);
+  if (!copy) cv.getContext('2d').clearRect(s.x, s.y, s.w, s.h);
+  st.dirtyFiles.add(fileOf(s.kind, s.name, s.frame)); dirty();
+}
+function dropSel(quiet = false) { // the floating pixels land where they are (see-through ones keep what is under), the box goes
+  const s = st.sel;
+  st.sel = null;
+  if (!s?.float) { if (!quiet) render(); return; }
+  const cv = selCv(s);
+  if (cv) { cv.getContext('2d').drawImage(s.float, s.x, s.y); st.dirtyFiles.add(fileOf(s.kind, s.name, s.frame)); dirty(); }
+  if (quiet) setTimeout(() => { renderPreview(); refreshThumb(); refreshCel(); }, 0); else after();
+}
+function clearSel() { // Delete: what is in the box goes
+  const s = st.sel, cv = selCv(s);
+  if (!s.float && cv) { pushUndo(pixelUndo()); cv.getContext('2d').clearRect(s.x, s.y, s.w, s.h); changed(); }
+  st.sel = null; after();
+}
+function nudgeSel(dx, dy) { liftSel(); st.sel.x += dx; st.sel.y += dy; render(); }
+function selDown(e, cv, p) {
+  if (selHere() && inSel(st.sel, p)) {
+    if (!st.sel.float) liftSel(e.altKey);
+    else if (e.altKey) { const s = st.sel; selCv(s).getContext('2d').drawImage(s.float, s.x, s.y); changed(); } // Alt: leave a copy here
+    st.selDrag = { move: true, from: p, x: st.sel.x, y: st.sel.y };
+  } else {
+    dropSel(true);
+    const q = [Math.max(0, Math.min(cv.width - 1, p[0])), Math.max(0, Math.min(cv.height - 1, p[1]))];
+    st.sel = { kind: st.kind, name: st.name, frame: st.frame, x: q[0], y: q[1], w: 1, h: 1, float: null };
+    st.selDrag = { from: q, moved: false };
+  }
+  render();
+}
+function selMove(e) {
+  const d = st.selDrag, s = st.sel, p = atPx(e);
+  if (!s) return;
+  if (d.move) { s.x = d.x + p[0] - d.from[0]; s.y = d.y + p[1] - d.from[1]; }
+  else {
+    const cv = selCv(s), q = [Math.max(0, Math.min(cv.width - 1, p[0])), Math.max(0, Math.min(cv.height - 1, p[1]))];
+    if (q[0] !== d.from[0] || q[1] !== d.from[1]) d.moved = true;
+    s.x = Math.min(d.from[0], q[0]); s.y = Math.min(d.from[1], q[1]);
+    s.w = Math.abs(q[0] - d.from[0]) + 1; s.h = Math.abs(q[1] - d.from[1]) + 1;
+  }
+  render();
+}
+function selUp() {
+  const d = st.selDrag;
+  st.selDrag = null;
+  if (d && !d.move && !d.moved) { st.sel = null; render(); } // a click without a drag: no box
+  else after();
+}
 function down(e) {
   if (st.tab === 'photos') { photos.down(e); return; }
   if (e.button === 1) { // middle button: move the canvas
@@ -468,6 +540,7 @@ function down(e) {
   const cv = curCv();
   if (!cv) return;
   const p = atPx(e);
+  if (st.tool === 'select' && e.button === 0) { e.preventDefault(); selDown(e, cv, p); return; }
   if (!inside(cv, p)) return;
   e.preventDefault();
   if (e.button === 2 || st.tool === 'pick') { setColor(getPx(cv, ...p)); return; }
@@ -487,13 +560,15 @@ function down(e) {
 function move(e) {
   if (st.tab === 'photos') { photos.move(e); return; }
   if (st.pan) { st.ox = st.pan.ox + e.clientX - st.pan.x; st.oy = st.pan.oy + e.clientY - st.pan.y; render(); return; }
+  if (st.selDrag) { selMove(e); return; }
+  if (st.tab === 'pictures' && st.tool === 'select' && e.target === view) view.style.cursor = selHere() && inSel(st.sel, atPx(e)) ? 'move' : '';
   if (!st.painting) return;
   const p = atPx(e);
   line(curCv(), st.painting.last, p, st.painting.col);
   st.painting.last = p;
   after();
 }
-function up() { photos?.up(); if (st.painting && st.kind === 'pictures') buildSwatches(); st.painting = null; st.pan = null; view.classList.remove('pan'); }
+function up() { photos?.up(); if (st.selDrag) selUp(); if (st.painting && st.kind === 'pictures') buildSwatches(); st.painting = null; st.pan = null; view.classList.remove('pan'); }
 function wheel(e) {
   if (st.tab === 'photos') { e.preventDefault(); photos.wheel(e); return; }
   if (st.tab !== 'pictures') return;
@@ -533,6 +608,11 @@ function setColor(c) {
 function buildSwatches() {
   const list = [[null, 'Empty (see-through)'], [[0, 0, 0], 'Black: icon ink, note outline'], [[255, 255, 255], 'White']];
   if (st.kind === 'notes') NOTE_INKS.forEach((c, k) => list.push([c, ['Note: light', 'Note: body', 'Note: shade'][k]]));
+  // a box sprite: black the frame, white the fill, a light grey the light edge, a dark grey the shadow (pixel.js boxSprite)
+  if (isBoxSprite()) list.push([[146, 146, 146], 'Light edge (theme colour bevel)'], [[73, 73, 73], 'Shadow (theme colour boxShade)']);
+  // a toolbar icon: black the outline, white the fill, a light grey the light edge, a dark grey the shadow
+  const toolIc = st.tab === 'pictures' && st.kind === 'tools';
+  if (toolIc) { list[1][1] = 'Outline (theme colour edge)'; list[2][1] = 'Fill (theme colour dim: second text)'; list.push([[146, 146, 146], 'Light edge (theme colour ink: icons and text)'], [[73, 73, 73], 'Shadow (theme colour iconShade)']); }
   const seen = new Set(list.map(([c]) => (c ? c.join(',') : '')));
   // a coloured picture shares its colours with its family (sonicIdle, sonicWalk): one Mega Drive sprite
   // palette line, 15 colours + see-through
@@ -545,7 +625,8 @@ function buildSwatches() {
       if (d[i + 3] < 128) continue;
       const k = d[i] + ',' + d[i + 1] + ',' + d[i + 2];
       used.add(k);
-      if (!seen.has(k) && seen.size < 30) { seen.add(k); list.push([[d[i], d[i + 1], d[i + 2]], family ? `In ${family}` : 'In this picture']); }
+      // (a box sprite: its five colours only)
+      if (!seen.has(k) && seen.size < 30 && !isBoxSprite() && !toolIc) { seen.add(k); list.push([[d[i], d[i + 1], d[i + 2]], family ? `In ${family}` : 'In this picture']); }
     }
   }
   $('palNote').textContent = family ? `${family}: ${used.size} of 15 colours (one Mega Drive sprite palette)${used.size > 15 ? ' · too many for the console' : ''}` : '';
@@ -565,10 +646,15 @@ function buildSwatches() {
 
 // ---------- the preview of the current picture ----------
 const T = (name) => THEMES[name];
-function inkCv(cv, color) { // a black-ink picture painted in one colour (as the player does)
+// A black-ink picture painted in one colour (as the player does), or color = [black, white, light grey, dark grey]
+// (toolbar icons: toolCols).
+function inkCv(cv, color) {
   const out = newCv(cv.width, cv.height), o = out.getContext('2d'), d = cv.getContext('2d').getImageData(0, 0, cv.width, cv.height).data;
-  o.fillStyle = color;
-  for (let i = 0; i < d.length; i += 4) if (d[i + 3] > 127 && d[i] < 60 && d[i + 1] < 60 && d[i + 2] < 60) o.fillRect((i / 4) % cv.width, Math.floor(i / 4 / cv.width), 1, 1);
+  const cols = Array.isArray(color) ? color : [color];
+  for (let i = 0; i < d.length; i += 4) {
+    const k = d[i + 3] <= 127 ? 0 : d[i] < 60 && d[i + 1] < 60 && d[i + 2] < 60 ? 1 : d[i] > 200 && d[i + 1] > 200 && d[i + 2] > 200 ? 2 : d[i] + d[i + 1] + d[i + 2] < 384 ? 4 : 3;
+    if (k && cols[k - 1]) { o.fillStyle = cols[k - 1]; o.fillRect((i / 4) % cv.width, Math.floor(i / 4 / cv.width), 1, 1); }
+  }
   return out;
 }
 function noteCv(cv, tone, mode = 'active') { // a note picture in a track colour (active or inactive)
@@ -594,41 +680,55 @@ function scaled(cv, s, bg) {
   o.drawImage(cv, 0, 0, out.width, out.height);
   return out;
 }
+// a toolbar icon's colours, as gui.js iconColors: outline edge, fill dim, light ink, shadow iconShade
+const toolCols = (t, off) => (off ? [t.off, t.off, t.off, t.off] : [t.edge, t.dim, t.ink, t.iconShade]);
 function iconState(a, theme, state) { // a button with this icon, as the player draws it
   const t = T(theme), on = state === 'on', cv = (on && a.frames[1]) || a.frames[0];
   const face = on ? t.sel : state === 'hover' ? t.hover : t.face, ink = state === 'off' ? t.off : on ? t.selInk : t.ink;
   const [bw, bh] = st.kind === 'small' ? [CELL, CELL] : [TOOL_W, TOOL_H];
   const out = newCv(bw + 2, bh + 2), o = out.getContext('2d');
-  o.fillStyle = t.ink; o.fillRect(0, 0, out.width, out.height);
+  o.fillStyle = t.edge || t.ink; o.fillRect(0, 0, out.width, out.height);
   o.fillStyle = face; o.fillRect(1, 1, bw, bh);
-  o.drawImage(inkCv(cv, ink), 1 + ((bw - cv.width) >> 1), 1 + ((bh - cv.height) >> 1));
+  o.drawImage(inkCv(cv, st.kind === 'tools' ? toolCols(t, state === 'off') : ink), 1 + ((bw - cv.width) >> 1), 1 + ((bh - cv.height) >> 1));
   return out;
 }
-// The box sprite (pictures/button): a 9-slice picture every box of the player is drawn with (gui.js round)
-const isBoxSprite = () => st.tab === 'pictures' && st.kind === 'pictures' && st.name === 'button';
+// The box sprites (pictures/button, pictures/listItem): 9-slice pictures the player's boxes are drawn with (gui.js round)
+const BOX_SPRITES = ['button', 'listItem']; // listItem: rows of lists and the buttons on them
+const isBoxSprite = () => st.tab === 'pictures' && st.kind === 'pictures' && BOX_SPRITES.includes(st.name);
 const sliceOf = (a) => a.info.slice || [Math.floor(a.frames[0].width / 3), Math.floor(a.frames[0].height / 3), Math.floor(a.frames[0].width / 3), Math.floor(a.frames[0].height / 3)];
 // A few boxes as the player draws them with the box sprite cv sliced at sl (gui.js nineSlice): transparent = what is
-// under the box, black = the frame, white = the box's fill, any other colour = the light edge (theme colour bevel).
-function boxSample(cv, sl, th) {
-  const t = T(th), W = 86, H = 44, out = newCv(W, H), g = out.getContext('2d');
+// under the box, black = the frame, white = the box's fill, another light colour = the light edge (theme colour bevel),
+// another dark one = the shadow (theme colour boxShade).
+// A box drawn with a 9-slice box sprite onto g in theme colours t: box(x, y, w, h, face, which) fills it now and
+// returns done(), which puts the sprite's corners and edges on top once the inside is drawn.
+// which: 'l' / 'r' round only that side (the other one square), as the player's list rows; under: what shows through.
+function boxPainter(g, t, cv, sl, under = t.bg) {
   const fill = (x, y, w, h, c) => { g.fillStyle = c; g.fillRect(x, y, w, h); };
   const d = cv.getContext('2d').getImageData(0, 0, cv.width, cv.height).data;
-  const cell = (i, j) => { const k = (j * cv.width + i) * 4; return d[k + 3] <= 127 ? 0 : d[k] < 60 && d[k + 1] < 60 && d[k + 2] < 60 ? 1 : d[k] > 200 && d[k + 1] > 200 && d[k + 2] > 200 ? 2 : 3; };
+  const cell = (i, j) => { const k = (j * cv.width + i) * 4; return d[k + 3] <= 127 ? 0 : d[k] < 60 && d[k + 1] < 60 && d[k + 2] < 60 ? 1 : d[k] > 200 && d[k + 1] > 200 && d[k + 2] > 200 ? 2 : d[k] + d[k + 1] + d[k + 2] < 384 ? 4 : 3; };
   const [L, Tp, R, B] = sl, mw = cv.width - L - R, mh = cv.height - Tp - B;
-  const box = (x, y, w, h, face) => {
-    fill(x, y, w, h, t.ink); fill(x + 1, y + 1, w - 2, h - 2, face);
+  return (x, y, w, h, face, which = 'lr') => {
+    fill(x, y, w, h, t.edge || t.ink); fill(x + 1, y + 1, w - 2, h - 2, face);
+    const on = face === t.sel && t.selBevel, bev = on ? t.selBevel : t.bevel || t.face, sh = on ? t.selShade : t.boxShade || t.ink; // pressed / chosen: its own
     return () => {
       if (w < L + R + 1 || h < Tp + B + 1 || mw < 1 || mh < 1) return;
-      const sx = (px) => (px - x < L ? px - x : px >= x + w - R ? cv.width - (x + w - px) : L + (px - x - L) % mw);
+      const left = which.includes('l'), right = which.includes('r');
+      const sx = (px) => (left && px - x < L ? px - x : right && px >= x + w - R ? cv.width - (x + w - px) : L + (((px - x - L) % mw) + mw) % mw);
       const sy = (py) => (py - y < Tp ? py - y : py >= y + h - B ? cv.height - (y + h - py) : Tp + (py - y - Tp) % mh);
       for (let py = y; py < y + h; py++) for (let px = x; px < x + w; px++) {
         const i = sx(px), j = sy(py);
         if (i >= L && i < cv.width - R && j >= Tp && j < cv.height - B) continue; // the middle: the box's own
+        if (!left && px === x || !right && px === x + w - 1) continue; // a square side: the plain frame
         const v = cell(i, j);
-        if (v === 0) fill(px, py, 1, 1, t.bg); else if (v === 1) fill(px, py, 1, 1, t.ink); else if (v === 3) fill(px, py, 1, 1, t.bevel || t.face);
+        if (v === 0) fill(px, py, 1, 1, under); else if (v === 1) fill(px, py, 1, 1, t.edge || t.ink); else if (v === 3) fill(px, py, 1, 1, bev); else if (v === 4) fill(px, py, 1, 1, sh);
       }
     };
   };
+}
+function boxSample(cv, sl, th) {
+  const t = T(th), W = 86, H = 44, out = newCv(W, H), g = out.getContext('2d');
+  const fill = (x, y, w, h, c) => { g.fillStyle = c; g.fillRect(x, y, w, h); };
+  const box = boxPainter(g, t, cv, sl);
   fill(0, 0, W, H, t.bg);
   let done = box(2, 2, W - 4, 16, t.face);
   drawText(g, 'LAYERS', 7, 8, t.textShade || t.face); drawText(g, 'LAYERS', 6, 7, t.panelInk || t.ink); done();
@@ -643,8 +743,8 @@ function renderPreview() {
   const add = (cv, title) => { cv.title = title; box.append(cv); };
   const label = (t) => { const d = document.createElement('div'); d.className = 'note'; d.textContent = t; box.append(d); };
   if (st.kind === 'tools' || st.kind === 'small') {
-    for (const th of ['light', 'dark']) {
-      label(th + ': normal · hover · on · disabled');
+    for (const th of ['dark']) {
+      label('normal · hover · on · disabled');
       for (const s of ['normal', 'hover', 'on', 'off']) add(scaled(iconState(a, th, s), 2), s);
     }
   } else if (st.kind === 'notes') {
@@ -656,15 +756,15 @@ function renderPreview() {
     const cv = a.frames[animFrame(a)];
     st.tones.forEach((_, k) => add(scaled(noteCv(cv, k, st.toneMode), 3, modeBg()), TONE_NAMES[k]));
   } else if (st.kind === 'cursors') {
-    for (const th of ['light', 'dark']) {
-      label(th + ' (actual size, ×3)');
+    for (const th of ['dark']) {
+      label('actual size, ×3');
       a.frames.forEach((cv) => { add(scaled(cv, 1, T(th).face), 'actual size'); add(scaled(cv, 3, T(th).face), '×3'); });
     }
-  } else if (st.kind === 'pictures' && st.name === 'button') {
-    // the box sprite: boxes of the player drawn with it, in both themes, as it is being drawn
-    for (const th of ['light', 'dark']) { label(th + ': a panel bar and buttons (×2)'); add(scaled(boxSample(a.frames[st.frame] || a.frames[0], sliceOf(a), th), 2), th); }
+  } else if (isBoxSprite()) {
+    // the box sprite: boxes of the player drawn with it, as it is being drawn
+    for (const th of ['dark']) { label('a panel bar and buttons (×2)'); add(scaled(boxSample(a.frames[st.frame] || a.frames[0], sliceOf(a), th), 2), th); }
   } else if (st.kind === 'clefs') {
-    for (const th of ['light', 'dark']) add(scaled(inkCv(a.frames[0], T(th).ink), 2, T(th).paper), th);
+    for (const th of ['dark']) add(scaled(inkCv(a.frames[0], T(th).ink), 2, T(th).paper), th);
   } else add(scaled(a.frames[animFrame(a)], 3, '#fff'), a.frames.length > 1 ? 'playing its frames' : '');
 }
 
@@ -676,7 +776,7 @@ function buildColours() {
     const active = st.toneMode === 'active';
     box.innerHTML = `<h2>${MODES.find((m) => m[0] === st.toneMode)[1]}</h2><div class="note">${active
       ? 'Notes of the chosen track: the outline, then light · body · shade of each track colour.'
-      : 'Notes of the other tracks (the same in both themes): two colours. The outline (also the shade), then the body (also the light) of each track colour.'}</div>`;
+      : 'Notes of the other tracks: two colours. The outline (also the shade), then the body (also the light) of each track colour.'}</div>`;
     const sw = (c, on, title, click) => {
       const s = document.createElement('div');
       s.className = 'sw' + (on ? ' on' : ''); s.style.background = css(lv(c)); s.title = title; s.onclick = click;
@@ -703,7 +803,7 @@ function buildColours() {
     return;
   }
   const h = document.createElement('h2');
-  h.textContent = (st.themeName === 'light' ? 'Light' : 'Dark') + ' theme';
+  h.textContent = 'Interface colours';
   box.append(h);
   for (const [k, c] of Object.entries(st.theme[st.themeName])) {
     const b = document.createElement('button');
@@ -748,7 +848,7 @@ function renderTones(c) {
   c.fillStyle = modeBg(); c.fillRect(0, 0, view.width, view.height);
   st.tones.forEach((_, k) => {
     const y = 5 + k * rh;
-    c.fillStyle = k === st.tone[0] ? '#ff2400' : st.paperTheme === 'dark' ? '#dbdbdb' : '#000';
+    c.fillStyle = k === st.tone[0] ? '#ff2400' : '#dbdbdb';
     c.font = '11px ui-monospace, monospace';
     c.fillText(TONE_NAMES[k] || String(k + 1), 4, y + 16);
     notes.forEach((a, n) => c.drawImage(scaled(noteCv(a.frames[animFrame(a)], k, st.toneMode), z), 80 + n * cw, y));
@@ -764,30 +864,31 @@ function toneClick(e) {
 // ---------- the interface mock-up: the player's widgets in their states, in the chosen theme ----------
 function renderMock(c) {
   const S = Math.max(2, Math.min(4, Math.floor((wrap.clientWidth - 16) / 220))), t = Object.fromEntries(Object.entries(st.theme[st.themeName]).map(([k, v]) => [k, css(lv(v))]));
-  const W = 220, H = 170, cv = newCv(W, H), g = cv.getContext('2d');
+  const W = 220, H = 208, cv = newCv(W, H), g = cv.getContext('2d');
   const hits = [];
   const box = (x, y, w, h, key, color = t[key]) => { g.fillStyle = color; g.fillRect(x, y, w, h); hits.push({ x, y, w, h, key }); };
   const txt = (s, x, y, key) => { const w = drawText(g, s, x, y, t[key]); hits.push({ x, y: y - 1, w: w || s.length * 4, h: 7, key }); };
   const icon = (name, x, y, face, ink, frameOn = false) => {
     const a = st.art.tools.get(name);
-    box(x - 1, y - 1, TOOL_W + 2, TOOL_H + 2, 'ink');
+    box(x - 1, y - 1, TOOL_W + 2, TOOL_H + 2, 'edge');
     box(x, y, TOOL_W, TOOL_H, face);
     const icv = a && ((frameOn && a.frames[1]) || a.frames[0]);
-    if (a) { g.drawImage(inkCv(icv, t[ink]), x + ((TOOL_W - icv.width) >> 1), y + ((TOOL_H - icv.height) >> 1)); hits.push({ x: x + 4, y: y + 4, w: TOOL_W - 8, h: TOOL_H - 8, key: ink }); }
+    if (a) { g.drawImage(inkCv(icv, toolCols(t, ink === 'off')), x + ((TOOL_W - icv.width) >> 1), y + ((TOOL_H - icv.height) >> 1)); hits.push({ x: x + 4, y: y + 4, w: TOOL_W - 8, h: TOOL_H - 8, key: ink }); }
   };
   box(0, 0, W, H, 'bg');
   // toolbar buttons: normal, hover, on, disabled
   icon('pen', 4, 4, 'face', 'ink'); icon('eraser', 26, 4, 'hover', 'ink'); icon('bucket', 48, 4, 'sel', 'selInk', true); icon('pipette', 70, 4, 'face', 'off');
   txt('NORMAL HOVER  ON   OFF', 4, 26, 'dim');
   // text buttons and a field
-  box(96, 4, 30, 13, 'ink'); box(97, 5, 28, 11, 'face'); txt('OK', 106, 8, 'ink');
-  box(130, 4, 34, 13, 'ink'); box(131, 5, 32, 11, 'sel'); txt('SAVE', 138, 8, 'selInk');
-  box(96, 20, 68, 11, 'ink'); box(97, 21, 66, 9, 'face'); txt('MY RIFF', 100, 23, 'ink');
+  box(96, 4, 30, 13, 'edge'); box(97, 5, 28, 11, 'face'); txt('OK', 106, 8, 'ink');
+  box(130, 4, 34, 13, 'edge'); box(131, 5, 32, 11, 'sel'); txt('SAVE', 138, 8, 'selInk');
+  box(96, 20, 68, 11, 'edge'); box(97, 21, 66, 9, 'face'); txt('MY RIFF', 100, 23, 'ink');
   // a menu
-  box(168, 4, 48, 40, 'ink'); box(169, 5, 46, 38, 'face');
+  box(170, 44, 48, 2, 'dropShadow'); box(216, 6, 2, 40, 'dropShadow');
+  box(168, 4, 48, 40, 'edge'); box(169, 5, 46, 38, 'face');
   txt('NEW', 172, 8, 'ink'); box(169, 15, 46, 11, 'sel'); txt('OPEN', 172, 18, 'selInk'); txt('SAVE', 172, 30, 'off'); txt('^S', 205, 30, 'dim');
   // a layer row: colour chip, name (chosen), mute, solo
-  box(4, 36, 160, 13, 'ink'); box(5, 37, 12, 11, 'face', css(lv(st.tones[0][1]))); txt('1', 9, 40, 'ink');
+  box(4, 36, 160, 13, 'edge'); box(5, 37, 12, 11, 'face', css(lv(st.tones[0][1]))); txt('1', 9, 40, 'ink');
   box(18, 37, 90, 11, 'sel'); txt('CHEESE RIFF', 21, 40, 'selInk');
   box(109, 37, 26, 11, 'soft'); txt('ROW', 112, 40, 'ink');
   box(136, 37, 13, 11, 'red'); txt('M', 140, 40, 'white'); box(150, 37, 13, 11, 'green'); txt('S', 154, 40, 'ink');
@@ -821,8 +922,38 @@ function renderMock(c) {
   // the display
   box(4, 124, 70, 18, 'lcd'); txt('BAR', 7, 126, 'lcdDim'); txt('1.1', 7, 134, 'lcdInk'); txt('BPM', 40, 126, 'lcdDim'); txt('177', 40, 134, 'lcdInk');
   // a dialog
-  box(80, 124, 136, 42, 'ink'); box(81, 125, 134, 40, 'face'); box(81, 125, 134, 11, 'sel'); txt('SETTINGS', 84, 128, 'selInk');
-  txt('THEME', 84, 140, 'dim'); txt('A HINT', 84, 152, 'dim');
+  box(82, 166, 136, 2, 'dropShadow'); box(216, 126, 2, 42, 'dropShadow');
+  box(80, 124, 136, 42, 'edge'); box(81, 125, 134, 40, 'face'); box(81, 125, 134, 11, 'sel'); txt('SETTINGS', 84, 128, 'selInk');
+  txt('SOUND', 84, 140, 'dim'); txt('A HINT', 84, 152, 'dim');
+  // rounded boxes (the box sprites button and listItem) and the panel text with its shadow
+  const sprite = (name) => { const a = st.art.pictures.get(name); return a && boxPainter(g, t, a.frames[0], sliceOf(a), t.bg); };
+  const sTxt = (s, x, y) => { // the panels' text: panelInk with a textShade shadow 1 px right and down
+    drawText(g, s, x + 1, y + 1, t.textShade); const w = drawText(g, s, x, y, t.panelInk) || s.length * 4;
+    hits.push({ x, y: y + 5, w: w + 1, h: 3, key: 'textShade' }, { x, y: y - 1, w, h: 6, key: 'panelInk' });
+  };
+  const rounded = (paint, x, y, w, h, key, which, under) => { // the box's colours, clickable: edge, face, light edge, shadow
+    const own = t[key] ? key : 'edge'; // a track colour is not a theme colour
+    const on = key === 'sel';
+    hits.push({ x, y, w, h, key: 'edge' }, { x: x + 1, y: y + 1, w: w - 2, h: h - 2, key: own }, { x: x + 1, y: y + 1, w: w - 2, h: 1, key: on ? 'selBevel' : 'bevel' }, { x: x + 1, y: y + h - 2, w: w - 2, h: 1, key: on ? 'selShade' : 'boxShade' });
+    return paint(x, y, w, h, typeof key === 'string' && t[key] ? t[key] : key, which, under);
+  };
+  const btnBox = sprite('button'), rowBox = sprite('listItem');
+  if (btnBox && rowBox) {
+    // a panel bar with its fold button
+    let done = rounded(btnBox, 4, 172, 104, 14, 'face');
+    sTxt('LAYERS', 8, 177); done();
+    done = rounded(rowBox, 94, 174, 10, 10, 'face');
+    const minus = st.art.small.get('minus')?.frames[0];
+    if (minus) { g.drawImage(inkCv(minus, t.textShade), 94, 174); g.drawImage(inkCv(minus, t.panelInk), 93, 173); }
+    done();
+    // a list row on the outline colour: number | name | M | S, each its own box, rounded on the left (S on both sides)
+    box(4, 188, 134, 15, 'edge');
+    const row = [[4, 14, css(lv(st.tones[0][1])), 'l'], [17, 90, 'face', 'l'], [106, 14, 'face', 'l'], [119, 14, 'sel', 'lr']];
+    for (const [x, w, face, which] of row) { const d = rounded(rowBox, x, 189, w, 13, face, which, t.edge); if (x === 4) txt('1', x + 5, 193, 'ink'); if (x === 17) sTxt('SYNTH BASS', x + 4, 193); if (x === 106) txt('M', x + 5, 193, 'ink'); if (x === 119) txt('S', x + 5, 193, 'selInk'); d(); }
+    // a text button
+    done = rounded(btnBox, 144, 186, 36, 17, 'face'); txt('CANCEL', 150, 192, 'ink'); done();
+    done = rounded(btnBox, 182, 186, 34, 17, 'sel'); txt('DONE', 191, 192, 'selInk'); done();
+  }
   // scale it up and keep the hit boxes
   const ox = st.ox, oy = st.oy; // moved with the middle button
   c.drawImage(cv, ox, oy, W * S, H * S);
@@ -858,6 +989,7 @@ function setTab(t) {
   render();
 }
 function setTool(t) {
+  if (t !== 'select' && st.sel) dropSel();
   st.tool = t;
   for (const b of document.querySelectorAll('[data-tool]')) b.classList.toggle('on', b.dataset.tool === t);
 }
@@ -872,6 +1004,7 @@ function manifest() {
   return m;
 }
 async function save() {
+  if (st.sel) dropSel(true);
   status('Saving…');
   for (const [kind] of KINDS) for (const [name, a] of st.art[kind]) {
     if (!a.restructured) continue;
@@ -899,6 +1032,7 @@ async function save() {
   }
 }
 function undoRedo(from, to) {
+  if (st.sel) dropSel(true);
   const u = from.pop();
   if (!u) return;
   const a = st.art[u.kind]?.get(u.name);
@@ -981,6 +1115,12 @@ function bind() {
     else if (mod && e.code === 'KeyZ') { e.preventDefault(); e.shiftKey ? undoRedo(st.redo, st.undo) : undoRedo(st.undo, st.redo); }
     else if (mod && e.code === 'KeyY') { e.preventDefault(); undoRedo(st.redo, st.undo); }
     else if (mod) return;
+    else if (st.tab === 'pictures' && st.sel && selHere() && (e.code === 'Escape' || e.code === 'Enter')) { e.preventDefault(); dropSel(); }
+    else if (st.tab === 'pictures' && st.sel && selHere() && !e.altKey && (e.code === 'Delete' || e.code === 'Backspace')) { e.preventDefault(); clearSel(); }
+    else if (st.tab === 'pictures' && st.sel && selHere() && !e.altKey && e.code.startsWith('Arrow')) {
+      e.preventDefault();
+      nudgeSel(e.code === 'ArrowLeft' ? -1 : e.code === 'ArrowRight' ? 1 : 0, e.code === 'ArrowUp' ? -1 : e.code === 'ArrowDown' ? 1 : 0);
+    }
     else if (st.tab === 'pictures' && e.altKey && e.code === 'KeyN') { e.preventDefault(); addFrame(false); }
     else if (st.tab === 'pictures' && e.altKey && e.code === 'KeyD') { e.preventDefault(); addFrame(true); }
     else if (st.tab === 'pictures' && e.altKey && (e.code === 'Delete' || e.code === 'Backspace')) { e.preventDefault(); deleteFrame(); }
@@ -998,6 +1138,7 @@ function bind() {
     else if (e.code === 'KeyE') setTool('erase');
     else if (e.code === 'KeyG') setTool('fill');
     else if (e.code === 'KeyI') setTool('pick');
+    else if (e.code === 'KeyM') setTool('select');
     else if (e.code === 'KeyP' && st.kind === 'cursors') setTool('pivot');
   });
   window.addEventListener('beforeunload', (e) => { if (st.dirty || photos.dirty || pages.dirty) { e.preventDefault(); e.returnValue = ''; } });

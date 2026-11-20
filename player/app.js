@@ -1,6 +1,6 @@
 import { prepareSong, buildTimeline, noteTime, stepTime, timeToStep, fmHz, psgHz, hzMidi, MELODIC_VOICE, repeatSpans, playedSteps, writtenStep, performSong, sampleStep } from './engine/song.js';
 import { boxSprite } from './pixel.js';
-import { THEMES, md, LAYER_TONES, NOTE_NAMES, toneOrder, toneCss, loadArt, hasFrame, frameCount, noteSprite, checkered, smallIcon, pointerIcon, picture, artInfo, clef, textWidth, fitText, rgbCss, snap } from './pixel.js';
+import { THEMES, md, LAYER_TONES, NOTE_NAMES, toneOrder, toneCss, loadArt, hasFrame, frameCount, noteSprite, checkered, smallIcon, pointerIcon, picture, artInfo, clef, textWidth, fitText, rgbCss, snap, drawText } from './pixel.js';
 import { SPRITE_POOL, ROLE_SPRITE, ROLE_SET, spriteName, sonic } from './sprites.js';
 import { SCALE_LIST, findScale, guessScale } from './scales.js';
 import { listRefs, listMine, getMine, putMine, deleteMine, newId, fetchRef, fetchBank, fetchCatalog, listMySounds, putMySound, deleteMySound } from './library.js';
@@ -10,12 +10,12 @@ import { unpackSong } from './songpack.js';
 import { PATCH_EXT, isPatchFile, readPatchFile, regsToTfi, regsToDmp, guessSprite, guessNote, voiceToRegs, regsToVoice } from './patches.js';
 import { clone as fmClone, TYPES as FM_TYPES, BLANK as FM_BLANK, KNOBS as FM_KNOBS, OP_PARAMS as FM_OP_PARAMS, VOICE_PARAMS as FM_VOICE_PARAMS, ALG_GRAPH, SLOT_OF_OP, isCarrier, getParam as fmGetParam, setParam as fmSetParam, setKnob, nudgeKnob, knobLive as fmKnobLive, mutate as fmMutate, envelope as fmEnvelope } from './fmedit.js';
 import { BUDGETS as SMP_BUDGETS, SONG_BUDGET_KB, budgetsFor, STEPS as SMP_STEPS, decodeAudio, trimSilence, guessPitch, peaks as wavePeaks, bytesFor, render as renderSample, fitOptions } from './sampler.js';
-import { ui, initScreen, resizeScreen, beginFrame, endFrame, region, hot, fill, frame, round, text, shadowText, bevel, dither, ants, strip, stripW, BIG, SMALL, button, field, focusField, blurField } from './gui.js';
+import { ui, initScreen, resizeScreen, beginFrame, endFrame, region, hot, pressed, fill, frame, round, boxTone, text, shadowText, bevel, dither, ants, strip, stripW, BIG, SMALL, button, field, focusField, blurField } from './gui.js';
 
 const LAST_KEY = 'segapaint:last', THEME_KEY = 'segapaint:theme', SCALE_KEY = 'segapaint:scale', SOUND_KEY = 'segapaint:sound';
 const VGM_KEY = 'segapaint:vgm'; // the last export's author and DAC choice
 const FOLD_KEY = 'segapaint:fold'; // which left panels are folded
-const VERSION = 'BETA 1';
+const VERSION = 'BETA 2';
 // The art editor saves through tools/serve.py, so it is offered only when the app runs from it (not on the web copy).
 const LOCAL = ['localhost', '127.0.0.1', '[::1]'].includes(location.hostname);
 const SCALES = [2, 3, 4, 5, 6];
@@ -68,7 +68,7 @@ const S = {
   doc: null, // { kind: 'ref', dir } | { kind: 'user', id, base, name }
   dirty: false, refs: [],
   sel: new Set(), clip: null, // selected notes of the active layer; copied notes
-  theme: 'light', volume: 1.6, status: '',
+  theme: 'dark', volume: 1.6, status: '',
   sound: 'clean', // FM chip: clean (no DAC distortion, like a YM3438) or model1 (the first Mega Drive's YM2612)
   flyout: false, menu: false, dlg: null, layerScroll: 0,
   fold: { layers: false, about: false, playlist: false, side: false }, aboutPage: 0, // the left column's panels folded to their title bars (side: the whole column hidden); the Description page shown
@@ -224,6 +224,8 @@ function setupSong(song, bank) {
   Object.assign(S, { undo: [], redo: [], drag: null, hover: null, dirty: false, mixMuted: '', layerScroll: 0, aboutPage: 0 });
   S.hidden.clear(); S.muted.clear(); S.solo.clear(); S.sel.clear(); S.layers = new Set();
   S.active = Math.max(0, song.layers.findIndex((l) => l.role === 'bass'));
+  S.layers = new Set(song.layers.map((_, i) => i)); // a song opens with all its tracks chosen
+  if (multiLayer() && ONE_TRACK_TOOLS.has(S.tool)) setTool('select'); // pen, fill, pipette: one track only
   computeRange();
   updateTimingUI();
   updateBarTools();
@@ -482,6 +484,10 @@ function slideOf(L, n) {
   }
   return last != null && Math.abs(last) >= 0.75 ? Math.round(last) : 0;
 }
+
+// The riding icon of note n with a slide, el samples into it: how far (px) it has gone from its row towards the
+// slide target's (n._slide, the wavy line), evenly over the whole note: a picture of the slide (the sound may slide sooner).
+const slideDy = (n, el) => (yOf(diatOf(n.p + n._slide)) - yOf(diatOf(n.p))) * Math.max(0, Math.min(1, el / Math.max(1, n._d)));
 
 function spriteOf(L, n) {
   if (L.kind === 'sample') return L.palette?.find((x) => x.smp === n.smp)?.sprite || S.song.samples[n.smp]?.sprite || 'guitar';
@@ -1064,13 +1070,15 @@ const laneH = (L) => (L.kind === 'dac' ? DAC_H : LANE_H);
 
 function staffGeom() {
   const lanes = S.lanes.reduce((a, L) => a + laneH(L), 0);
-  const lanesH = lanes ? lanes + 3 : 0;
-  viewTop = RULER; viewBot = SH - lanesH;
+  // three boxes, 2 px apart: the ruler (rows 0..RULER-2, its bottom line RULER-1), the staff (its top line RULER+2,
+  // its bottom line viewBot) and the lanes (their top line viewBot+3)
+  const lanesH = lanes ? lanes + 4 : 0;
+  viewTop = RULER + 3; viewBot = SH - lanesH;
   const full = (DIAT_TOP - DIAT_BOT) * DSTEP + 8, view = viewBot - viewTop;
   staffTop = viewTop + 4 + Math.max(0, (view - full) >> 1);
   S.vyMax = Math.max(0, full - view);
   setVy(S.vy);
-  lanesTop = viewBot + 3; lanesEnd = lanesTop + lanes;
+  lanesTop = viewBot + 4; lanesEnd = lanesTop + lanes;
 }
 const yOf = (d) => staffTop + (DIAT_TOP - d) * DSTEP - S.vy;
 const xOf = (s) => GUTTER + Math.round((s - S.scroll) * S.colW);
@@ -1225,7 +1233,9 @@ function drawLayer(L, active, s0, s1, pos) {
     const faint = !active || off;
     const sp = noteSprite(name, L.tone, Math.min(frame, nf - 1), faint ? 'ghost' : 'normal', ui.T);
     const at = riding ? Math.max(n.s, Math.min(ps - 0.5, n._e - 1)) : n.s;
-    const [x] = drawNoteSprite(sp, at, noteY(L, n), !active);
+    // riding a note with a slide, the icon follows the pitch as it sounds
+    const dy = riding && n._slide ? Math.round(slideDy(n, pos - n._t)) : 0;
+    const [x] = drawNoteSprite(sp, at, noteY(L, n) + dy, !active);
     if (n._slide && !riding) drawGliss(L, n, x + 10, active);
   }
 }
@@ -1261,7 +1271,6 @@ function drawDac(L, active, lo, s1, pos) {
 function drawLanes(order, s0, s1, pos) {
   if (!S.lanes.length) return;
   const T = ui.T;
-  fill(0, lanesTop - 2, SW, 1, T.ink);
   for (const L of S.lanes) {
     const top = laneTopOf(L), h = laneH(L), active = layerChosen(S.song.layers.indexOf(L));
     if (active) fill(GUTTER, top, SW - GUTTER, h, T.lane);
@@ -1270,7 +1279,7 @@ function drawLanes(order, s0, s1, pos) {
   g.save(); g.beginPath(); g.rect(GUTTER, lanesTop, SW - GUTTER, lanesEnd - lanesTop); g.clip();
   for (const i of order) { const L = S.song.layers[i]; if (isLane(L)) drawLayer(L, layerChosen(i), s0, s1, pos); }
   g.restore();
-  fill(GUTTER - 1, lanesTop - 1, 1, lanesEnd - lanesTop + 1, T.ink);
+  fill(GUTTER - 1, lanesTop, 1, lanesEnd - lanesTop, T.ink);
   for (const L of S.lanes) {
     const top = laneTopOf(L), h = laneH(L), active = L === activeLayer();
     fill(1, top + 1, 3, h - 2, toneInk(L, false));
@@ -1317,7 +1326,7 @@ function drawBars(Tl, s0, s1) {
     const v = Tl.get(n), h = Math.max(1, Math.round(max * Tl.height(v)));
     const x = xOf(n.s) + 1, w = Math.max(2, S.colW - 2);
     fill(x, base - h, w, h, Tl.color(v, L));
-    frame(x - 1, base - h - 1, w + 2, h + 2, T.ink);
+    frame(x - 1, base - h - 1, w + 2, h + 2, T.edge);
     text(Tl.text(v), x + ((w - textWidth(Tl.text(v))) >> 1), base + 3, T.ink);
   }
   fill(0, base - max - 2, GUTTER, max + 12, T.paper);
@@ -1575,30 +1584,55 @@ function drawScrollMarks() {
   if (S.vy < S.vyMax) tri(viewBot - 2, -1);
 }
 
-// Piano keys, drawn like the sketch: a line between white keys, a 8x3 block for each black key,
-// and the octave name on every C.
+// Piano keys: the picture art/pictures/keys is one octave (B at the top, C at the bottom, 4 rows a white key),
+// repeated up the gutter. Frame 1 = the keys as they are, frame 2 = pressed / hovered, frame 3 = keys the pen
+// cannot use; each key takes its pixels from the frame of its state. Which pixels a key owns comes from the
+// geometry: a white key = its 3 rows, a black key = an 8x3 block across the line between two white keys
+// (the lines themselves always come from frame 1). The octave name on every C is written over it.
+const OCT_H = 7 * DSTEP, KEY_C_Y = OCT_H - 3; // the row of C's middle in the octave picture
+const WHITE_SEMI = [0, 2, 4, 5, 7, 9, 11];
+function keyOwner(x, y) {
+  for (let l = 0; l < 7; l++) {
+    const yc = KEY_C_Y - l * DSTEP;
+    if (l !== 2 && l !== 6 && x < 8 && y >= yc - 3 && y <= yc - 1) return WHITE_SEMI[l] + 1;
+  }
+  for (let l = 0; l < 7; l++) { const yc = KEY_C_Y - l * DSTEP; if (y >= yc - 1 && y <= yc + 1) return WHITE_SEMI[l]; }
+  return -1;
+}
+const keyParts = new WeakMap(); // octave picture frame -> 12 canvases, each with only that key's pixels
+function keyPartsOf(cv) {
+  if (keyParts.has(cv)) return keyParts.get(cv);
+  const w = cv.width, h = cv.height, src = cv.getContext('2d').getImageData(0, 0, w, h);
+  const parts = Array.from({ length: 12 }, () => { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; });
+  const imgs = parts.map((c) => c.getContext('2d').createImageData(w, h));
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const k = keyOwner(x, y), i = (y * w + x) * 4;
+    if (k >= 0) for (let j = 0; j < 4; j++) imgs[k].data[i + j] = src.data[i + j];
+  }
+  parts.forEach((c, k) => c.getContext('2d').putImageData(imgs[k], 0, 0));
+  keyParts.set(cv, parts);
+  return parts;
+}
 function drawKeys() {
   const T = ui.T, L = activeLayer(), range = L && !S.hidden.has(S.active) ? pitchedRange(L) : null, hp = hotKey();
   // keys the pen cannot use (out of the sound's range or the scale) are shaded, the played / hovered one lit
-  const state = (p) => (p === hp ? 'hot' : range && !keyOk(p, range) ? 'off' : '');
-  for (let d = DIAT_BOT; d <= DIAT_TOP; d++) {
-    const yc = yOf(d);
-    if (yc < viewTop - 4 || yc > viewBot + 4) continue;
-    const st = state(natFromDiat(d));
-    if (st === 'hot') fill(0, yc - 1, KEY_LINE, 3, T.head);
-    else if (st === 'off') dither(0, yc - 1, KEY_LINE, 3, T.keys);
+  const state = (p) => (p === hp ? 1 : range && !keyOk(p, range) ? 2 : 0);
+  const base = picture('keys', 0), lit = [null, keyPartsOf(picture('keys', 1)), keyPartsOf(picture('keys', 2))];
+  // only the keys that exist, inside the staff view
+  const top = Math.max(viewTop, yOf(DIAT_TOP) - 3), bot = Math.min(viewBot, yOf(DIAT_BOT) + 2);
+  g.save(); g.beginPath(); g.rect(0, top, KEY_LINE, bot - top); g.clip();
+  for (let o = Math.floor(DIAT_BOT / 7); o * 7 <= DIAT_TOP; o++) {
+    const ty = yOf(o * 7) - KEY_C_Y;
+    if (ty > bot || ty + OCT_H < top) continue;
+    g.drawImage(base, 0, ty);
+    const c0 = natFromDiat(o * 7);
+    for (let k = 0; k < 12; k++) { const st = state(c0 + k); if (st) g.drawImage(lit[st][k], 0, ty); }
   }
+  g.restore();
   for (let d = DIAT_BOT; d <= DIAT_TOP; d++) {
     const yc = yOf(d);
     if (yc < viewTop - 4 || yc > viewBot + 4) continue;
-    const letter = ((d % 7) + 7) % 7; // 0 = C
-    // the boundary above this key (to d+1): short where a C label sits
-    fill(0, yc - 2, letter === 0 || letter === 6 ? 10 : KEYS_W, 1, T.keys);
-    if (letter !== 2 && letter !== 6) { // black key between d and d+1
-      const st = state(natFromDiat(d) + 1);
-      fill(0, yc - 3, 8, 3, st === 'hot' ? T.head : st === 'off' ? T.beat : T.keys);
-    }
-    if (letter === 0) text('C' + Math.floor(d / 7), 11, yc - 2, T.keys);
+    if (((d % 7) + 7) % 7 === 0) drawText(g, 'C' + Math.floor(d / 7), 11, yc - 2, T.keys); // no shadow on the keys
   }
   fill(KEY_LINE, viewTop, 1, viewBot - viewTop, T.ink);
   // a pressed key draws its line across the staff
@@ -1629,7 +1663,7 @@ function drawSelection(s0, s1) {
   const d = S.drag;
   if (d?.mode === 'marquee') {
     const x = Math.min(d.x0, d.x1), y = Math.min(d.y0, d.y1);
-    ants(Math.round(x), Math.round(y), Math.round(Math.abs(d.x1 - d.x0)) + 1, Math.round(Math.abs(d.y1 - d.y0)) + 1, T.ink, phase);
+    ants(Math.round(x), Math.round(y), Math.round(Math.abs(d.x1 - d.x0)) + 1, Math.round(Math.abs(d.y1 - d.y0)) + 1, T.edge, phase);
   }
 }
 
@@ -1708,7 +1742,7 @@ function drawScaleMenu() {
   const T = ui.T, x = SX, y = SY + RULER, rw = 11;
   const w = rw * 12 + 2, h = 14 + SCALE_LIST.length * 11 + 2 + 13;
   region(0, 0, ui.W, ui.H, { block: true, down: () => { S.scaleMenu = false; } });
-  fill(x + 2, y + h, w, 2, T.ink); fill(x + w, y + 2, 2, h, T.ink);
+  fill(x + 2, y + h, w, 2, T.dropShadow); fill(x + w, y + 2, 2, h, T.dropShadow); // its drop shadow
   frame(x, y, w, h);
   fill(x + 1, y + 1, w - 2, h - 2, T.face);
   region(x, y, w, h, { block: true });
@@ -1718,15 +1752,15 @@ function drawScaleMenu() {
     const id = 'root' + k, rx = x + 1 + k * rw, on = sc.pcs && scaleRoot() === k;
     fill(rx, y + 1, rw - 1, 11, on ? T.sel : hot(id) ? T.hover : IS_SHARP[k] ? T.beat : T.face);
     const nm = NAMES[k];
-    text(nm, rx + ((rw - 1 - textWidth(nm)) >> 1), y + 4, on ? T.selInk : sc.pcs ? T.ink : T.dim);
+    shadowText(nm, rx + ((rw - 1 - textWidth(nm)) >> 1), y + 4, on ? T.selInk : sc.pcs ? T.ink : T.dim);
     region(rx, y + 1, rw - 1, 11, { id, cursor: 'pointer', tip: `Root ${nm}`, click: () => setScale(sc.pcs ? sc.id : 'major', k) });
   }
   fill(x + 1, y + 12, w - 2, 1, T.off);
   SCALE_LIST.forEach((s, k) => {
     const id = 'scale-' + s.id, iy = y + 14 + k * 11, on = s === sc;
     if (on || hot(id)) fill(x + 1, iy, w - 2, 11, on ? T.sel : T.hover);
-    text(s.name, x + 5, iy + 3, on ? T.selInk : T.ink);
-    text(s.hint, x + w - 5 - textWidth(s.hint), iy + 3, on ? T.selInk : T.dim);
+    shadowText(s.name, x + 5, iy + 3, on ? T.selInk : T.ink);
+    shadowText(s.hint, x + w - 5 - textWidth(s.hint), iy + 3, on ? T.selInk : T.dim);
     region(x + 1, iy, w - 2, 11, { id, cursor: 'pointer', click: () => { setScale(s.id); S.scaleMenu = false; } });
   });
   const gy = y + 14 + SCALE_LIST.length * 11 + 1;
@@ -1738,7 +1772,7 @@ function drawScaleButton() {
   const x = SX, y = SY, w = GUTTER - 1, h = RULER - 1;
   fill(x, y, w, h, S.scaleMenu ? T.sel : hot(id) ? T.hover : T.face);
   const label = scaleLabel();
-  text(fitText(label, w - 2), x + Math.max(1, (w - textWidth(label)) >> 1), y + 4, S.scaleMenu ? T.selInk : on ? T.ink : T.dim);
+  shadowText(fitText(label, w - 2), x + Math.max(1, (w - textWidth(label)) >> 1), y + 4, S.scaleMenu ? T.selInk : on ? T.ink : T.dim);
   region(x, y, w, h, { id, cursor: 'pointer', tip: 'Scale lock · Shift: any key', click: () => { S.scaleMenu = !S.scaleMenu; S.menu = false; S.flyout = false; } });
 }
 
@@ -2382,12 +2416,12 @@ function dialogBox(w, h, title) {
   S.dlgBox = { x, y, w, h };
   region(0, 0, ui.W, ui.H, { block: true, down: () => {} });
   dither(0, 0, ui.W, ui.H, T.shade);
-  fill(x + 2, y + h, w, 2, T.ink); fill(x + w, y + 2, 2, h, T.ink);
+  fill(x + 2, y + h, w, 2, T.dropShadow); fill(x + w, y + 2, 2, h, T.dropShadow); // its drop shadow
   frame(x, y, w, h);
   fill(x + 1, y + 1, w - 2, h - 2, T.face);
   fill(x + 1, y + 1, w - 2, 12, T.sel);
   text(title, x + 4, y + 4, T.selInk);
-  fill(x, y + 13, w, 1, T.ink);
+  fill(x, y + 13, w, 1, T.edge);
   round(x, y, w, h);
   strip(x + w - 14, y, [{ id: 'dlgClose', icon: 'close', tip: 'Close · Esc', click: () => closeDialog() }], SMALL);
   return { x, y: y + 14, w, h: h - 14 };
@@ -2463,7 +2497,7 @@ function drawBpmDialog(d) {
   bx += button(bx, cy, '-10', { id: 'bpmM10', w: 22, tip: 'Slower by 10', click: () => set(cur - 10) }) + 2;
   bx += button(bx, cy, '-1', { id: 'bpmM1', w: 18, tip: 'Slower', click: () => set(cur - 1) }) + 2;
   const nw = r.x + r.w - 8 - 22 - 2 - 18 - 2 - bx - 2;
-  frame(bx, cy, nw, 13, T.ink); fill(bx + 1, cy + 1, nw - 2, 11, T.lcd);
+  frame(bx, cy, nw, 13, T.edge); fill(bx + 1, cy + 1, nw - 2, 11, T.lcd);
   text(n, bx + ((nw - textWidth(n)) >> 1), cy + 4, T.lcdInk);
   region(bx, cy, nw, 13, { id: 'bpmNum', tip: 'BPM · wheel to change', wheel: (e) => set(cur + (e.deltaY < 0 ? 1 : -1) * (e.shiftKey ? 10 : 1)) });
   bx += nw + 2;
@@ -2482,45 +2516,71 @@ function drawBpmDialog(d) {
 const cancelBpm = () => closeDialog(); // Cancel, the cross and Esc put the old tempo back (closeDialog)
 
 // A list of rows inside a dialog: clipped, scrolled with the wheel.
-function listRows(x, y, w, h, rows, d, rowH = 13, idp = '') {
+// boxes: each row its own rounded box (the listItem sprite) on the outline colour, next ones sharing a line, as the
+// LAYERS rows; an open group's header is square at the bottom, on its rows (the playlist)
+// boxes: each row its own rounded box (the listItem sprite) on the outline colour, next ones sharing a line, as the
+// LAYERS rows; an open group's header is square at the bottom, on its rows (the playlist).
+// A row may say where it is: at (px from the top of the list; else i * rowH), clip [top, bottom] (px: only that
+// part shows, a group's rows sliding out from under its header), stick (a group's header: px where its group ends;
+// it stays at the top of the list while its rows scroll under it). total: the list's height when rows say at.
+function listRows(x, y, w, h, rows, d, rowH = 13, idp = '', boxes = false, total = rows.length * rowH - (boxes ? 1 : 0)) {
   const T = ui.T;
   frame(x, y, w, h);
-  const inner = h - 2, total = rows.length * rowH;
+  const inner = h - 2; // boxes: the last one's bottom line is the frame's
   d.scroll = Math.max(0, Math.min(Math.max(0, total - inner), d.scroll || 0));
-  region(x, y, w, h, { wheel: (e) => { d.scroll += e.deltaY > 0 ? rowH * 2 : -rowH * 2; } });
-  g.save(); g.beginPath(); g.rect(x + 1, y + 1, w - 2, inner); g.clip();
-  rows.forEach((row, i) => {
-    const ry = y + 1 + i * rowH - d.scroll;
-    if (ry + rowH < y || ry > y + h) return;
+  const wheel = (e) => { d.scroll += e.deltaY > 0 ? rowH * 2 : -rowH * 2; };
+  region(x, y, w, h, { wheel });
+  g.save(); g.beginPath();
+  if (boxes) { fill(x + 1, y + 1, w - 2, inner, T.edge); g.rect(x, y, w, h - 1); } // the first box shares the top line
+  else g.rect(x + 1, y + 1, w - 2, inner);
+  g.clip();
+  const top = y + 1 - d.scroll; // where the list's content starts on screen
+  const drawRow = (row, i) => {
+    let ry = top + (row.at ?? i * rowH);
+    if (row.stick != null) ry = Math.min(Math.max(ry, y + 1), top + row.stick - rowH); // a header stays at the top
+    const c0 = row.clip ? Math.max(y + 1, top + row.clip[0]) : y + 1, c1 = row.clip ? Math.min(y + 1 + inner, top + row.clip[1]) : y + 1 + inner;
+    if (ry + rowH < c0 || ry > c1 || c1 <= c0) return;
+    if (row.clip) { g.save(); g.beginPath(); g.rect(x, c0, w, c1 - c0); g.clip(); }
     const id = idp + 'row' + i;
     const rw = w - 2 - (row.del ? rowH : 0);
-    const bg = row.sel ? T.sel : hot(id) ? T.hover : row.current ? T.soft : T.face;
-    fill(x + 1, ry, w - 2, rowH, bg);
-    fill(x + 1, ry + rowH - 1, w - 2, 1, T.hover);
+    const lit = row.sel || row.lit; // lit: in the selection's colours, not selected (the playlist's game of the song open)
+    const bg = lit ? T.sel : hot(id) ? T.hover : row.current ? T.soft : row.fold && boxes ? T.bg : T.face;
+    if (boxes) {
+      frame(x, ry - 1, w, rowH + 1, T.edge, 'listItem');
+      fill(x + 1, ry, w - 2, rowH - 1, bg);
+    } else {
+      fill(x + 1, ry, w - 2, rowH, bg);
+      fill(x + 1, ry + rowH - 1, w - 2, 1, T.hover);
+    }
     const meta = row.meta ? fitText(row.meta, 90) : '';
     const mw = meta ? textWidth(meta) + 6 : 0;
     // a group's header (a game): ▸ folded, ▾ open, like the sound groups; its rows go in under it
     if (row.fold) {
-      if (!hot(id)) fill(x + 1, ry, w - 2, rowH - 1, T.bg);
-      bevel(x + 1, ry, w - 2, rowH - 1);
+      if (!boxes && !hot(id)) fill(x + 1, ry, w - 2, rowH - 1, T.bg);
+      if (!boxes) bevel(x + 1, ry, w - 2, rowH - 1);
       const tri = (tx, ty) => { for (let k = 0; k < 4; k++) row.fold === 'open' ? fill(tx + k, ty + k, 7 - 2 * k, 1, T.panelInk) : fill(tx + k, ty + k, 1, 7 - 2 * k, T.panelInk); };
       row.fold === 'open' ? tri(x + 4, ry + 4) : tri(x + 5, ry + 3);
     }
     const ix = x + 5 + (row.fold || row.inGroup ? 9 : 0);
     // a song from the games: its number on the "disc" first, in a column of its own
     const nw = row.num ? textWidth('00') + 5 : 0;
-    if (row.num) shadowText(row.num, ix, ry + 4, row.sel ? T.selInk : T.dim);
-    shadowText(fitText(row.label, x + rw - 3 - mw - ix - nw), ix + nw, ry + 4, row.sel ? T.selInk : row.dim ? T.dim : T.panelInk);
-    if (meta) shadowText(meta, x + 1 + rw - 3 - textWidth(meta), ry + 4, row.sel ? T.selInk : T.dim);
-    const vis = Math.max(ry, y + 1), visH = Math.min(ry + rowH, y + 1 + inner) - vis;
-    if (visH > 0 && row.click) region(x + 1, vis, rw, visH, { id, cursor: 'pointer', tip: row.tip, click: row.click, dbl: row.dbl, wheel: (e) => { d.scroll += e.deltaY > 0 ? rowH * 2 : -rowH * 2; } });
+    if (row.num) shadowText(row.num, ix, ry + 4, lit ? T.selInk : T.dim);
+    shadowText(fitText(row.label, x + rw - 3 - mw - ix - nw), ix + nw, ry + 4, lit ? T.selInk : row.dim ? T.dim : T.panelInk);
+    if (meta) shadowText(meta, x + 1 + rw - 3 - textWidth(meta), ry + 4, lit ? T.selInk : T.dim);
+    const vis = Math.max(ry, c0), visH = Math.min(ry + rowH, c1) - vis;
+    if (visH > 0 && row.click) region(x + 1, vis, rw, visH, { id, cursor: 'pointer', tip: row.tip, click: row.click, dbl: row.dbl, wheel });
     if (row.del) {
       const dx = x + w - 1 - rowH, did = idp + 'del' + i;
       fill(dx, ry, 1, rowH, T.hover);
       g.drawImage(smallIcon('trash', hot(did) ? T.red : T.dim), dx + 1, ry);
       if (visH > 0) region(dx, vis, rowH, visH, { id: did, cursor: 'pointer', tip: 'Delete', click: row.del });
     }
-  });
+    if (boxes) round(x, ry - 1, w, rowH + 1, T.edge, (row.fold === 'open' ? 'ts' : 'tbs') + 'lr', 'listItem', ...boxTone(bg));
+    if (row.clip) g.restore();
+  };
+  rows.forEach((row, i) => { if (row.stick == null) drawRow(row, i); });
+  rows.forEach((row, i) => { if (row.stick != null) drawRow(row, i); }); // headers last: over the rows under them
+  if (boxes && d.scroll) fill(x, y, w, 1, T.edge); // scrolled: a row cut at the top stays under the line
   g.restore();
 }
 
@@ -2611,24 +2671,20 @@ function setSound(name) {
 }
 function drawSettingsDialog() {
   const T = ui.T;
-  const r = dialogBox(200, 14 + 136, 'SETTINGS');
+  const r = dialogBox(200, 14 + 108, 'SETTINGS');
   text('SCREEN SIZE', r.x + 8, r.y + 7, T.dim);
   let x = r.x + 8;
   for (const k of SCALES) {
     x += button(x, r.y + 15, 'x' + k, { id: 'scale' + k, w: 23, primary: ui.scale === k, tip: k > ui.fit ? 'Too big for this window: shown smaller' : `Pixels x${k}`, click: () => setPixelScale(k) }) + 3;
   }
   if (ui.scale > ui.fit) text(`WINDOW TOO SMALL: x${ui.SC}`, r.x + 8, r.y + 31, T.red);
-  text('THEME', r.x + 8, r.y + 43, T.dim);
+  text('SOUND', r.x + 8, r.y + 43, T.dim);
   x = r.x + 8;
-  x += button(x, r.y + 51, 'LIGHT', { id: 'themeLight', primary: S.theme === 'light', click: () => setTheme('light') }) + 3;
-  button(x, r.y + 51, 'DARK', { id: 'themeDark', primary: S.theme === 'dark', click: () => setTheme('dark') });
-  text('SOUND', r.x + 8, r.y + 71, T.dim);
-  x = r.x + 8;
-  x += button(x, r.y + 79, 'CLEAN', { id: 'soundClean', primary: S.sound === 'clean', tip: 'No DAC grit', click: () => setSound('clean') }) + 3;
-  button(x, r.y + 79, 'MODEL 1', { id: 'soundModel1', primary: S.sound === 'model1', tip: 'First Mega Drive, gritty DAC', click: () => setSound('model1') });
+  x += button(x, r.y + 51, 'CLEAN', { id: 'soundClean', primary: S.sound === 'clean', tip: 'No DAC grit', click: () => setSound('clean') }) + 3;
+  button(x, r.y + 51, 'MODEL 1', { id: 'soundModel1', primary: S.sound === 'model1', tip: 'First Mega Drive, gritty DAC', click: () => setSound('model1') });
   const wDone = textWidth('DONE') + 10;
-  text('VERSION', r.x + 8, r.y + 99, T.dim);
-  text(VERSION, r.x + 8 + textWidth('VERSION') + 6, r.y + 99, T.ink);
+  text('VERSION', r.x + 8, r.y + 71, T.dim);
+  text(VERSION, r.x + 8 + textWidth('VERSION') + 6, r.y + 71, T.ink);
   if (LOCAL) button(r.x + 8, r.y + r.h - 19, 'EDIT ART', { id: 'editArt', tip: 'Open the art editor', click: () => window.open('art.html', 'segapaint-art') });
   button(r.x + r.w - 8 - wDone, r.y + r.h - 19, 'DONE', { id: 'setDone', primary: true, click: () => closeDialog() });
 }
@@ -3026,7 +3082,7 @@ function drawPatchDialog(d) {
     fill(lx + 1, ry, lw - 2, rowH, cur ? T.sel : hot(id) ? T.hover : T.face);
     fill(lx + 1, ry + rowH - 1, lw - 2, 1, T.hover);
     // the tick
-    frame(lx + 4, ry + 2, 9, 9, cur ? T.selInk : T.ink);
+    frame(lx + 4, ry + 2, 9, 9, cur ? T.selInk : T.edge);
     fill(lx + 5, ry + 3, 7, 7, hot(tid) ? T.hover : T.face);
     if (x.on) fill(lx + 6, ry + 4, 5, 5, T.ink);
     const meta = fitText(x.file + (x.drum ? ' · drum' : ''), 90), mw = textWidth(meta);
@@ -3656,7 +3712,7 @@ function popMenu(x, y, items, close) {
   const w = Math.max(...items.filter(Boolean).map((it) => textWidth(it.label) + (it.key ? textWidth(it.key) + 12 : 0))) + 12, h = items.reduce((a, it) => a + (it ? 11 : 3), 2);
   x = Math.max(0, Math.min(x, ui.W - w - 2)); y = Math.max(0, Math.min(y, ui.H - h - 2));
   region(0, 0, ui.W, ui.H, { block: true, down: close });
-  fill(x + 2, y + h, w, 2, T.ink); fill(x + w, y + 2, 2, h, T.ink);
+  fill(x + 2, y + h, w, 2, T.dropShadow); fill(x + w, y + 2, 2, h, T.dropShadow); // its drop shadow
   frame(x, y, w, h);
   fill(x + 1, y + 1, w - 2, h - 2, T.face);
   let yy = y + 1;
@@ -3665,8 +3721,8 @@ function popMenu(x, y, items, close) {
     const id = 'menu' + k, on = hot(id) && !it.disabled;
     if (on) fill(x + 1, yy, w - 2, 11, T.sel);
     const ink = it.disabled ? T.off : on ? T.selInk : T.ink;
-    text(it.label, x + 5, yy + 3, ink);
-    if (it.key) text(it.key, x + w - 5 - textWidth(it.key), yy + 3, it.disabled ? T.off : on ? T.selInk : T.dim);
+    shadowText(it.label, x + 5, yy + 3, ink);
+    if (it.key) shadowText(it.key, x + w - 5 - textWidth(it.key), yy + 3, it.disabled ? T.off : on ? T.selInk : T.dim);
     region(x + 1, yy, w - 2, 11, { id, cursor: it.disabled ? 'default' : 'pointer', disabled: it.disabled, click: () => { close(); it.click(); } });
     yy += 11;
   });
@@ -3700,16 +3756,20 @@ function draw() {
 
   const row2 = MARGIN + TB_H + 2;
   const trY = H - MARGIN - TB_H;
-  const showLayers = W >= 420 && !S.fold.side;
-  const lpw = showLayers ? LPW : 0;
-  const sx = MARGIN + lpw + (showLayers ? 2 : 0), sw = W - MARGIN - sx;
+  // the left column slides in and out from the left edge; the staff takes the room it leaves
+  const sideT = animOpen('side', W >= 420 && !S.fold.side ? 1 : 0), sideW = Math.round((LPW + 2) * sideT);
+  const showLayers = sideW > 0, lpw = LPW;
+  const sx = MARGIN + sideW, sw = W - MARGIN - sx;
   const ovH = 12;
   const st = { x: sx, y: row2 + 14 + 2, w: sw, h: trY - 2 - ovH - 2 - (row2 + 16) };
 
   // the staff first, so everything drawn later is on top of it
-  frame(st.x, st.y, st.w, st.h);
   SX = st.x + 1; SY = st.y + 1;
   if (SW !== st.w - 2 || SH !== st.h - 2 || S._lanes !== S.lanes.length) { SW = st.w - 2; SH = st.h - 2; S._lanes = S.lanes.length; staffGeom(); }
+  // the ruler (Sonic runs on it), the staff and the lanes are boxes of their own, 2 px apart
+  const boxes = [[st.y, RULER + 1], [SY + RULER + 2, viewBot - RULER - 1]];
+  if (S.lanes.length) boxes.push([SY + viewBot + 3, st.y + st.h - (SY + viewBot + 3)]);
+  for (const [by, bh] of boxes) frame(st.x, by, st.w, bh);
   g.save(); g.translate(SX, SY); g.beginPath(); g.rect(0, 0, SW, SH); g.clip();
   lastPosStep = drawStaff();
   g.restore();
@@ -3723,15 +3783,28 @@ function draw() {
   });
 
   drawScaleButton();
+  // the gaps between the boxes, their outlines (drawn over by the staff) and corners
+  fill(st.x, SY + RULER, st.w, 2, T.bg);
+  if (S.lanes.length) fill(st.x, SY + viewBot + 1, st.w, 2, T.bg);
+  for (const [by, bh] of boxes) {
+    fill(st.x, by, st.w, 1, T.edge); fill(st.x, by + bh - 1, st.w, 1, T.edge);
+    fill(st.x, by, 1, bh, T.edge); fill(st.x + st.w - 1, by, 1, bh, T.edge);
+    round(st.x, by, st.w, bh);
+  }
   drawSonic(lastPosStep);
   drawOverview(sx, st.y + st.h + 2, sw, ovH, lastPosStep);
   if (showLayers) { // the left column: LAYERS, the song's Description (songs from the games), the Playlist in the rest
+    if (sideT < 1) { // sliding: drawn moved left, cut at its right edge, and nothing on it takes the mouse
+      g.save(); g.beginPath(); g.rect(0, 0, sx - 2, H); g.clip(); g.translate(sideW - LPW - 2, 0);
+      sideSlide = ui.still = true;
+    }
     const colH = trY - 2 - row2, info = songInfo();
-    const aboutH = info ? (S.fold.about ? PANEL_HEAD : ABOUT_H) + 2 : 0;
-    const plMin = S.refs.length ? (S.fold.playlist ? PANEL_HEAD : PL_MIN) + 2 : 0;
+    const aboutH = info ? panelShownH('about', ABOUT_H) + 2 : 0;
+    const plMin = S.refs.length ? panelShownH('playlist', PL_MIN) + 2 : 0;
     const lh = drawLayers(MARGIN, row2, lpw, colH - aboutH - plMin);
     if (info) drawAbout(MARGIN, row2 + lh + 2, lpw, info);
     if (plMin) drawPlaylist(MARGIN, row2 + lh + 2 + aboutH, lpw, colH - lh - 2 - aboutH);
+    if (sideSlide) { g.restore(); sideSlide = ui.still = false; }
   }
   drawPalette(sx, row2, sw);
   drawToolbar(MARGIN);
@@ -3748,30 +3821,38 @@ function draw() {
   nextFrame();
 }
 
+// Toolbar buttons: each one its own rounded box, TB_GAP apart (-1: neighbours share a line). Returns the width taken.
+const TB_GAP = -1;
+function boxes(x, y, cells) {
+  let w = 0;
+  cells.forEach((cell, k) => { w += (k ? TB_GAP : 0) + strip(x + w + (k ? TB_GAP : 0), y, [cell]); });
+  return w;
+}
+
 function drawToolbar(y) {
-  const T = ui.T;
+  const T = ui.T, gap = 4;
   let x = MARGIN;
-  x += strip(x, y, [{ id: 'side', icon: 'panels', on: !S.fold.side, tip: S.fold.side ? 'Show the panels' : 'Hide the panels', click: () => togglePanel('side') }]) + 2;
+  x += boxes(x, y, [{ id: 'side', icon: 'panels', on: !S.fold.side, tip: S.fold.side ? 'Show the panels' : 'Hide the panels', click: () => togglePanel('side') }]) + gap;
   S.menuX = x;
-  x += strip(x, y, [{ id: 'menu', icon: 'menu', on: S.menu, tip: 'File', click: () => { S.menu = !S.menu; S.flyout = false; } }]) + 2;
-  x += strip(x, y, [
+  x += boxes(x, y, [{ id: 'menu', icon: 'menu', on: S.menu, tip: 'File', click: () => { S.menu = !S.menu; S.flyout = false; } }]) + gap;
+  x += boxes(x, y, [
     { id: 'undo', icon: 'undo', disabled: !S.undo.length, tip: 'Undo · Ctrl+Z', click: undo },
     { id: 'redo', icon: 'redo', disabled: !S.redo.length, tip: 'Redo · Ctrl+Y', click: redo },
-  ]) + 2;
-  x += strip(x, y, TOOLS.map((t) => ({
+  ]) + gap;
+  x += boxes(x, y, TOOLS.map((t) => ({
     id: 'tool-' + t.tool, icon: S.drag?.mode === 'pan' && t.tool === 'hand' ? 'fist' : t.icon, on: S.tool === t.tool, disabled: toolDisabled(t.tool), tip: t.tip,
     click: () => { S.flyout = false; setTool(t.tool); },
-  })));
+  }))) + 2;
   // ⋯ stays ⋯; it is lit while one of its tools is in use
   const more = MORE_TOOLS.find((t) => t.tool === S.tool);
   S.moreX = x + 1;
-  x += strip(x + 1, y, [{ id: 'tool-more', icon: 'more', on: !!more || S.flyout, tip: 'More tools', click: () => { S.flyout = !S.flyout; S.menu = false; } }]) + 3;
-  x += strip(x, y, [{ id: 'gear', icon: 'gear', on: S.dlg?.kind === 'settings', tip: 'Settings', click: () => openDialog({ kind: 'settings' }) }]) + 2;
-  x += strip(x, y, [
+  x += boxes(x + 1, y, [{ id: 'tool-more', icon: 'more', on: !!more || S.flyout, tip: 'More tools', click: () => { S.flyout = !S.flyout; S.menu = false; } }]) + 1 + gap;
+  x += boxes(x, y, [{ id: 'gear', icon: 'gear', on: S.dlg?.kind === 'settings', tip: 'Settings', click: () => openDialog({ kind: 'settings' }) }]) + gap;
+  x += boxes(x, y, [
     { id: 'zoomout', icon: 'zoomout', disabled: S.colW === ZOOMS[0], tip: 'Zoom out · −', click: () => zoom(-1) },
     { id: 'zoomin', icon: 'zoomin', disabled: S.colW === ZOOMS[ZOOMS.length - 1], tip: 'Zoom in · +', click: () => zoom(1) },
     { id: 'follow', icon: S.follow ? 'eye' : 'eyeShut', tip: S.follow ? 'Following the playhead · F' : 'Not following the playhead · F', click: () => setFollow(!S.follow) },
-  ]) + 2;
+  ]) + gap;
   // the song title in the space left
   const tw = ui.W - MARGIN - x - 6;
   if (tw > 30) {
@@ -3782,22 +3863,22 @@ function drawToolbar(y) {
       region(tx, y + 2, 9, 9, { tip: 'From the game · Save makes a copy' });
       tx += 11;
     }
-    text(fitText(docTitle(), x + 4 + tw - tx), tx, y + 4, T.ink);
+    shadowText(fitText(docTitle(), x + 4 + tw - tx), tx, y + 4, T.ink);
     // second row: the game it comes from, and UNSAVED while there are changes not saved
     let sx = x + 4;
     const no = locked ? trackNo(S.refs.find((r) => r.dir === S.doc.dir)) : '';
     const game = [S.song.game, no && 'Track ' + no].filter(Boolean).join(' · ');
-    if (locked && game) sx += text(fitText(game, tw), sx, y + 12, T.dim) + (S.dirty ? 4 : 0);
+    if (locked && game) sx += shadowText(fitText(game, tw), sx, y + 12, T.dim) + (S.dirty ? 4 : 0);
     if (S.dirty) {
-      if (sx > x + 4) sx += text('·', sx, y + 12, T.dim) + 4;
-      text(fitText('UNSAVED', x + 4 + tw - sx), sx, y + 12, T.head);
+      if (sx > x + 4) sx += shadowText('·', sx, y + 12, T.dim) + 4;
+      shadowText(fitText('UNSAVED', x + 4 + tw - sx), sx, y + 12, T.head);
     }
   }
 }
 
 function drawLcd(x, y, w) {
   const T = ui.T, h = TB_H;
-  frame(x, y, w, h, T.ink);
+  frame(x, y, w, h, T.edge);
   fill(x + 1, y + 1, w - 2, h - 2, T.lcd);
   const rel = Math.floor(lastPosStep) - S.barOffset;
   const bar = Math.floor(rel / 16) + 1, beat = Math.floor((((rel % 16) + 16) % 16) / 4) + 1;
@@ -3810,6 +3891,7 @@ function drawLcd(x, y, w) {
     click: () => openBpmDialog(),
     wheel: (e) => setBpm(S.song.bpm + (e.deltaY < 0 ? 1 : -1) * (e.shiftKey ? 10 : 1)) });
   drawScope(x + 72, y + 3, w - 76, h - 6);
+  round(x, y, w, h);
 }
 
 const scopeBuf = { a: null };
@@ -3840,24 +3922,63 @@ function drawFlyout() {
 }
 
 // ---------- the left column's panels: a title bar with − (fold to the bar) / + (unfold), like Photoshop's ----------
-const PANEL_HEAD = 14, ABOUT_H = 116, PIC_W = 124, PIC_H = 86;
+const PANEL_HEAD = 14, ABOUT_H = 116, PIC_W = 124, PIC_H = 86, FOLD_MS = 180;
+// How open a panel is, 0..1 (eased): folding and unfolding take FOLD_MS.
+const foldAnim = {}; // key -> { t, at }
+const foldOpen = (key) => animOpen(key, S.fold[key] ? 0 : 1);
+// key's 0..1 eased towards goal over FOLD_MS (it starts at goal); the playlist's games use it too
+function animOpen(key, goal) {
+  const now = performance.now();
+  const a = (foldAnim[key] ??= { t: goal, at: now });
+  const dt = Math.min(50, now - a.at);
+  a.at = now;
+  if (a.t !== goal) {
+    a.t = goal > a.t ? Math.min(goal, a.t + dt / FOLD_MS) : Math.max(goal, a.t - dt / FOLD_MS);
+    lastInput = now; // full frame rate till it is done
+  }
+  return a.t * a.t * (3 - 2 * a.t);
+}
+// The height a panel takes, open hOpen, as it folds or unfolds.
+const panelShownH = (key, hOpen) => PANEL_HEAD + Math.round((hOpen - PANEL_HEAD) * foldOpen(key));
 function togglePanel(key) {
   S.fold[key] = !S.fold[key];
   try { localStorage.setItem(FOLD_KEY, JSON.stringify(S.fold)); } catch (e) { /* ignore */ }
 }
-// Draws the panel's frame and title bar; returns true when it is folded (then only the bar is drawn).
-function panelHead(x, y, w, h, title, key) {
-  const T = ui.T, open = !S.fold[key];
-  frame(x, y, w, open ? h : PANEL_HEAD);
-  fill(x + 1, y + 1, w - 2, (open ? h : PANEL_HEAD) - 2, T.face);
-  if (!boxSprite()) bevel(x + 1, y + 1, w - 2, PANEL_HEAD - 2); // a raised bar: light edge (the box sprite has its own)
+// A panel: the title bar and, with foot (its height), a bar at the bottom are boxes of their own, rounded; between
+// them the body lies on a square of the frame colour (2 px of lines where it meets a bar). Returns true when the
+// panel is folded (then only the bar is drawn). After the body is drawn, panelEnd rounds the foot's bottom.
+// While it folds or unfolds, the body is drawn slid up under the bar (as tall as panelShownH), till panelEnd.
+let panelSlide = false, sideSlide = false; // (sideSlide: the whole left column sliding, in draw)
+function panelHead(x, y, w, h, title, key, foot = 0) {
+  const T = ui.T, open = !S.fold[key], shown = panelShownH(key, h);
+  const box = (by, bh) => { frame(x, by, w, bh); fill(x + 1, by + 1, w - 2, bh - 2, T.face); if (!boxSprite()) bevel(x + 1, by + 1, w - 2, Math.min(bh, PANEL_HEAD) - 2); };
+  box(y, PANEL_HEAD); // a raised bar: light edge (the box sprite has its own)
   shadowText(title, x + 4, y + 5);
-  // the bar as a box of the sprite (its bottom row of slices: where the panel ends, drawLayers / drawPlaylist)
-  round(x, y, w, open ? PANEL_HEAD : PANEL_HEAD, T.ink, open ? 'ts' : 'tbs');
-  region(x + 1, y + 1, w - 15, PANEL_HEAD - 2, { id: 'bar-' + key, tip: open ? `${title} · click to fold` : `${title} · click to unfold`, click: () => togglePanel(key) });
-  strip(x + w - 14, y, [{ id: 'fold-' + key, icon: open ? 'minus' : 'plus', tip: open ? 'Fold' : 'Unfold', click: () => togglePanel(key) }], SMALL);
-  if (open) fill(x, y + PANEL_HEAD - 1, w, 1, T.ink);
-  return !open;
+  round(x, y, w, PANEL_HEAD, T.edge, open ? 'ts' : 'tbs'); // open: square at the bottom, on the body
+  region(x + 1, y + 1, w - 14, PANEL_HEAD - 2, { id: 'bar-' + key, tip: open ? `${title} · double-click to fold` : `${title} · double-click to unfold`, dbl: () => togglePanel(key) });
+  // the fold button: a small 10×10 box inside the bar, 2 px from its right edge
+  const fx = x + w - 12, fy = y + 2, fid = 'fold-' + key;
+  const fon = pressed(fid) && hot(fid);
+  frame(fx, fy, 10, 10, T.edge, 'listItem');
+  fill(fx + 1, fy + 1, 8, 8, fon ? T.sel : hot(fid) ? T.hover : T.face);
+  const fic = open ? 'minus' : 'plus'; // the colours of the panel's title, its shadow too
+  g.drawImage(smallIcon(fic, T.textShade), fx, fy);
+  g.drawImage(smallIcon(fic, fon ? T.selInk : T.panelInk), fx - 1, fy - 1);
+  round(fx, fy, 10, 10, T.edge, 'tbs', 'listItem', ...boxTone(fon ? T.sel : T.face));
+  region(fx, fy, 10, 10, { id: fid, cursor: 'pointer', tip: open ? 'Fold' : 'Unfold', click: () => togglePanel(key) });
+  if (shown <= PANEL_HEAD) return true;
+  if (shown < h) {
+    g.save(); g.beginPath(); g.rect(x, y + PANEL_HEAD, w, shown - PANEL_HEAD); g.clip(); g.translate(0, shown - h);
+    panelSlide = ui.still = true;
+  }
+  const bodyH = h - PANEL_HEAD - foot;
+  frame(x, y + PANEL_HEAD, w, bodyH); fill(x + 1, y + PANEL_HEAD + 1, w - 2, bodyH - 2, T.face);
+  if (foot) box(y + h - foot, foot); // square at the top, rounded at the bottom by panelEnd
+  return false;
+}
+function panelEnd(x, y, w, h, foot = 0) {
+  if (foot) round(x, y + h - foot, w, foot, ui.T.edge, 'bs');
+  if (panelSlide) { g.restore(); panelSlide = false; ui.still = sideSlide; }
 }
 
 // LAYERS: as tall as its tracks (scrolling past maxH), with + / trash / gear under them. Returns its height.
@@ -3868,14 +3989,17 @@ function drawLayers(x, y, w, maxH) {
     if (panelHead(x, y, w, PANEL_HEAD + 34, 'LAYERS', 'layers')) return PANEL_HEAD;
     const label = '+ ADD TRACK';
     button(x + ((w - textWidth(label) - 10) >> 1), y + PANEL_HEAD + 10, label, { id: 'addTrackBig', primary: true, click: add });
-    return PANEL_HEAD + 34;
+    panelEnd(x, y, w, PANEL_HEAD + 34);
+    return panelShownH('layers', PANEL_HEAD + 34);
   }
-  const rows = Math.max(1, Math.min(n, Math.floor((maxH - 2 * PANEL_HEAD + 1) / rowH)));
-  const areaH = rows * rowH, h = PANEL_HEAD + areaH - 1 + PANEL_HEAD;
-  if (panelHead(x, y, w, h, 'LAYERS', 'layers')) return PANEL_HEAD;
-  const top = y + PANEL_HEAD;
+  // title bar | the rows (their last line is the body's frame) | the tool strip
+  const rows = Math.max(1, Math.min(n, Math.floor((maxH - 2 * PANEL_HEAD - 1) / rowH)));
+  const areaH = rows * rowH, h = PANEL_HEAD + 1 + areaH + PANEL_HEAD;
+  if (panelHead(x, y, w, h, 'LAYERS', 'layers', PANEL_HEAD)) return PANEL_HEAD;
+  const top = y + PANEL_HEAD + 1;
   S.layerScroll = Math.max(0, Math.min(n * rowH - areaH, S.layerScroll));
   region(x, top, w, areaH, { wheel: (e) => { S.layerScroll += e.deltaY > 0 ? rowH : -rowH; } });
+  fill(x, top, w, areaH, T.edge); // the rows' boxes lie on the frame colour
   g.save(); g.beginPath(); g.rect(x, top, w, areaH); g.clip();
   const pos = writtenTime(displayPos());
   song.layers.forEach((L, i) => {
@@ -3886,17 +4010,15 @@ function drawLayers(x, y, w, maxH) {
   g.restore();
   // the tool strip under the tracks: they act on the chosen track (one track: several chosen ones are not deleted at once)
   const by = y + h - PANEL_HEAD, L = activeLayer(), one = !!L && !multiLayer();
-  fill(x, by, w, 1, T.ink);
-  bevel(x + 1, by + 1, w - 15, PANEL_HEAD - 2);
-  shadowText(n === 1 ? '1 TRACK' : `${n} TRACKS`, x + 4, by + 5, T.dim);
   const cells = [
     { id: 'addTrack', icon: 'plus', tip: 'Add a track', click: add },
     { id: 'delTrack', icon: 'trash', disabled: !one || n <= 1, tip: one ? `Delete “${L.name}”` : 'Delete the track · choose one track', click: () => deleteTrack(L) },
-    { id: 'editTrack', icon: 'gear', disabled: !one, tip: one ? `Track settings · ${L.name}` : 'Track settings · choose one track', click: () => showTrackDialog(L) },
+    { id: 'editTrack', last: true, icon: 'gear', disabled: !one, tip: one ? `Track settings · ${L.name}` : 'Track settings · choose one track', click: () => showTrackDialog(L) },
   ];
-  strip(x + w - stripW(cells.length, SMALL), by, cells, SMALL);
-  round(x, y, w, h, T.ink, 'b');
-  return h;
+  // under the track buttons' column (drawLayerRow), each a box of its own
+  cells.forEach((b, k) => iconButton(x + w - 40 + 13 * k, by, b));
+  panelEnd(x, y, w, h, PANEL_HEAD);
+  return panelShownH('layers', h);
 }
 
 // ---------- Description: pictures and pages about a song from the games (meta.json "info", tools/song_info.py) ----------
@@ -3941,7 +4063,7 @@ function aboutPages(info) {
 }
 function drawAbout(x, y, w, info) {
   const T = ui.T, pages = aboutPages(info), n = pages.length;
-  if (panelHead(x, y, w, ABOUT_H, 'DESCRIPTION', 'about')) return;
+  if (panelHead(x, y, w, ABOUT_H, 'DESCRIPTION', 'about', PANEL_HEAD)) return;
   const k = S.aboutPage = Math.max(0, Math.min(n - 1, S.aboutPage || 0)), p = pages[k];
   const turn = (d) => { S.aboutPage = (S.aboutPage + d + n) % n; };
   const px = x + ((w - PIC_W) >> 1), py = y + PANEL_HEAD + 1;
@@ -3950,21 +4072,21 @@ function drawAbout(x, y, w, info) {
     if (im) g.drawImage(im, px, py, PIC_W, PIC_H); else dither(px, py, PIC_W, PIC_H, T.dim);
   } else {
     let ty = py + 3;
-    if (p.title) { text(fitText(p.title, PIC_W - 4), px + 2, ty, T.head); ty += 10; }
+    if (p.title) { shadowText(fitText(p.title, PIC_W - 4), px + 2, ty, T.head); ty += 10; }
     for (const para of String(p.text || '').split('\n')) {
-      for (const line of wrapText(para, PIC_W - 4)) { if (ty + 5 <= py + PIC_H) text(line, px + 2, ty, T.ink); ty += 7; }
+      for (const line of wrapText(para, PIC_W - 4)) { if (ty + 5 <= py + PIC_H) shadowText(line, px + 2, ty, T.ink); ty += 7; }
       ty += 3;
     }
   }
   region(px, py, PIC_W, PIC_H, { id: 'aboutPage', cursor: 'pointer', tip: 'Next page', click: () => turn(1), wheel: (e) => turn(e.deltaY > 0 ? 1 : -1) });
   // ◀ 2/5 · caption ▶
   const ny = y + ABOUT_H - PANEL_HEAD;
-  fill(x, ny, w, 1, T.ink);
   strip(x, ny, [{ id: 'aboutPrev', icon: 'left', tip: 'Previous page', click: () => turn(-1) }], SMALL);
   strip(x + w - 14, ny, [{ id: 'aboutNext', icon: 'right', tip: 'Next page', click: () => turn(1) }], SMALL);
   const num = `${k + 1}/${n}`, cap = p.caption || p.title || '';
   const label = cap ? `${num} · ${fitText(cap, w - 36 - textWidth(num) - 8)}` : num;
-  text(label, x + ((w - textWidth(label)) >> 1), ny + 5, T.dim);
+  shadowText(label, x + ((w - textWidth(label)) >> 1), ny + 5, T.dim);
+  panelEnd(x, y, w, ABOUT_H, PANEL_HEAD);
 }
 
 // ---------- Playlist: the songs from the games, folded by game; a click plays one ----------
@@ -3983,20 +4105,33 @@ function drawPlaylist(x, y, w, h) {
   // another song opened (the next one, Open, ◀ ▶): its game unfolds and its row comes into view
   const opened = d.shown !== cur;
   if (opened) { d.shown = cur; if (cur) d.games.add(curGame); }
-  if (panelHead(x, y, w, h, 'PLAYLIST', 'playlist')) return;
-  const rows = [];
+  // one group per game: its header, then its songs, sliding out from under it as it opens (FOLD_MS)
+  const rows = [], RH = 13;
+  let at = 0;
   for (const game of new Set(S.refs.map((ref) => ref.game || ''))) {
     const songs = S.refs.filter((ref) => (ref.game || '') === game), open = d.games.has(game);
-    rows.push({ fold: open ? 'open' : 'shut', label: game || 'Other', meta: String(songs.length), tip: open ? 'Fold' : 'Show the songs',
-      click: () => { if (open) d.games.delete(game); else d.games.add(game); } });
-    if (open) for (const ref of songs) rows.push({ inGroup: true, num: trackNo(ref), label: ref.title, sel: ref.dir === cur, tip: ref.dir === cur && S.playing ? 'Playing' : 'Play', click: () => playRef(ref.dir) });
+    const t = animOpen('game:' + game, open ? 1 : 0), blockH = songs.length * RH, shown = Math.round(blockH * t);
+    // lit: the game of the song open, in the colours of the chosen song
+    const head = { fold: open || t > 0 ? 'open' : 'shut', lit: !!cur && game === curGame, label: game || 'Other', meta: String(songs.length), tip: open ? 'Fold' : 'Show the songs',
+      at, click: () => { if (open) d.games.delete(game); else d.games.add(game); } };
+    rows.push(head);
+    at += RH;
+    if (shown > 0) {
+      head.stick = at + shown; // it stays on top while its songs scroll under it
+      songs.forEach((ref, k) => rows.push({ inGroup: true, num: trackNo(ref), label: ref.title, sel: ref.dir === cur,
+        at: at + k * RH - (blockH - shown), clip: [at - 1, at + shown], tip: ref.dir === cur && S.playing ? 'Playing' : 'Play', click: () => playRef(ref.dir) }));
+      at += shown;
+    }
   }
+  const total = at - 1;
+  h = Math.min(h, PANEL_HEAD + total + 2); // no taller than its rows: the last one sits on the bottom line
+  if (panelHead(x, y, w, h, 'PLAYLIST', 'playlist')) return;
   if (opened && cur) {
-    const k = rows.findIndex((r) => r.sel), inner = h - PANEL_HEAD - 1;
-    if (k >= 0 && (k * 13 < d.scroll || (k + 1) * 13 > d.scroll + inner)) d.scroll = k * 13 - ((inner - 13) >> 1);
+    const r = rows.find((r) => r.sel), inner = h - PANEL_HEAD - 2;
+    if (r && (r.at < d.scroll + RH || r.at + RH > d.scroll + inner)) d.scroll = r.at - ((inner - RH) >> 1);
   }
-  listRows(x, y + PANEL_HEAD - 1, w, h - PANEL_HEAD + 1, rows, d, 13, 'pl');
-  round(x, y, w, h, ui.T.ink, 'b');
+  listRows(x, y + PANEL_HEAD, w, h - PANEL_HEAD, rows, d, RH, 'pl', true, total);
+  panelEnd(x, y, w, h);
 }
 
 function layerSounding(L, i, pos) {
@@ -4008,24 +4143,23 @@ function layerSounding(L, i, pos) {
   return false;
 }
 
-// One layer row: number | picture | name + voice | eye | M | S, cells sharing 1 px lines.
+// One layer row: number | picture + name + voice | eye | M | S, each a rounded box over its cell, lines included
+// (next to each other they share a 1 px line).
 function drawLayerRow(L, i, x, y, w, pos, clipTop, clipH) {
   const T = ui.T;
   const active = layerChosen(i), hidden = S.hidden.has(i);
   const cy = y + 0, ch = 12;
   const nameX = x + 27, nameW = w - 67;
   const cells = [x + w - 39, x + w - 26, x + w - 13]; // the last one ends at the panel's frame
-  // number on the layer colour
-  fill(x + 1, cy, 12, ch, toneInk(L, false));
-  const num = String((i + 1) % 10);
-  text(num, x + 1 + ((12 - textWidth(num)) >> 1), cy + 4, md(0, 0, 0));
-  fill(x + 13, cy, 1, ch, T.ink);
   const playing = layerSounding(L, i, pos);
   const rowId = 'layer' + i;
-  fill(x + 14, cy, 12, ch, active ? T.sel : hot(rowId) ? T.hover : T.face);
+  // picture and name in one box
+  cellBox(x + 13, cy - 1, cells[0] - x - 13, ch + 2, active ? T.sel : hot(rowId) ? T.hover : T.face);
+  // number on the layer colour, its light edge and shadow in the lightest and darkest colours of its notes
+  cellBox(x, cy - 1, 14, ch + 2, toneInk(L, false), 'l', toneInk(L, false, 0), toneInk(L, false, 2));
+  const num = String((i + 1) % 10);
+  drawText(g, num, x + 1 + ((12 - textWidth(num)) >> 1), cy + 4, md(0, 0, 0)); // no shadow on the layer colour
   g.drawImage(noteSprite(L.sel?.sprite || 'star', L.tone, playing ? 1 : 0, hidden ? 'ghost' : 'normal', T), x + 14, cy);
-  fill(x + 26, cy, 1, ch, T.ink);
-  fill(nameX, cy, nameW, ch, active ? T.sel : hot(rowId) ? T.hover : T.face);
   const ink = active ? T.selInk : hidden ? T.dim : T.panelInk;
   const chip = chipName(L);
   const cw = textWidth(chip);
@@ -4034,18 +4168,32 @@ function drawLayerRow(L, i, x, y, w, pos, clipTop, clipH) {
   const vis = Math.max(y, clipTop), visH = Math.min(y + 13, clipTop + clipH) - vis;
   if (visH > 0) region(x + 1, vis, nameX + nameW - x - 1, visH, { id: rowId, cursor: 'pointer', tip: `${L.name} · double-click: edit`, click: (m, e) => selectLayer(i, e), dbl: () => showTrackDialog(L), wheel: (e) => { S.layerScroll += e.deltaY > 0 ? 13 : -13; } });
   const btns = [
-    { id: 'eye' + i, on: false, ink: T.ink, icon: hidden ? 'eyeShut' : 'eye', tip: hidden ? 'Hidden on the staff · H' : 'Shown on the staff · H', click: () => toggleSet(S.hidden, i) },
+    { id: 'eye' + i, on: false, off: hidden, icon: hidden ? 'eyeShut' : 'eye', tip: hidden ? 'Hidden on the staff · H' : 'Shown on the staff · H', click: () => toggleSet(S.hidden, i) },
     { id: 'mute' + i, on: S.muted.has(i), icon: 'mute', face: T.red, ink: T.white, tip: 'Mute · M', click: () => { toggleSet(S.muted, i); sendMute(); } },
-    { id: 'solo' + i, on: S.solo.has(i), icon: 'solo', face: T.green, ink: md(0, 0, 0), tip: 'Solo · S', click: () => { toggleSet(S.solo, i); sendMute(); } },
+    { id: 'solo' + i, last: true, on: S.solo.has(i), icon: 'solo', face: T.green, ink: md(0, 0, 0), tip: 'Solo · S', click: () => { toggleSet(S.solo, i); sendMute(); } },
   ];
-  btns.forEach((b, k) => {
-    const bx = cells[k];
-    fill(bx - 1, cy, 1, ch, T.ink);
-    fill(bx, cy, 12, ch, b.on ? b.face : hot(b.id) ? T.hover : T.face);
-    g.drawImage(smallIcon(b.icon, b.on ? b.ink : hidden && b.id.startsWith('eye') ? T.dim : T.ink), bx, cy); // art/small
-    if (visH > 0) region(bx, vis, 12, visH, { id: b.id, cursor: 'pointer', tip: b.tip, click: b.click, wheel: (e) => { S.layerScroll += e.deltaY > 0 ? 13 : -13; } });
-  });
-  fill(x, cy + ch, w, 1, T.ink);
+  const wheel = (e) => { S.layerScroll += e.deltaY > 0 ? 13 : -13; };
+  btns.forEach((b, k) => iconButton(cells[k] - 1, cy - 1, b, visH > 0 && { x: cells[k], y: vis, w: 12, h: visH, wheel }));
+}
+// A small button that is a box of its own (rounded like the bigger ones): 14x14, a 12x12 cell with its lines, its art/small icon light with a
+// shadow, like the panel's dim text. b: { id, icon, on, face, ink (when on), off (dimmer), disabled, tip, click,
+// last: the row's last box, rounded on the right too }.
+// hit: the area that takes the mouse (default: inside the box), false for none.
+// A box of a list's row (frame, fill, the corners of the box sprite listItem); what goes on it is drawn after.
+// A row's boxes are rounded on the left only ('l'), but for the last one ('lr').
+function cellBox(x, y, w, h, face, corners = 'l', bev = boxTone(face)[0], sh = boxTone(face)[1]) {
+  frame(x, y, w, h, ui.T.edge, 'listItem');
+  fill(x + 1, y + 1, w - 2, h - 2, face);
+  round(x, y, w, h, ui.T.edge, 'tbs' + corners, 'listItem', bev, sh);
+}
+function iconButton(x, y, b, hit) {
+  const T = ui.T, S_ = 14;
+  const on = b.on || (pressed(b.id) && hot(b.id) && !b.disabled);
+  cellBox(x, y, S_, S_, on ? (b.face || T.sel) : hot(b.id) && !b.disabled ? T.hover : T.face, b.last ? 'lr' : 'l');
+  if (!on && !b.disabled) g.drawImage(smallIcon(b.icon, T.textShade), x + 2, y + 2); // the shadow
+  const ink = b.disabled ? T.off : on ? (b.ink || T.selInk) : b.off ? T.off : T.dim;
+  g.drawImage(smallIcon(b.icon, ink), x + 1, y + 1); // art/small
+  if (hit !== false) region(hit?.x ?? x + 1, hit?.y ?? y + 1, hit?.w ?? S_ - 2, hit?.h ?? S_ - 2, { id: b.id, cursor: b.disabled ? 'default' : 'pointer', tip: b.tip, click: b.disabled ? null : b.click, disabled: b.disabled, wheel: hit?.wheel });
 }
 
 // The sounds of the active layer, as cells with their note pictures.
@@ -4070,10 +4218,10 @@ function drawPalette(x, y, w) {
     const sw = strip(x, y, cells, SMALL);
     const label = { loop: 'Loop · click where the song repeats from (bar 1: from the start)', del: 'Remove · click a repeat or the loop' }[S.repMode]
       || `Repeat ${S.repMode} · click a bar or drag over bars · drag |: :| to resize`;
-    text(fitText(label, w - sw - 8), x + sw + 5, y + 5, T.ink);
+    paletteLabel(x + sw + 2, y, x + w - (x + sw + 2), label);
     return;
   }
-  if (!L) { frame(x, y, w, 14); fill(x + 1, y + 1, w - 2, 12, T.face); text('No tracks', x + 5, y + 5, T.dim); return; }
+  if (!L) { frame(x, y, w, 14); fill(x + 1, y + 1, w - 2, 12, T.face); shadowText('No tracks', x + 5, y + 5, T.dim); round(x, y, w, 14); return; }
   const max = Math.max(1, Math.floor((w - 60) / 13));
   const cells = L.sounds.slice(0, max).map((snd, k) => ({
     id: 'snd-' + k, on: L.sel === snd, tip: snd.name,
@@ -4081,8 +4229,14 @@ function drawPalette(x, y, w) {
     click: () => { L.sel = snd; L.pick = null; if (S.tool !== 'fill') setTool(S.tool === 'pick' || S.tool === 'erase' || S.tool === 'select' || S.tool === 'hand' ? 'pen' : S.tool); previewNote(L, newNote(L, null)); },
   }));
   const sw = strip(x, y, cells, SMALL);
-  const label = `${L.sel.name} · ${L.name} · ${chipName(L)}`;
-  text(fitText(label, w - sw - 8), x + sw + 5, y + 5, T.ink);
+  paletteLabel(x + sw + 2, y, x + w - (x + sw + 2), `${L.sel.name} · ${L.name} · ${chipName(L)}`);
+}
+// The text after the sound buttons: a box of its own, as wide as there is room, 2 px from the buttons.
+function paletteLabel(x, y, w, label) {
+  const T = ui.T;
+  frame(x, y, w, 14); fill(x + 1, y + 1, w - 2, 12, T.face);
+  shadowText(fitText(label, w - 8), x + 4, y + 5, T.ink);
+  round(x, y, w, 14);
 }
 
 function drawTransport(y) {
@@ -4097,22 +4251,28 @@ function drawTransport(y) {
   x += strip(x, y, [
     { id: 'barMinus', icon: 'minus', disabled: songBars() <= 1, tip: 'Remove the last bar', click: () => setBars(songBars() - 1) },
     { id: 'bars', tip: 'Bars in the song', draw: (cx, cy, cw) => {
-      text('BARS', cx + ((cw - textWidth('BARS')) >> 1), cy + 3, T.dim);
+      shadowText('BARS', cx + ((cw - textWidth('BARS')) >> 1), cy + 3, T.dim);
       const n = String(songBars());
-      text(n, cx + ((cw - textWidth(n)) >> 1), cy + 11, T.ink);
+      shadowText(n, cx + ((cw - textWidth(n)) >> 1), cy + 11, T.ink);
     } },
     { id: 'barPlus', icon: 'plus', disabled: songBars() >= 256, tip: 'Add a bar at the end', click: () => setBars(songBars() + 1) },
   ]) + 6;
   // volume on the right
   const lcdW = 112, lx = ui.W - MARGIN - lcdW;
   drawLcd(lx, y, lcdW);
-  const vw = 40, vx = lx - 6 - vw - 14;
-  g.drawImage(smallIcon('vol', T.ink), vx, y + 4);
-  const tx = vx + 14, ty = y + 10;
-  fill(tx, ty, vw, 1, T.ink);
-  for (let i = 0; i <= 4; i++) fill(tx + Math.round(i * (vw - 1) / 4), ty + 2, 1, 2, T.dim);
+  // the status line and the volume: one box, 2 px from the bar buttons and the LCD
+  const bx = x - 4, bw = lx - 2 - bx;
+  frame(bx, y, bw, TB_H); fill(bx + 1, y + 1, bw - 2, TB_H - 2, T.face);
+  // drawn from art/pictures: volIcon, volLine (its width is how far the knob goes) and volKnob (frame 2: held or
+  // under the mouse), each with its middle row on the toolbar's middle row
+  const icon = picture('volIcon'), line = picture('volLine');
+  const knob = picture('volKnob', hot('vol') || ui.capture?.id === 'vol' ? 1 : 0);
+  const vw = line.width, vx = lx - 6 - vw - icon.width - 2, ty = y + 10;
+  g.drawImage(icon, vx, ty - (icon.height >> 1));
+  const tx = vx + icon.width + 2;
+  g.drawImage(line, tx, ty - (line.height >> 1));
   const kx = tx + Math.round(S.volume / 3 * (vw - 1));
-  frame(kx - 2, ty - 4, 5, 9, T.ink); fill(kx - 1, ty - 3, 3, 7, hot('vol') || ui.capture?.id === 'vol' ? T.sel : T.face);
+  g.drawImage(knob, kx - (knob.width >> 1), ty - (knob.height >> 1));
   const setFrom = (m) => setVolume((m.x - tx) / (vw - 1) * 3);
   region(tx - 3, y + 2, vw + 6, TB_H - 4, { id: 'vol', cursor: 'pointer', tip: `Volume ${Math.round(S.volume / 3 * 100)}`, down: setFrom, move: setFrom, wheel: (e) => setVolume(S.volume + (e.deltaY < 0 ? 0.1 : -0.1)) });
   // status line: the button under the mouse, or what the staff says
@@ -4124,11 +4284,12 @@ function drawTransport(y) {
   if (key) {
     const kw = textWidth(key) + 6;
     msg = fitText(msg, room - kw - 6);
-    const mw = text(msg, x, sy, T.ink);
-    frame(x + mw + 5, sy - 3, kw, 11, T.ink); fill(x + mw + 6, sy - 2, kw - 2, 9, T.face);
-    text(key, x + mw + 8, sy, T.ink);
-  } else text(fitText(msg, room), x, sy, T.ink);
-  if (hint) text(fitText(hint, room), x, y + 12, T.dim);
+    const mw = shadowText(msg, x, sy, T.ink);
+    frame(x + mw + 5, sy - 3, kw, 11, T.edge); fill(x + mw + 6, sy - 2, kw - 2, 9, T.face);
+    shadowText(key, x + mw + 8, sy, T.ink);
+  } else shadowText(fitText(msg, room), x, sy, T.ink);
+  if (hint) shadowText(fitText(hint, room), x, y + 12, T.dim);
+  round(bx, y, bw, TB_H);
 }
 
 function drawOverview(x, y, w, h, posStep) {
@@ -4153,8 +4314,9 @@ function drawOverview(x, y, w, h, posStep) {
     fill(x0, y + 1, 1, ih, T.ink); fill(Math.max(x0 + 1, x1 - 1), y + 1, 1, ih, T.ink); fill(x0, y + h - 2, Math.max(1, x1 - x0), 1, T.ink);
   }
   const vx = x + 1 + Math.max(0, Math.floor(S.scroll * sx)), vw = Math.max(3, Math.round(visibleSteps() * sx));
-  frame(vx, y, Math.min(vw, x + w - vx), h, T.ink);
+  frame(vx, y, Math.min(vw, x + w - vx), h, T.edge);
   fill(x + 1 + Math.floor(posStep * sx), y + 1, 1, ih, T.head);
+  round(x, y, w, h);
   const seek = (m) => {
     const s = Math.max(0, (m.x - x - 1) / iw * total);
     setScroll(s - visibleSteps() * 0.3);
@@ -4350,9 +4512,7 @@ function playSplash(ready) {
 }
 
 async function init() {
-  let theme = null;
-  try { theme = localStorage.getItem(THEME_KEY); } catch (e) { /* ignore */ }
-  setTheme(theme === 'dark' || theme === 'light' ? theme : matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+  setTheme('dark'); // the only theme
   try { const k = +localStorage.getItem(SCALE_KEY); if (SCALES.includes(k)) ui.scale = k; } catch (e) { /* ignore */ }
   try { if (localStorage.getItem(SOUND_KEY) === 'model1') S.sound = 'model1'; } catch (e) { /* ignore */ }
   try { Object.assign(S.fold, JSON.parse(localStorage.getItem(FOLD_KEY)) || {}); } catch (e) { /* ignore */ }

@@ -17,19 +17,8 @@ export function parseColor(s) {
 const mixRgb = (a, b, t) => a.map((v, i) => v + (b[i] - v) * t);
 
 export const THEMES = {
-  light: {
-    bg: md(5, 5, 5), face: md(7, 7, 7), hover: md(6, 6, 6), ink: md(0, 0, 0), dim: md(3, 3, 3), off: md(4, 4, 4),
-    sel: md(4, 2, 1), selInk: md(7, 7, 7), soft: md(7, 6, 4),
-    paper: md(7, 7, 7), staff: md(4, 4, 4), bar: md(0, 0, 0), faded: md(6, 6, 7), beat: md(6, 6, 6), keys: md(4, 4, 4),
-    shade: md(4, 4, 4), lane: md(6, 6, 6),
-    lcd: md(0, 0, 0), lcdInk: md(7, 6, 2), lcdDim: md(4, 3, 0),
-    head: md(7, 2, 0), loop: md(1, 4, 1), rep: md(5, 1, 2), red: md(6, 1, 1), green: md(2, 5, 1), white: md(7, 7, 7),
-    hiRep: md(7, 6, 4), hiLoop: md(5, 7, 5), hiDel: md(7, 5, 5), // the bars the repeat tool points at
-    ghostTo: [182, 182, 182], ghostOutline: md(4, 4, 4),
-    bevel: md(7, 7, 7), panelInk: md(0, 0, 0), textShade: md(5, 5, 6), // panel bars: light edge, text, its shadow
-  },
   dark: {
-    bg: md(1, 1, 1), face: md(0, 0, 0), hover: md(2, 2, 2), ink: md(6, 6, 6), dim: md(4, 4, 4), off: md(3, 3, 3),
+    bg: md(1, 1, 1), face: md(0, 0, 0), hover: md(2, 2, 2), ink: md(6, 6, 6), edge: md(6, 6, 6), dim: md(4, 4, 4), off: md(3, 3, 3),
     sel: md(5, 3, 1), selInk: md(0, 0, 0), soft: md(2, 1, 0),
     paper: md(0, 0, 0), staff: md(3, 3, 3), bar: md(6, 6, 6), faded: md(1, 1, 2), beat: md(1, 1, 1), keys: md(3, 3, 3),
     shade: md(2, 2, 2), lane: md(1, 1, 1),
@@ -38,6 +27,10 @@ export const THEMES = {
     hiRep: md(2, 1, 0), hiLoop: md(0, 2, 0), hiDel: md(2, 0, 0),
     ghostTo: [36, 36, 36], ghostOutline: md(2, 2, 2),
     bevel: md(4, 4, 6), panelInk: md(6, 6, 7), textShade: md(0, 0, 1),
+    boxShade: md(1, 1, 2),
+    iconShade: md(3, 3, 4),
+    dropShadow: md(6, 6, 6), // under menus and dialogs, 2 px down and right
+    selBevel: md(7, 3, 5), selShade: md(3, 0, 2), // boxes that are on / chosen (in sel): their light edge and shadow
   },
 };
 
@@ -175,6 +168,9 @@ export const NOTE_INKS = [[255, 251, 175], [251, 242, 54], [223, 113, 38]];
 const ART = { man: null, img: {} }; // img[kind/name][frame] = { w, h, data }
 export const artManifest = () => ART.man;
 const isBlack = (c) => c[0] < 60 && c[1] < 60 && c[2] < 60;
+// What a pixel of a 'painted' drawing is: 0 see-through, 1 black (outline / ink), 2 white (fill),
+// 3 a light colour (light edge), 4 a dark colour, not black (shadow). Toolbar icons and the box sprites.
+const pxClass = (c) => (c[3] <= 127 ? 0 : isBlack(c) ? 1 : c[0] > 200 && c[1] > 200 && c[2] > 200 ? 2 : c[0] + c[1] + c[2] < 384 ? 4 : 3);
 const isWhite = (c) => c[0] > 240 && c[1] > 240 && c[2] > 240;
 
 // Every picture of a kind as [name, info] (notes keep their order).
@@ -217,12 +213,13 @@ export async function loadArt(base = 'art/') {
   }
   await Promise.all(jobs);
 }
-// theme.json: { light: { key: [r, g, b] levels }, dark: { ... } }
+// theme.json: { dark: { key: [r, g, b] levels } } (the one theme; other names are ignored)
 export function applyTheme(theme) {
   for (const [name, keys] of Object.entries(theme)) {
     const T = THEMES[name];
     if (!T) continue;
     for (const [k, c] of Object.entries(keys)) T[k] = Array.isArray(T[k]) ? c.map((x) => LV[x]) : md(...c);
+    if (!keys.edge && keys.ink) T.edge = T.ink; // older theme files: outlines were the icon colour
   }
 }
 // The interface colours as 3-bit levels (for the art editor).
@@ -250,30 +247,34 @@ function inkMask(kind, name, frame = 0) {
   const m = new Uint8Array(w * h);
   if (d) for (let y = 0; y < Math.min(d.h, h); y++) for (let x = 0; x < Math.min(d.w, w); x++) {
     const c = pxOf(d, y * d.w + x);
-    m[(y + oy) * w + x + ox] = c[3] > 127 && isBlack(c) ? 1 : 0;
+    m[(y + oy) * w + x + ox] = pxClass(c);
   }
   const out = { w, h, m };
   maskCache.set(key, out);
   return out;
 }
 const toolMask = (name, frame) => inkMask('tools', name, frame);
-function paintMask(mk, color) {
+// colors: [outline, fill, light, shadow]; a missing one leaves those pixels out (small icons: the outline only)
+function paintMask(mk, colors) {
   const cv = newCanvas(mk.w, mk.h);
   const c = cv.getContext('2d');
-  c.fillStyle = color;
-  for (let y = 0; y < mk.h; y++) for (let x = 0; x < mk.w; x++) if (mk.m[y * mk.w + x]) c.fillRect(x, y, 1, 1);
+  for (let y = 0; y < mk.h; y++) for (let x = 0; x < mk.w; x++) {
+    const col = colors[mk.m[y * mk.w + x] - 1];
+    if (col) { c.fillStyle = col; c.fillRect(x, y, 1, 1); }
+  }
   return cv;
 }
 const iconCache = new Map();
 // frame 1 (the second) is used when a button is on, if the icon has one
-export function toolIcon(name, color, frame = 0) {
-  const key = 't' + name + color + frame;
-  if (!iconCache.has(key)) iconCache.set(key, paintMask(toolMask(name, frame), color));
+// colors: [black, white, light grey, dark grey] pixels (gui.js strip: outline edge, fill dim, light ink, shadow iconShade)
+export function toolIcon(name, colors, frame = 0) {
+  const key = 't' + name + colors.join('|') + frame;
+  if (!iconCache.has(key)) iconCache.set(key, paintMask(toolMask(name, frame), colors));
   return iconCache.get(key);
 }
 export function smallIcon(name, color, frame = 0) {
   const key = 's' + name + color + frame;
-  if (!iconCache.has(key)) iconCache.set(key, paintMask(inkMask('small', name, frame), color));
+  if (!iconCache.has(key)) iconCache.set(key, paintMask(inkMask('small', name, frame), [color]));
   return iconCache.get(key);
 }
 // A mouse pointer, drawn as it is in art/cursors, with its hot spot (frame 1: while a mouse button is down, if drawn).
@@ -291,19 +292,23 @@ export function pointerIcon(name, frame = 0) {
 // The box sprite (art/pictures/button.png), sliced like a Unity 9-slice sprite: art.json pictures.button.slice =
 // [left, top, right, bottom] widths of the border; the corners are drawn as they are, the edges and the middle repeat.
 // { w, h, cell, slice } with cell[y * w + x] = 0 transparent (outside: what is under the box), 1 black (the frame
-// colour), 2 white (the box's own fill: left as it is), 3 any other colour (the light edge: theme colour bevel).
-let spriteCache;
-export function boxSprite() {
-  if (spriteCache !== undefined) return spriteCache;
-  const d = pic('pictures', 'button');
-  if (!d) return (spriteCache = null);
+// colour), 2 white (the box's own fill: left as it is), 3 a light colour (the light edge: theme colour bevel),
+// 4 a dark colour, not black (the shadow: theme colour boxShade).
+// The box sprites (art/pictures, 9-slice): 'button' for boxes and buttons, 'listItem' (a smaller corner) for the
+// rows of lists and the buttons on them.
+const spriteCache = new Map();
+export function boxSprite(name = 'button') {
+  if (spriteCache.has(name)) return spriteCache.get(name);
+  const d = pic('pictures', name);
+  if (!d) { spriteCache.set(name, null); return null; }
   const cell = new Uint8Array(d.w * d.h);
   for (let i = 0; i < d.w * d.h; i++) {
-    const c = pxOf(d, i);
-    cell[i] = c[3] <= 127 ? 0 : isBlack(c) ? 1 : c[0] > 200 && c[1] > 200 && c[2] > 200 ? 2 : 3;
+    cell[i] = pxClass(pxOf(d, i));
   }
-  const sl = ART.man?.pictures?.button?.slice || [Math.floor(d.w / 3), Math.floor(d.h / 3), Math.floor(d.w / 3), Math.floor(d.h / 3)];
-  return (spriteCache = { w: d.w, h: d.h, cell, slice: sl, outside: cell.includes(0) });
+  const sl = ART.man?.pictures?.[name]?.slice || [Math.floor(d.w / 3), Math.floor(d.h / 3), Math.floor(d.w / 3), Math.floor(d.h / 3)];
+  const res = { w: d.w, h: d.h, cell, slice: sl, outside: cell.includes(0) };
+  spriteCache.set(name, res);
+  return res;
 }
 
 export function picture(name, frame = 0) {
@@ -339,11 +344,11 @@ function noteIdx(name, frame) {
 }
 const noteCache = new Map();
 // The outline of notes, and other tracks' notes in two colours: one outline (also the shade) and one body colour
-// (also the light) per track colour, the same in both themes (null: faded from the track colours towards the theme),
+// (also the light) per track colour, (null: faded from the track colours towards the theme),
 // as set in the art editor.
 export const NOTE_PAL = { outline: [0, 0, 0], ghostOutline: null, ghost: null };
 // variant: 'normal' | 'ghost' (other layers, or notes that do not play)
-export function noteSprite(name, tone, frame = 0, variant = 'normal', theme = THEMES.light) {
+export function noteSprite(name, tone, frame = 0, variant = 'normal', theme = THEMES.dark) {
   const key = `${name}|${tone}|${frame}|${variant}|${theme.paper}`;
   if (noteCache.has(key)) return noteCache.get(key);
   const t = LAYER_TONES[tone] || LAYER_TONES[0];
@@ -389,7 +394,7 @@ export function clef(name, color) {
   const key = name + color;
   if (clefCache.has(key)) return clefCache.get(key);
   const info = ART.man?.clefs?.[name] || {};
-  const out = { cv: paintMask(inkMask('clefs', name), color), dx: info.dx || 0, dy: info.dy || 0 }; // offset from (clef area left, top staff line)
+  const out = { cv: paintMask(inkMask('clefs', name), [color]), dx: info.dx || 0, dy: info.dy || 0 }; // offset from (clef area left, top staff line)
   clefCache.set(key, out);
   return out;
 }

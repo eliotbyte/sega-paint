@@ -3,7 +3,7 @@
 import { THEMES, toolIcon, smallIcon, drawText, textWidth, fitText, TOOL_W, TOOL_H, CELL, newCanvas, boxSprite } from './pixel.js';
 
 export const ui = {
-  cv: null, g: null, W: 0, H: 0, SC: 1, dpr: 1, T: THEMES.light,
+  cv: null, g: null, W: 0, H: 0, SC: 1, dpr: 1, T: THEMES.dark,
   regions: [], hover: null, capture: null, mouse: { x: -1, y: -1, inside: false, buttons: 0 },
   scale: 4, fit: 1, // chosen scale; the biggest one the window allows
   focus: null, // { id, opts } of the text field being edited
@@ -15,7 +15,8 @@ export const ui = {
 const MIN_W = 440, MIN_H = 240;
 
 export function initScreen(canvas, input) {
-  ui.cv = canvas; ui.g = canvas.getContext('2d'); ui.input = input;
+  // CPU-backed: boxes copy what is under them into small canvases (frame / keepUnder); from a GPU canvas every copy is a readback
+  ui.cv = canvas; ui.g = canvas.getContext('2d', { willReadFrequently: true }); ui.input = input;
   resizeScreen();
   window.addEventListener('resize', resizeScreen);
   const watchDpr = () => matchMedia(`(resolution: ${window.devicePixelRatio}dppx)`).addEventListener('change', () => { resizeScreen(); watchDpr(); }, { once: true });
@@ -115,9 +116,10 @@ export function endFrame() {
   const cur = ui.hover?.cursor === 'text' ? 'text' : 'none';
   if (ui.cv.style.cursor !== cur) ui.cv.style.cursor = cur;
 }
+// ui.still: no new regions (a panel sliding while it folds: what is drawn is not where it will be)
 export function region(x, y, w, h, opts = {}) {
   const r = { x, y, w, h, ...opts };
-  ui.regions.push(r);
+  if (!ui.still) ui.regions.push(r);
   return r;
 }
 export const hot = (id) => ui.hover?.id === id && !ui.hover.disabled;
@@ -125,15 +127,28 @@ export const pressed = (id) => ui.pressedId === id;
 
 // ---------- drawing helpers ----------
 export const fill = (x, y, w, h, c) => { ui.g.fillStyle = c; ui.g.fillRect(x, y, w, h); };
-const unders = new Map(); // box -> the colour under it (read before frame() paints its corner)
-function pixelAt(x, y) {
-  const g = ui.g, d = g.getImageData(x * g.canvas.width / ui.W, y * g.canvas.height / ui.H, 1, 1).data;
-  return `rgb(${d[0]},${d[1]},${d[2]})`;
+// What is under each box (by its x,y), copied before frame() paints it: the box sprite's transparent pixels show it.
+// A canvas copy, not getImageData: reading pixels back stalled every frame (a 1 px read flushes the whole canvas).
+const unders = new Map(); // 'x,y' -> canvas, drawn this frame
+const underPool = new Map(); // 'x,y' -> canvas, reused across frames
+function keepUnder(x, y, w, h) {
+  const k = x + ',' + y;
+  let cv = underPool.get(k);
+  if (!cv || cv.width < w || cv.height < h) {
+    if (underPool.size > 500) underPool.clear();
+    cv = newCanvas(Math.max(w, cv?.width || 0), Math.max(h, cv?.height || 0));
+    underPool.set(k, cv);
+  }
+  const g = cv.getContext('2d'), m = ui.g.getTransform(); // (drawn moved: a panel sliding while it folds)
+  g.globalCompositeOperation = 'copy';
+  g.drawImage(ui.cv, x + m.e, y + m.f, w, h, 0, 0, w, h);
+  unders.set(k, cv);
 }
-export function frame(x, y, w, h, c = ui.T.ink) { // 1 px outline, outer size w x h (corners: round())
-  const cs = boxSprite();
+// box: the box sprite it is rounded with (round), 'button' or 'listItem'
+export function frame(x, y, w, h, c = ui.T.edge, box = 'button') { // 1 px outline, outer size w x h (corners: round())
+  const cs = boxSprite(box);
   if (cs || w < 4 || h < 4) {
-    if (cs?.outside) unders.set(x + ',' + y, pixelAt(x, y)); // what is under the box, for its corners
+    if (cs?.outside) keepUnder(x, y, w, h); // what is under the box, for its transparent pixels
     fill(x, y, w, 1, c); fill(x, y + h - 1, w, 1, c); fill(x, y, 1, h, c); fill(x + w - 1, y, 1, h, c);
     return;
   }
@@ -146,9 +161,12 @@ export function shadowText(t, x, y, c = ui.T.panelInk, s = ui.T.textShade) {
 }
 // Rounded corners: frame() leaves its corner pixels out; after the inside is filled, this puts the inner corner
 // pixels in the frame colour (three at each corner), so the box looks rounded. which: 'tb' both rows, 't' top, 'b' bottom.
-export function round(x, y, w, h, c = ui.T.ink, which = 'tbs') {
-  const cs = boxSprite();
-  if (cs) return nineSlice(cs, x, y, w, h, c, which);
+// bev / sh: the colours of the box sprite's light edge and shadow
+// The light edge and shadow of a box with this fill: an on / chosen box (sel) has its own.
+export const boxTone = (face) => (face === ui.T.sel ? [ui.T.selBevel, ui.T.selShade] : [ui.T.bevel, ui.T.boxShade]);
+export function round(x, y, w, h, c = ui.T.edge, which = 'tbs', box = 'button', bev = ui.T.bevel, sh = ui.T.boxShade) {
+  const cs = boxSprite(box);
+  if (cs) return nineSlice(cs, x, y, w, h, c, which, bev, sh);
   if (w < 6 || h < 6) return;
   const corner = (cx, cy, dx, dy) => { fill(cx, cy, 1, 1, c); fill(cx + dx, cy, 1, 1, c); fill(cx, cy + dy, 1, 1, c); };
   if (which.includes('t')) { corner(x + 1, y + 1, 1, 1); corner(x + w - 2, y + 1, -1, 1); }
@@ -156,41 +174,77 @@ export function round(x, y, w, h, c = ui.T.ink, which = 'tbs') {
 }
 // The box sprite of the art editor (art/pictures/button.png, 9-slice) over a box already drawn: transparent pixels
 // show what is under the box (frame() keeps that colour), black ones the frame colour, white ones leave the box's own
-// fill (and what is drawn on it), others are the light edge (theme colour bevel). which: 't' the top row of slices,
-// 'b' the bottom row, 's' the sides between them (to the box's bottom when 'b' is not there).
-function nineSlice(cs, x, y, w, h, c, which = 'tbs') {
-  const [L, Tp, R, B] = cs.slice, top = which.includes('t'), bot = which.includes('b'), sides = which.includes('s');
+// fill (and what is drawn on it), other light ones the light edge (theme colour bevel), other dark ones the shadow
+// (theme colour boxShade). which: 't' the top row of slices,
+// 'b' the bottom row, 's' the sides between them (to the box's bottom when 'b' is not there); 'l' / 'r' round only
+// the left / right corners (the other side square: its edge goes on to the frame), neither = both.
+// Each box's overlay is drawn once into a small canvas (per sprite, size, rows and colours) and stamped with one
+// drawImage: drawing it pixel by pixel every frame cost thousands of fillRects.
+const sliceCache = new WeakMap(); // sprite -> Map(key -> canvas)
+function nineSlice(cs, x, y, w, h, c, which = 'tbs', bev = ui.T.bevel, sh = ui.T.boxShade) {
+  const [L, Tp, R, B] = cs.slice, top = which.includes('t'), bot = which.includes('b');
   if (w < L + R + 1 || h < (top ? Tp : 0) + (bot ? B : 0) + 1) return;
-  const under = unders.get(x + ',' + y), bev = ui.T.bevel;
+  let m = sliceCache.get(cs);
+  if (!m) sliceCache.set(cs, (m = new Map()));
+  const cached = (key, draw) => {
+    let cv = m.get(key);
+    if (!cv) {
+      if (m.size > 2000) m.clear();
+      cv = newCanvas(w, h);
+      draw(cv.getContext('2d'));
+      m.set(key, cv);
+    }
+    return cv;
+  };
+  const size = w + ',' + h + ',' + which;
+  ui.g.drawImage(cached(size + ',' + c + ',' + bev + ',' + sh, (g) => sliceOnto(g, cs, w, h, c, bev, null, which, sh)), x, y);
+  // the transparent pixels: what was under the box, through a mask of them
+  const under = cs.outside && unders.get(x + ',' + y);
+  if (under) { // (kept as it is: a panel rounds its top and, later, its bottom)
+    if (scratch.width < w || scratch.height < h) { scratch.width = Math.max(w, scratch.width); scratch.height = Math.max(h, scratch.height); }
+    const g = scratch.getContext('2d');
+    g.globalCompositeOperation = 'copy';
+    g.drawImage(under, 0, 0, w, h, 0, 0, w, h);
+    g.globalCompositeOperation = 'destination-in';
+    g.drawImage(cached(size + ',mask', (mg) => sliceOnto(mg, cs, w, h, null, null, '#fff', which)), 0, 0);
+    ui.g.drawImage(scratch, 0, 0, w, h, x, y, w, h);
+  }
+}
+const scratch = newCanvas(1, 1);
+function sliceOnto(g, cs, w, h, c, bev, under, which, sh = null) {
+  const [L, Tp, R, B] = cs.slice, top = which.includes('t'), bot = which.includes('b'), sides = which.includes('s');
+  const both = !/[lr]/.test(which), left = both || which.includes('l'), right = both || which.includes('r');
   const mw = cs.w - L - R, mh = cs.h - Tp - B;
   const put = (sx, sy, px, py) => {
     const v = cs.cell[sy * cs.w + sx];
-    const col = v === 1 ? c : v === 3 ? bev : v === 0 ? under : null;
-    if (col) fill(px, py, 1, 1, col);
+    const col = v === 1 ? c : v === 3 ? bev : v === 4 ? sh : v === 0 ? under : null;
+    if (col) { g.fillStyle = col; g.fillRect(px, py, 1, 1); }
   };
   // one row band of slices (sy0..sy0+n source rows) onto box rows py0..: left corner, repeated middle, right corner
   const band = (sy0, n, py0, rows) => {
     for (let r = 0; r < rows; r++) {
       const sy = sy0 + (n ? r % n : 0), py = py0 + r;
-      for (let i = 0; i < L; i++) put(i, sy, x + i, py);
-      if (mw > 0) for (let px = x + L; px < x + w - R; px++) put(L + (px - x - L) % mw, sy, px, py);
-      for (let i = 0; i < R; i++) put(cs.w - R + i, sy, x + w - R + i, py);
+      if (left) for (let i = 0; i < L; i++) put(i, sy, i, py);
+      // the middle repeated; where a corner is not rounded, on over it to the frame's column
+      if (mw > 0) for (let px = left ? L : 1, end = right ? w - R : w - 1; px < end; px++) put(L + (((px - L) % mw) + mw) % mw, sy, px, py);
+      if (right) for (let i = 0; i < R; i++) put(cs.w - R + i, sy, w - R + i, py);
     }
   };
-  if (top) band(0, Tp, y, Tp);
-  if (bot) band(cs.h - B, B, y + h - B, B);
+  if (top) band(0, Tp, 0, Tp);
+  if (bot) band(cs.h - B, B, h - B, B);
   if (sides && mh > 0) {
-    const y0 = y + (top ? Tp : 0), y1 = bot ? y + h - B : y + h;
+    const y0 = top ? Tp : 0, y1 = bot ? h - B : h;
     for (let py = y0; py < y1; py++) {
       const sy = Tp + (py - y0) % mh;
-      for (let i = 0; i < L; i++) put(i, sy, x + i, py);
-      for (let i = 0; i < R; i++) put(cs.w - R + i, sy, x + w - R + i, py);
+      for (let i = 0; i < L; i++) put(i, sy, i, py);
+      for (let i = 0; i < R; i++) put(cs.w - R + i, sy, w - R + i, py);
     }
   }
 }
 // The light edge of a raised bar: 1 px along its top and left (theme colour bevel)
 export function bevel(x, y, w, h, c = ui.T.bevel) { fill(x, y, w, 1, c); fill(x, y, 1, h, c); }
-export function text(t, x, y, c = ui.T.ink) { return drawText(ui.g, t, x, y, c); }
+// All text has the 1 px shadow down and right (theme colour textShade), as shadowText.
+export function text(t, x, y, c = ui.T.ink) { return shadowText(t, x, y, c); }
 const patterns = new Map();
 // Every other pixel in colour c (a checkerboard), the pixel-art way to shade.
 export function dither(x, y, w, h, c) {
@@ -216,23 +270,31 @@ export function ants(x, y, w, h, c, phase = 0) {
 export const BIG = { w: TOOL_W, h: TOOL_H }, SMALL = { w: CELL, h: CELL };
 export const stripW = (n, c = BIG) => n * (c.w + 1) + 1;
 // cells: [{ id, icon, small?, on, disabled, tip, key, click, draw(x,y,w,h,ink,face) }]
+// A toolbar icon's colours: black = the outline (edge), white = the fill (second text, dim), light grey = the light
+// edge (icons and text, ink), dark grey = the shadow (iconShade); a disabled button: all of it in off.
+function iconColors(cell) {
+  const T = ui.T, off = cell.disabled;
+  return off ? [T.off, T.off, T.off, T.off] : [T.edge, T.dim, T.ink, T.iconShade];
+}
 export function strip(x, y, cells, c = BIG) {
   const T = ui.T;
   const w = stripW(cells.length, c), h = c.h + 2;
   frame(x, y, w, h);
+  let allOn = cells.some(Boolean);
   cells.forEach((cell, k) => {
     const cx = x + 1 + k * (c.w + 1), cy = y + 1;
-    if (k) fill(cx - 1, y, 1, h, T.ink);
+    if (k) fill(cx - 1, y, 1, h, T.edge);
     if (!cell) return;
     const on = cell.on || (pressed(cell.id) && hot(cell.id));
     const face = cell.face || (on ? T.sel : hot(cell.id) ? T.hover : T.face);
+    if (face !== T.sel) allOn = false;
     const ink = cell.disabled ? T.off : on ? T.selInk : (cell.ink || T.ink);
     fill(cx, cy, c.w, c.h, face);
     if (cell.draw) cell.draw(cx, cy, c.w, c.h, ink, face);
-    else if (cell.icon) ui.g.drawImage(c === BIG ? toolIcon(cell.icon, ink, on ? 1 : 0) : smallIcon(cell.icon, ink, on ? 1 : 0), cx, cy); // frame 2 when on, if drawn
+    else if (cell.icon) ui.g.drawImage(c === BIG ? toolIcon(cell.icon, iconColors(cell), on ? 1 : 0) : smallIcon(cell.icon, ink, on ? 1 : 0), cx, cy); // frame 2 when on, if drawn
     if (cell.id) region(cx, cy, c.w, c.h, { cursor: cell.disabled ? 'default' : 'pointer', ...cell });
   });
-  round(x, y, w, h);
+  round(x, y, w, h, T.edge, 'tbs', 'button', ...boxTone(allOn ? T.sel : T.face)); // a box that is all on: its own edges
   return w;
 }
 
@@ -242,9 +304,10 @@ export function button(x, y, label, opts = {}) {
   const w = opts.w || textWidth(label) + 10, h = 13;
   const on = opts.primary || (pressed(opts.id) && hot(opts.id));
   frame(x, y, w, h);
-  fill(x + 1, y + 1, w - 2, h - 2, opts.disabled ? T.face : on ? T.sel : hot(opts.id) ? T.hover : T.face);
-  text(label, x + ((w - textWidth(label)) >> 1), y + 4, opts.disabled ? T.off : on ? T.selInk : T.ink);
-  round(x, y, w, h);
+  const face = opts.disabled ? T.face : on ? T.sel : hot(opts.id) ? T.hover : T.face;
+  fill(x + 1, y + 1, w - 2, h - 2, face);
+  shadowText(label, x + ((w - textWidth(label)) >> 1), y + 4, opts.disabled ? T.off : on ? T.selInk : T.ink);
+  round(x, y, w, h, T.edge, 'tbs', 'button', ...boxTone(face));
   region(x, y, w, h, { cursor: opts.disabled ? 'default' : 'pointer', ...opts });
   return w;
 }
@@ -266,7 +329,7 @@ export function field(x, y, w, id, value, opts = {}) {
   const h = opts.h || 13, bg = opts.bg || T.face, ink = opts.ink || T.ink;
   const editing = ui.focus?.id === id;
   if (editing) ui.focus.opts = opts;
-  if (!opts.bare) { frame(x, y, w, h, opts.frame || T.ink); fill(x + 1, y + 1, w - 2, h - 2, bg); round(x, y, w, h, opts.frame || T.ink); }
+  if (!opts.bare) { frame(x, y, w, h, opts.frame || T.edge); fill(x + 1, y + 1, w - 2, h - 2, bg); round(x, y, w, h, opts.frame || T.edge); }
   const tx = x + (opts.bare ? 0 : 3), ty = y + ((h - 5) >> 1);
   if (editing) {
     const inp = ui.input, v = inp.value;

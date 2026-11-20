@@ -3,7 +3,7 @@
 // reorder its pages, write their text or choose their picture. Save sends the changed songs to the dev server
 // (tools/serve.py, POST /api/song-info), which writes only "info" and backs up the old meta.json. Saved pages are
 // marked "edited", so tools/song_info.py leaves them alone.
-import { THEMES, drawText, textWidth, fitText } from './pixel.js';
+import { THEMES, drawText as drawTextPlain, textWidth, fitText } from './pixel.js';
 
 const PIC_W = 124, PIC_H = 86, CAP_H = 13, Z = 2; // the panel's picture box and its caption line, drawn ×2
 const pictureUrl = (p) => 'songs/_games/' + p.slice('../_games/'.length);
@@ -178,10 +178,11 @@ export function makePages({ $, btn, status }) {
 
   // ---------- the middle: every page as the player draws it, in order ----------
   function drawPage(p, k, n) {
-    const T = THEMES.light, cv = document.createElement('canvas');
+    const T = THEMES.dark, cv = document.createElement('canvas');
     const W = PIC_W + 6, H = PIC_H + CAP_H + 2;
     cv.width = W * Z; cv.height = H * Z;
     const g = cv.getContext('2d');
+    const drawText = (g, t, x, y, c) => { drawTextPlain(g, t, x + 1, y + 1, T.textShade); return drawTextPlain(g, t, x, y, c); }; // as the player: a 1 px shadow
     g.imageSmoothingEnabled = false;
     g.scale(Z, Z);
     g.fillStyle = T.face; g.fillRect(0, 0, W, H);
