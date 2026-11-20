@@ -104,6 +104,7 @@ function onWheel(e) {
 // ---------- frame ----------
 export function beginFrame() {
   unders.clear();
+  ui.under = ui.T.bg;
   ui.frame++;
   ui.regions = [];
 }
@@ -127,9 +128,12 @@ export const pressed = (id) => ui.pressedId === id;
 
 // ---------- drawing helpers ----------
 export const fill = (x, y, w, h, c) => { ui.g.fillStyle = c; ui.g.fillRect(x, y, w, h); };
-// What is under each box (by its x,y), copied before frame() paints it: the box sprite's transparent pixels show it.
-// A canvas copy, not getImageData: reading pixels back stalled every frame (a 1 px read flushes the whole canvas).
-const unders = new Map(); // 'x,y' -> canvas, drawn this frame
+// What is under each box (by its x,y), kept when frame() paints it: the box sprite's transparent pixels show it.
+// Usually a colour: ui.under, what the boxes are drawn on now (the background; a panel's or a dialog's face while
+// their insides are drawn), or one given to frame(). 'copy' (pop-ups over anything) copies the pixels instead;
+// every such copy makes the browser finish drawing the frame so far (and keeps the canvas on the CPU), so the
+// many boxes of every frame must not use it: ~90 copies a frame made Chrome drop frames.
+const unders = new Map(); // 'x,y' -> colour or canvas, drawn this frame
 const underPool = new Map(); // 'x,y' -> canvas, reused across frames
 function keepUnder(x, y, w, h) {
   const k = x + ',' + y;
@@ -145,10 +149,10 @@ function keepUnder(x, y, w, h) {
   unders.set(k, cv);
 }
 // box: the box sprite it is rounded with (round), 'button' or 'listItem'
-export function frame(x, y, w, h, c = ui.T.edge, box = 'button') { // 1 px outline, outer size w x h (corners: round())
+export function frame(x, y, w, h, c = ui.T.edge, box = 'button', under = ui.under) { // 1 px outline, outer size w x h (corners: round())
   const cs = boxSprite(box);
   if (cs || w < 4 || h < 4) {
-    if (cs?.outside) keepUnder(x, y, w, h); // what is under the box, for its transparent pixels
+    if (cs?.outside) { if (under === 'copy') keepUnder(x, y, w, h); else unders.set(x + ',' + y, under); } // for its transparent pixels
     fill(x, y, w, 1, c); fill(x, y + h - 1, w, 1, c); fill(x, y, 1, h, c); fill(x + w - 1, y, 1, h, c);
     return;
   }
@@ -200,7 +204,8 @@ function nineSlice(cs, x, y, w, h, c, which = 'tbs', bev = ui.T.bevel, sh = ui.T
   ui.g.drawImage(cached(size + ',' + c + ',' + bev + ',' + sh, (g) => sliceOnto(g, cs, w, h, c, bev, null, which, sh)), x, y);
   // the transparent pixels: what was under the box, through a mask of them
   const under = cs.outside && unders.get(x + ',' + y);
-  if (under) { // (kept as it is: a panel rounds its top and, later, its bottom)
+  if (typeof under === 'string') ui.g.drawImage(cached(size + ',u,' + under, (g) => sliceOnto(g, cs, w, h, null, null, under, which)), x, y);
+  else if (under) { // a copy (kept as it is: a panel rounds its top and, later, its bottom)
     if (scratch.width < w || scratch.height < h) { scratch.width = Math.max(w, scratch.width); scratch.height = Math.max(h, scratch.height); }
     const g = scratch.getContext('2d');
     g.globalCompositeOperation = 'copy';

@@ -1743,8 +1743,9 @@ function drawScaleMenu() {
   const w = rw * 12 + 2, h = 14 + SCALE_LIST.length * 11 + 2 + 13;
   region(0, 0, ui.W, ui.H, { block: true, down: () => { S.scaleMenu = false; } });
   fill(x + 2, y + h, w, 2, T.dropShadow); fill(x + w, y + 2, 2, h, T.dropShadow); // its drop shadow
-  frame(x, y, w, h);
+  frame(x, y, w, h, T.edge, 'button', 'copy');
   fill(x + 1, y + 1, w - 2, h - 2, T.face);
+  ui.under = T.face;
   region(x, y, w, h, { block: true });
   // roots: C C# D ... B (the key the scale starts on); with the lock off, a root turns on Major
   const sc = curScale();
@@ -2417,8 +2418,9 @@ function dialogBox(w, h, title) {
   region(0, 0, ui.W, ui.H, { block: true, down: () => {} });
   dither(0, 0, ui.W, ui.H, T.shade);
   fill(x + 2, y + h, w, 2, T.dropShadow); fill(x + w, y + 2, 2, h, T.dropShadow); // its drop shadow
-  frame(x, y, w, h);
+  frame(x, y, w, h, T.edge, 'button', 'copy');
   fill(x + 1, y + 1, w - 2, h - 2, T.face);
+  ui.under = T.face; // what goes in it is on its face
   fill(x + 1, y + 1, w - 2, 12, T.sel);
   text(title, x + 4, y + 4, T.selInk);
   fill(x, y + 13, w, 1, T.edge);
@@ -2434,7 +2436,7 @@ function drawDialogTip() {
   const lines = wrapText(tip, Math.max(60, b.w - 8));
   const h = lines.length * 8 + 5, w = Math.min(b.w, Math.max(...lines.map(textWidth)) + 8);
   const x = b.x + ((b.w - w) >> 1), y = Math.min(ui.H - h - 1, b.y + b.h + 5);
-  frame(x, y, w, h);
+  frame(x, y, w, h, T.edge, 'button', 'copy');
   fill(x + 1, y + 1, w - 2, h - 2, T.face);
   lines.forEach((l, i) => text(l, x + 4, y + 3 + i * 8, T.ink));
 }
@@ -2546,7 +2548,7 @@ function listRows(x, y, w, h, rows, d, rowH = 13, idp = '', boxes = false, total
     const lit = row.sel || row.lit; // lit: in the selection's colours, not selected (the playlist's game of the song open)
     const bg = lit ? T.sel : hot(id) ? T.hover : row.current ? T.soft : row.fold && boxes ? T.bg : T.face;
     if (boxes) {
-      frame(x, ry - 1, w, rowH + 1, T.edge, 'listItem');
+      frame(x, ry - 1, w, rowH + 1, T.edge, 'listItem', T.edge);
       fill(x + 1, ry, w - 2, rowH - 1, bg);
     } else {
       fill(x + 1, ry, w - 2, rowH, bg);
@@ -3713,7 +3715,7 @@ function popMenu(x, y, items, close) {
   x = Math.max(0, Math.min(x, ui.W - w - 2)); y = Math.max(0, Math.min(y, ui.H - h - 2));
   region(0, 0, ui.W, ui.H, { block: true, down: close });
   fill(x + 2, y + h, w, 2, T.dropShadow); fill(x + w, y + 2, 2, h, T.dropShadow); // its drop shadow
-  frame(x, y, w, h);
+  frame(x, y, w, h, T.edge, 'button', 'copy');
   fill(x + 1, y + 1, w - 2, h - 2, T.face);
   let yy = y + 1;
   items.forEach((it, k) => {
@@ -3959,7 +3961,7 @@ function panelHead(x, y, w, h, title, key, foot = 0) {
   // the fold button: a small 10×10 box inside the bar, 2 px from its right edge
   const fx = x + w - 12, fy = y + 2, fid = 'fold-' + key;
   const fon = pressed(fid) && hot(fid);
-  frame(fx, fy, 10, 10, T.edge, 'listItem');
+  frame(fx, fy, 10, 10, T.edge, 'listItem', T.face);
   fill(fx + 1, fy + 1, 8, 8, fon ? T.sel : hot(fid) ? T.hover : T.face);
   const fic = open ? 'minus' : 'plus'; // the colours of the panel's title, its shadow too
   g.drawImage(smallIcon(fic, T.textShade), fx, fy);
@@ -3974,9 +3976,11 @@ function panelHead(x, y, w, h, title, key, foot = 0) {
   const bodyH = h - PANEL_HEAD - foot;
   frame(x, y + PANEL_HEAD, w, bodyH); fill(x + 1, y + PANEL_HEAD + 1, w - 2, bodyH - 2, T.face);
   if (foot) box(y + h - foot, foot); // square at the top, rounded at the bottom by panelEnd
+  ui.under = T.face; // what goes in the panel is on its face, till panelEnd
   return false;
 }
 function panelEnd(x, y, w, h, foot = 0) {
+  ui.under = ui.T.bg;
   if (foot) round(x, y + h - foot, w, foot, ui.T.edge, 'bs');
   if (panelSlide) { g.restore(); panelSlide = false; ui.still = sideSlide; }
 }
@@ -4016,7 +4020,7 @@ function drawLayers(x, y, w, maxH) {
     { id: 'editTrack', last: true, icon: 'gear', disabled: !one, tip: one ? `Track settings · ${L.name}` : 'Track settings · choose one track', click: () => showTrackDialog(L) },
   ];
   // under the track buttons' column (drawLayerRow), each a box of its own
-  cells.forEach((b, k) => iconButton(x + w - 40 + 13 * k, by, b));
+  cells.forEach((b, k) => iconButton(x + w - 40 + 13 * k, by, { ...b, under: ui.T.face }));
   panelEnd(x, y, w, h, PANEL_HEAD);
   return panelShownH('layers', h);
 }
@@ -4181,15 +4185,16 @@ function drawLayerRow(L, i, x, y, w, pos, clipTop, clipH) {
 // hit: the area that takes the mouse (default: inside the box), false for none.
 // A box of a list's row (frame, fill, the corners of the box sprite listItem); what goes on it is drawn after.
 // A row's boxes are rounded on the left only ('l'), but for the last one ('lr').
-function cellBox(x, y, w, h, face, corners = 'l', bev = boxTone(face)[0], sh = boxTone(face)[1]) {
-  frame(x, y, w, h, ui.T.edge, 'listItem');
+function cellBox(x, y, w, h, face, corners = 'l', bev = boxTone(face)[0], sh = boxTone(face)[1], under = ui.T.edge) {
+  frame(x, y, w, h, ui.T.edge, 'listItem', under);
   fill(x + 1, y + 1, w - 2, h - 2, face);
   round(x, y, w, h, ui.T.edge, 'tbs' + corners, 'listItem', bev, sh);
 }
 function iconButton(x, y, b, hit) {
   const T = ui.T, S_ = 14;
   const on = b.on || (pressed(b.id) && hot(b.id) && !b.disabled);
-  cellBox(x, y, S_, S_, on ? (b.face || T.sel) : hot(b.id) && !b.disabled ? T.hover : T.face, b.last ? 'lr' : 'l');
+  const face = on ? (b.face || T.sel) : hot(b.id) && !b.disabled ? T.hover : T.face;
+  cellBox(x, y, S_, S_, face, b.last ? 'lr' : 'l', boxTone(face)[0], boxTone(face)[1], b.under || T.edge);
   if (!on && !b.disabled) g.drawImage(smallIcon(b.icon, T.textShade), x + 2, y + 2); // the shadow
   const ink = b.disabled ? T.off : on ? (b.ink || T.selInk) : b.off ? T.off : T.dim;
   g.drawImage(smallIcon(b.icon, ink), x + 1, y + 1); // art/small
