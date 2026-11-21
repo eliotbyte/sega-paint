@@ -20,7 +20,7 @@ class SegaPlayer extends AudioWorkletProcessor {
       case 'wasm': {
         useWasm(m.module);
         const r = new Renderer(sampleRate);
-        r.loop = this.main.loop; r.gain = this.main.gain; r.setClean(this.clean);
+        r.loop = this.main.loop; r.passes = this.main.passes; r.fade = this.main.fade; r.gain = this.main.gain; r.setClean(this.clean);
         this.main = r;
         break;
       }
@@ -34,7 +34,7 @@ class SegaPlayer extends AudioWorkletProcessor {
       case 'pause': this.playing = false; this.report(); break;
       case 'mute': this.main.setMute(m.ym, m.psg); break;
       case 'clean': this.clean = m.on; this.main.setClean(m.on); this.main.seek(this.main.pos); if (this.preview) this.preview.setClean(m.on); break;
-      case 'loop': this.main.loop = m.on; break;
+      case 'loop': Object.assign(this.main, { loop: m.on, passes: m.passes ?? Infinity, fade: m.fade || 0 }); if (m.reset) this.main.jumps = 0; break;
       case 'gain': this.main.gain = m.gain; if (this.preview) this.preview.gain = m.gain; break;
       case 'preview': {
         const r = new Renderer(sampleRate);
@@ -57,14 +57,14 @@ class SegaPlayer extends AudioWorkletProcessor {
     }
   }
 
-  report() { this.port.postMessage({ type: 'pos', pos: this.main.pos, playing: this.playing }); }
+  report() { this.port.postMessage({ type: 'pos', pos: this.main.pos, jumps: this.main.jumps, playing: this.playing }); }
 
   process(inputs, outputs) {
     const out = outputs[0];
     const L = out[0], R = out[1] || out[0];
     if (this.playing && this.main.tl) {
       this.main.process(L, R);
-      if (this.main.pos >= this.main.tl.end && !this.main.loop) {
+      if (this.main.done()) {
         this.playing = false;
         this.port.postMessage({ type: 'ended' });
       }

@@ -62,6 +62,7 @@ const S = {
   layers: new Set(), // the tracks chosen together (Ctrl / Shift + click); empty or one = just the active track
   repMode: 'x2', // what the repeat tool does: x2 / x3 / x4 (make or set a repeat), loop (the green one), del
   playing: false, loop: false, // loop off: a song from the games goes on to the next one when it ends
+  listen: true, // listening mode (songs from the games; on from the start, kept as chosen from song to song): played through, the loop once more, fading out, then the next song
   pos: 0, posAt: 0, // last reported position (samples) and performance.now()
   ctx: null, node: null, analyser: null, latency: 0,
   undo: [], redo: [], drag: null, hover: null, mixMuted: '',
@@ -98,6 +99,7 @@ async function openDoc(doc) {
   const bank = withCatalog(await fetchBank(base, song.bankFile || 'pcm.bin'), song);
   S.doc = doc;
   setupSong(song, bank);
+  sendLoop(true); // its own count of repeats (and once: no repeat)
   if (doc.kind !== 'new') try { localStorage.setItem(LAST_KEY, JSON.stringify(doc.kind === 'ref' ? doc : { kind: 'user', id: doc.id })); } catch (e) { /* ignore */ }
 }
 
@@ -957,12 +959,12 @@ async function startAudio() {
   node.connect(analyser);
   node.port.onmessage = (e) => {
     const m = e.data;
-    if (m.type === 'pos') { S.pos = m.pos; S.posAt = performance.now(); }
+    if (m.type === 'pos') { S.pos = m.pos; S.jumps = m.jumps || 0; S.posAt = performance.now(); }
     else if (m.type === 'ended') { S.playing = false; playNext(); }
   };
   Object.assign(S, { ctx, node, analyser, latency: (ctx.outputLatency || 0) + (ctx.baseLatency || 0) });
   post({ type: 'gain', gain: outVolume() });
-  post({ type: 'loop', on: S.loop });
+  sendLoop();
   post({ type: 'clean', on: S.sound === 'clean' });
   if (S.song) { // a click on the boot splash can come before the song is loaded: setupSong sends it then
     sendTimeline(S.song.stepTimes[S.song.step0]);
@@ -1016,7 +1018,7 @@ function currentPos() {
   let p = S.pos;
   if (S.playing) p += (performance.now() - S.posAt) / 1000 * RATE;
   const tl = S.modelTl;
-  if (S.loop && tl && tl.loopStart >= 0 && p >= tl.end) p = tl.loopStart + (p - tl.end);
+  if ((S.loop || listenOn()) && tl && tl.loopStart >= 0 && p >= tl.end) p = tl.loopStart + (p - tl.end);
   return p;
 }
 // Played time (repeats unrolled) <-> written time on the staff.
@@ -1024,6 +1026,12 @@ const perf = () => (S.perf ??= performSong(S.song));
 const writtenTime = (p) => (repeatSpans(S.song).length ? stepTime(S.song, writtenStep(S.song, timeToStep(perf(), p))) : p);
 const playedTime = (t) => (repeatSpans(S.song).length ? stepTime(perf(), playedSteps(S.song, Math.round(timeToStep(S.song, t) * 1000) / 1000)[0]) : t);
 const displayPos = () => Math.max(0, currentPos() - (S.playing ? S.latency * RATE : 0));
+// The LCD's TIME: how long the song has played, counting on through its repeats (pause keeps it, a seek starts over).
+function playedSeconds() {
+  const tl = S.modelTl, loopLen = tl && tl.loopStart >= 0 ? tl.end - tl.loopStart : 0;
+  let p = S.pos + (S.playing ? (performance.now() - S.posAt) / 1000 * RATE - S.latency * RATE : 0);
+  return Math.max(0, p + (S.jumps || 0) * loopLen) / RATE;
+}
 
 async function togglePlay() {
   await ensureAudio();
@@ -1062,7 +1070,7 @@ async function playNext() {
 function seekToStep(s) {
   const pos = Math.max(0, playedTime(stepTime(S.song, s)));
   S.followHold = false;
-  S.pos = pos; S.posAt = performance.now();
+  S.pos = pos; S.jumps = 0; S.posAt = performance.now(); // a seek starts the repeats over (the renderer's too)
   post({ type: 'seek', pos });
 }
 
@@ -2743,7 +2751,22 @@ function setTool(t) {
   if (!GRACE_TOOLS.has(t)) S.ge = null; // other tools end editing grace notes
 }
 function setFollow(on) { S.follow = on; S.followHold = false; }
-function setLoop(on) { S.loop = on; post({ type: 'loop', on }); }
+function setLoop(on) { S.loop = on; S.listen = false; sendLoop(); }
+// The loop button: off -> loop -> (a song from the games) listening mode -> off.
+const LISTEN_FADE = 10; // seconds of fade at the end of the repeat
+const listenOn = () => S.listen && !S.loop && S.doc?.kind === 'ref';
+function sendLoop(reset = false) { // reset: a new song, its repeats counted from none
+  if (reset) S.jumps = 0;
+  const ls = listenOn(), once = !!S.song?.once; // once: the game plays it one time (a jingle, the credits): no repeat
+  post({ type: 'loop', on: S.loop || ls, passes: ls ? (once ? 0 : 1) : Infinity, fade: ls && !once ? LISTEN_FADE * RATE : 0, reset });
+}
+function cycleLoop() {
+  if (listenOn()) S.listen = false; // the choice stays for the next songs
+  else if (S.loop && S.doc?.kind === 'ref') { S.loop = false; S.listen = true; }
+  else { S.loop = !S.loop; if (S.loop) S.listen = false; }
+  sendLoop();
+  showStatus(listenOn() ? 'Listening: the song, its loop once more fading out, then the next song' : S.loop ? 'Loop on' : 'Loop off');
+}
 const ZOOMS = [4, 6, 8, 10, 12, 16];
 function zoom(dir) {
   const i = ZOOMS.indexOf(S.zoom);
@@ -4327,7 +4350,7 @@ function drawLcd(x, y, w) {
   fill(x + 1, y + 1, w - 2, h - 2, T.lcd);
   const rel = Math.floor(lastPosStep) - S.barOffset;
   const bar = Math.floor(rel / 16) + 1, beat = Math.floor((((rel % 16) + 16) % 16) / 4) + 1;
-  const sec = Math.floor(displayPos() / RATE);
+  const sec = Math.floor(playedSeconds());
   const cols = [['BAR', `${bar}.${beat}`, 4], ['TIME', `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}`, 28]];
   for (const [l, v, dx] of cols) { text(l, x + dx, y + 4, T.lcdDim); text(v, x + dx, y + 12, T.lcdInk); }
   text('BPM', x + 52, y + 4, T.lcdDim);
@@ -4699,7 +4722,7 @@ function drawTransport(y) {
     { id: 'start', icon: 'start', tip: ri >= 0 ? 'Back to the start, at the start: the song before · Home' : 'Back to the start · Home', click: backToStart },
     { id: 'play', icon: S.playing ? 'pause' : 'play', on: S.playing, tip: 'Play / pause · Space', click: togglePlay },
     ...(ri >= 0 ? [{ id: 'next', icon: 'next', disabled: ri >= S.refs.length - 1, tip: 'Next song', click: () => switchRef(ri + 1) }] : []),
-    { id: 'loop', icon: 'loop', on: S.loop, tip: 'Loop · L', click: () => setLoop(!S.loop) },
+    { id: 'loop', icon: 'loop', on: S.loop || listenOn(), frame: listenOn() ? 1 : 0, tip: listenOn() ? 'Listening: once more, then fade out · L' : S.loop ? 'Loop: on · L' : 'Loop · L', click: cycleLoop },
   ]) + 2;
   x += strip(x, y, [
     { id: 'barMinus', icon: 'minus', disabled: barsShown() <= 1, tip: 'Remove the last bar', click: () => setBars(barsShown() - 1) },
@@ -4876,7 +4899,7 @@ window.addEventListener('keydown', (e) => {
   else if (code === 'KeyM') { toggleSet(S.muted, S.active); sendMute(); }
   else if (code === 'KeyS') { toggleSet(S.solo, S.active); sendMute(); }
   else if (code === 'KeyF') setFollow(!S.follow);
-  else if (code === 'KeyL') setLoop(!S.loop);
+  else if (code === 'KeyL') cycleLoop();
   else if (k === 'ArrowRight') setScroll(S.scroll + 16);
   else if (k === 'ArrowLeft') setScroll(S.scroll - 16);
   else if (k === 'ArrowUp') setVy(S.vy - 8);

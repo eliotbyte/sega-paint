@@ -1,5 +1,5 @@
 {
- "version": 233,
+ "version": 236,
  "tools": {
   "undo": {
    "frames": 1
@@ -77,7 +77,7 @@
    "frames": 1
   },
   "loop": {
-   "frames": 1
+   "frames": 2
   },
   "plus": {
    "frames": 1
@@ -433,7 +433,7 @@
    "frames": 3
   },
   "volIcon": {
-   "frames": 1
+   "frames": 4
   },
   "volLine": {
    "frames": 1

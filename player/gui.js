@@ -296,7 +296,7 @@ export function strip(x, y, cells, c = BIG) {
     const ink = cell.disabled ? T.off : on ? T.selInk : (cell.ink || T.ink);
     fill(cx, cy, c.w, c.h, face);
     if (cell.draw) cell.draw(cx, cy, c.w, c.h, ink, face);
-    else if (cell.icon) ui.g.drawImage(c === BIG ? toolIcon(cell.icon, iconColors(cell), on ? 1 : 0) : smallIcon(cell.icon, ink, on ? 1 : 0), cx, cy); // frame 2 when on, if drawn
+    else if (cell.icon) ui.g.drawImage(c === BIG ? toolIcon(cell.icon, iconColors(cell), cell.frame ?? (on ? 1 : 0)) : smallIcon(cell.icon, ink, cell.frame ?? (on ? 1 : 0)), cx, cy); // frame 2 when on, if drawn
     if (cell.id) region(cx, cy, c.w, c.h, { cursor: cell.disabled ? 'default' : 'pointer', ...cell });
   });
   round(x, y, w, h, T.edge, 'tbs', 'button', ...boxTone(allOn ? T.sel : T.face)); // a box that is all on: its own edges

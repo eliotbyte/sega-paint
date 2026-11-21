@@ -28,6 +28,8 @@ export class Renderer {
     this.idx = 0;
     this.pos = 0;           // current position in 44.1 kHz samples
     this.loop = true;
+    // listening mode: at most `passes` jumps back to the loop start, the last time through fading out over `fade` samples
+    this.passes = Infinity; this.jumps = 0; this.fade = 0;
     this.frac = 0;          // resampler phase in chip samples
     this.prev = [0, 0]; this.cur = [0, 0];
     this.tmp = new Int32Array(2);
@@ -39,12 +41,16 @@ export class Renderer {
 
   setTimeline(tl, startPos = 0) {
     this.tl = tl;
+    const j = this.jumps; // an edit sends the timeline again: the times already played through stay counted
     this.seek(startPos);
+    this.jumps = j;
   }
+  // played to the end (and no more jumps back): the worklet stops there
+  done() { return this.pos >= this.tl.end && (!this.loop || this.tl.loopStart < 0 || this.jumps >= this.passes); }
 
   seek(pos) {
     this.ym.reset(); this.psg.reset();
-    this.pos = pos;
+    this.pos = pos; this.jumps = 0;
     const tl = this.tl;
     // Replay all non-note register state up to pos so the chips are in the right mode (fast-forward without audio).
     // The PSG has no key-on: its tone and volume latches are replayed as they are.
@@ -100,7 +106,8 @@ export class Renderer {
       }
       this.pos += step;
       if (this.pos >= tl.end) {
-        if (this.loop && tl.loopStart >= 0) {
+        if (this.loop && tl.loopStart >= 0 && this.jumps < this.passes) {
+          this.jumps++;
           this.pos = tl.loopStart;
           let lo = 0, hi = tl.n;
           while (lo < hi) { const m = (lo + hi) >> 1; if (tl.t[m] < this.pos) lo = m + 1; else hi = m; }
@@ -117,7 +124,10 @@ export class Renderer {
   // Fill Float32 L/R buffers at outRate.
   process(L, R) {
     const ratio = CHIP_RATE / this.outRate;
-    const g = this.gain;
+    let g = this.gain;
+    // the last time through in listening mode: down to silence at the end (the gain is set per block, 128 samples)
+    const tl = this.tl;
+    if (this.fade && tl && this.jumps >= this.passes) g *= Math.max(0, Math.min(1, (tl.end - this.pos) / Math.min(this.fade, (tl.end - Math.max(0, tl.loopStart)) / 2)));
     for (let i = 0; i < L.length; i++) {
       this.frac += ratio;
       while (this.frac >= 1) {
