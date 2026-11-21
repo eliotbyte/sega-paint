@@ -50,7 +50,7 @@ function compareWithApp(file) {
   // 3. timing: app.js setTiming / setLoopStep on a new (uniform) song
   const bars = Math.round(timeToStep(json, json.end) / 16), loop = json.loopStart < 0 ? -1 : Math.round(timeToStep(json, json.loopStart));
   const T = { song: { uniform: true, bpm: json.bpm, step0: 0, layers: [] } }; // as newSongData
-  extract(['setTiming'], { S: T, RATE: 44100, stepTime, indexLayer: () => {}, loopStep: () => -1 }).setTiming(json.bpm, bars, loop);
+  extract(['setTiming', 'tempoMarks', 'tempoOffsetAt', 'tempoAt'], { S: T, RATE: 44100, stepTime, indexLayer: () => {}, loopStep: () => -1 }).setTiming(json.bpm, bars, loop);
   for (const k of ['step', 'stepTimes', 'end', 'loopStart']) assert.deepEqual(json[k], T.song[k], `timing: ${k}`);
   // 4. notes: app.js newNote with the note's palette sound (a pen note one step long; longer notes are dragged out)
   let n1 = 0, nLong = 0;

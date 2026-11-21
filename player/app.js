@@ -653,7 +653,7 @@ function computeRange() {
 
 // ---------- edits, undo/redo, persistence ----------
 function snapshot() {
-  const o = { _timing: { bpm: S.song.bpm, bars: songBars(), loop: loopStep(), repeats: S.song.repeats || [] } };
+  const o = { _timing: { bpm: S.song.bpm, bars: songBars(), loop: loopStep(), repeats: S.song.repeats || [], tempos: S.song.tempos || [] } };
   for (const L of S.song.layers) if (L.kind !== 'dac') o[L.id] = L.notes;
   return JSON.stringify(o, (k, v) => (k.startsWith('_') && k !== '_timing' ? undefined : v)); // every note field (grace notes g, leg, ...) but the runtime _ ones
 }
@@ -661,6 +661,7 @@ function applySnapshot(json) {
   const o = JSON.parse(json);
   if (o._timing) {
     S.song.repeats = o._timing.repeats || [];
+    if (o._timing.tempos?.length) S.song.tempos = o._timing.tempos; else delete S.song.tempos;
     setTiming(o._timing.bpm, o._timing.bars, o._timing.loop ?? loopStep());
   }
   const ge = S.ge && { L: S.ge.L, s: S.ge.note.s };
@@ -712,9 +713,17 @@ const loopShown = () => loopStep() > (S.song.barOffset ? 0.01 : Math.max(0, S.ba
 function setTiming(bpm, bars, loop = loopStep()) {
   const steps = bars * 16 + (S.song.barOffset || 0);
   if (loop >= steps) loop = Math.max(0, steps - 16); // keep at least the last bar inside the repeat
-  if (S.song.uniform) {
-    const step = RATE * 60 / (bpm * 4);
-    Object.assign(S.song, { bpm, step, end: Math.round(steps * step), stepTimes: Array.from({ length: steps + 1 }, (_, i) => Math.round(i * step * 10) / 10) });
+  if (S.song.uniform) { // each step as long as the tempo there (the song's, or a tempo change's)
+    const step = RATE * 60 / (bpm * 4), times = [0];
+    S.song.bpm = bpm;
+    // a run of steps at one tempo: its start + k steps (no tempo change: exactly i * step, as it always was)
+    let t0 = 0, i0 = 0, len = 0;
+    for (let i = 0; i < steps; i++) {
+      const l = RATE * 60 / (tempoAt(i - (S.song.step0 || 0)) * 4);
+      if (l !== len) { t0 += (i - i0) * len; i0 = i; len = l; }
+      times.push(Math.round((t0 + (i + 1 - i0) * len) * 10) / 10);
+    }
+    Object.assign(S.song, { bpm, step, end: Math.round(t0 + (steps - i0) * len), stepTimes: times });
   } else setUnevenTiming(bpm, bars);
   S.song.loopStart = loop < 0 ? -1 : Math.round(stepTime(S.song, loop));
   if (S.song.repeats) S.song.repeats = S.song.repeats.filter((r) => r.from < steps).map((r) => ({ ...r, to: Math.min(r.to, steps) }));
@@ -723,14 +732,178 @@ function setTiming(bpm, bars, loop = loopStep()) {
 }
 // An example's grid keeps the game's swing: a new tempo stretches it as a whole (from the grid it was opened with),
 // more bars continue it at the even step.
-function setUnevenTiming(bpm, bars) {
+// Tempo changes stretch each step by the tempo there. The game's own tempo changes are already in its grid, and the
+// song file marks them (song.tempos, see tools/tempo_marks.py): the grid as opened plays at those, so a step is only
+// stretched by how far its tempo now is from the one it was opened with.
+function timingBase() {
   const s = S.song;
-  const b = (s._base ??= { times: s.stepTimes.slice(), step: s.step, bpm: s.bpm, end: s.end, bars: songBars(), globals: s.globals.map((x) => x.slice()) });
-  const k = b.bpm / bpm;
-  Object.assign(s, { bpm, step: b.step * k, stepTimes: b.times.map((t) => Math.round(t * k * 10) / 10), globals: b.globals.map(([t, ...r]) => [Math.round(t * k), ...r]) });
+  return (s._base ??= { times: s.stepTimes.slice(), step: s.step, bpm: s.bpm, end: s.end, bars: songBars(), globals: s.globals.map((x) => x.slice()), tempos: tempoMarks().map((m) => ({ ...m })) });
+}
+function setUnevenTiming(bpm, bars) {
+  const s = S.song, b = timingBase();
+  s.bpm = bpm;
+  const opened = (st) => { let d = 0; for (const m of b.tempos) { if (m.s <= st) d = m.d; else break; } return Math.max(20, Math.min(400, b.bpm + d)); };
+  const k = (i) => opened(i - s.step0) / tempoAt(i - s.step0); // how much step i (of stepTimes) is stretched
+  const bt = b.times, nt = [bt[0] * k(0)];
+  for (let i = 1; i < bt.length; i++) nt.push(nt[i - 1] + (bt[i] - bt[i - 1]) * k(i - 1));
+  const map = (t) => { // a time on the grid as opened -> on the new one
+    if (t <= bt[0]) return t * k(0);
+    let i = 0;
+    while (i + 1 < bt.length && bt[i + 1] <= t) i++;
+    return nt[i] + (t - bt[i]) * k(i);
+  };
+  Object.assign(s, { step: b.step * (b.bpm / bpm), stepTimes: nt.map((t) => Math.round(t * 10) / 10), globals: b.globals.map(([t, ...r]) => [Math.round(map(t)), ...r]) });
   const last = bars * 16 + (S.song.barOffset ?? ((S.barOffset + 8) % 16) - 8); // bars count from the first bar of the song
-  while (s.stepTimes.length - 1 - s.step0 < last + 16) s.stepTimes.push(Math.round((s.stepTimes.at(-1) + s.step) * 10) / 10);
-  s.end = bars === b.bars ? Math.round(b.end * k) : Math.round(stepTime(s, last));
+  while (s.stepTimes.length - 1 - s.step0 < last + 16) {
+    const i = s.stepTimes.length - 1;
+    s.stepTimes.push(Math.round((s.stepTimes.at(-1) + b.step * k(i)) * 10) / 10);
+  }
+  s.end = bars === b.bars ? Math.round(map(b.end)) : Math.round(stepTime(s, last));
+}
+
+// ---------- tempo changes ----------
+// song.tempos: [{ s, d }] sorted by step: from step s on the song plays at its BPM + d (d < 0: slower). Set with a
+// right click on the ruler; the song's own BPM stays the base, so a new tempo moves every change along.
+function tempoMarks() { return S.song.tempos || []; }
+function tempoOffsetAt(s) {
+  let d = 0;
+  for (const m of tempoMarks()) { if (m.s <= s) d = m.d; else break; }
+  return d;
+}
+function tempoAt(s) { return Math.max(20, Math.min(400, S.song.bpm + tempoOffsetAt(s))); }
+// Rebuild the timing after the tempo changed somewhere. Note lengths, nudges and grace gaps are in samples: each
+// note's are stretched by how much the step it starts on changed, so it keeps its length in steps.
+// Keeps every note where it is on the grid when the timing changes: each start and end (of a note, its nudge and
+// its graces) is turned into a step under the old timing and back into samples under the new one. So a note that
+// runs across a tempo change still ends in the same cell, and the staff looks the same, only the sound is slower.
+function retime(build) {
+  const old = { stepTimes: S.song.stepTimes.slice(), step: S.song.step, step0: S.song.step0 || 0 };
+  build();
+  const at = (t) => stepTime(S.song, timeToStep(old, t));
+  for (const L of S.song.layers) {
+    if (L.kind === 'dac') continue;
+    for (const n of L.notes) {
+      const t0 = noteTime(old, n), t1 = at(t0);
+      if (n.d != null) { const d = Math.max(1, Math.round(at(t0 + n.d) - t1)); if (d !== n.d) { n.d = d; n.e = 1; } }
+      if (n.n) n.n = Math.round(t1 - stepTime(S.song, n.s));
+      for (const x of n.g || []) {
+        const g0 = t0 - x.t, g1 = at(g0);
+        if (x.d != null) x.d = Math.max(1, Math.round(at(g0 + x.d) - g1));
+        x.t = Math.max(1, Math.round(t1 - g1));
+      }
+    }
+    indexLayer(L);
+  }
+}
+function setTempoMark(s, d) {
+  if (!S.song.uniform) timingBase(); // the grid as it is now goes with the marks as they are now
+  const marks = (S.song.tempos ||= []), m = marks.find((x) => x.s === s);
+  if (m) m.d = d; else { marks.push({ s, d }); marks.sort((a, b) => a.s - b.s); }
+  retime(() => setTiming(S.song.bpm, songBars()));
+}
+function removeTempoMark(s) {
+  if (!S.song.uniform) timingBase();
+  S.song.tempos = tempoMarks().filter((x) => x.s !== s);
+  if (!S.song.tempos.length) delete S.song.tempos;
+  retime(() => setTiming(S.song.bpm, songBars()));
+}
+// Tempo changes: a line on the ruler, and under it a callout (a box with a little triangle pointing up at the
+// line, and a shadow) with the change in BPM; a dashed line goes on down through the staff. The callouts are drawn
+// over the notes (drawTempoTags, at the end of the frame).
+const TAG_H = 10, tagTop = () => RULER + 3; // RULER is declared further down
+function tempoTag(m) {
+  const lab = signed(m.d), w = textWidth(lab) + 6, x = xOf(m.s);
+  return { lab, x, bx: x - (w >> 1), w, by: tagTop() + 4 };
+}
+function drawTempoMarks(top, bottom) {
+  const T = ui.T;
+  for (const m of tempoMarks()) {
+    const x = xOf(m.s);
+    if (x < GUTTER || x > SW) continue;
+    fill(x, 0, 1, RULER - 1, T.ink);
+    for (let y = tagTop() + 4 + TAG_H + 3; y < bottom; y += 4) fill(x, y, 1, 2, T.ink);
+  }
+}
+// Drawn like the FILE menu: its face colour, a dark outline and the same drop shadow, the triangle part of one shape.
+function drawTempoTags() {
+  const T = ui.T, top = tagTop();
+  g.save(); g.translate(SX, SY); g.beginPath(); g.rect(GUTTER, RULER, SW - GUTTER + 2, viewBot - RULER); g.clip();
+  const outline = (t, dx, dy, c) => { // the shape grown by 1 px: triangle rows, then the box with its edge
+    for (let r = 0; r < 4; r++) fill(t.x - r + dx, top + r + dy, 2 * r + 1, 1, c);
+    fill(t.bx - 1 + dx, t.by - 1 + dy, t.w + 2, TAG_H + 2, c);
+  };
+  for (const m of tempoMarks()) {
+    const t = tempoTag(m);
+    if (t.bx + t.w < GUTTER || t.bx > SW) continue;
+    outline(t, 2, 2, T.dropShadow);
+    outline(t, 0, 0, T.edge);
+    for (let r = 1; r < 4; r++) fill(t.x - r + 1, top + r, 2 * r - 1, 1, T.face); // opens into the box
+    fill(t.bx, t.by, t.w, TAG_H, T.face);
+    shadowText(t.lab, t.bx + 3, t.by + 2, T.ink);
+  }
+  g.restore();
+}
+const tempoTagAt = (x, y) => (y >= tagTop() && y <= tagTop() + 4 + TAG_H
+  ? tempoMarks().find((m) => { const t = tempoTag(m); return x >= t.bx - 1 && x <= t.bx + t.w; }) : null);
+const tempoMarkNear = (x) => tempoMarks().find((m) => Math.abs(xOf(m.s) - x) <= 3);
+const signed = (d) => (d > 0 ? '+' : '') + d;
+// Right click on the ruler: a menu to change the tempo from there on (or the change under the mouse).
+function openRulerMenu(x, y, h) {
+  const m = tempoMarkNear(h.x);
+  const s = m ? m.s : Math.max(firstPlayStep(), snapS(Math.floor(h.s / S.cell + 1e-6) * S.cell));
+  S.menu = false; S.flyout = false; S.scaleMenu = false;
+  S.rulerMenu = { x: SX + x, y: SY + y, s, mark: !!m };
+}
+function rulerMenuItems() {
+  const { s, mark } = S.rulerMenu;
+  return [
+    { label: mark ? 'Change tempo here…' : 'Tempo from here…', click: () => openTempoDialog(s) },
+    { label: 'Remove tempo change', disabled: !mark, click: () => { pushUndo(); removeTempoMark(s); afterEdit(); showStatus(`Tempo change at ${barBeat(s, true)} removed`); } },
+    null,
+    { label: 'Song tempo…', click: openBpmDialog },
+  ];
+}
+// The tempo from a step on, as a change from the song's tempo: the song plays it at once, Cancel puts it back.
+function openTempoDialog(s) {
+  pushUndo(); // one undo step for everything done in the dialog
+  const m = tempoMarks().find((x) => x.s === s);
+  openDialog({ kind: 'tempo', s, d: m ? m.d : 0, changed: false });
+}
+function drawTempoDialog(d) {
+  const T = ui.T;
+  const r = dialogBox(176, 14 + 70, 'TEMPO CHANGE');
+  const base = Math.round(S.song.bpm), has = tempoMarks().some((x) => x.s === d.s);
+  const set = (v) => {
+    v = Math.max(20 - base, Math.min(400 - base, Math.round(v)));
+    d.d = v; d.changed = true;
+    setTempoMark(d.s, v); afterEdit();
+  };
+  text(`FROM BAR ${barBeat(d.s, true)}`, r.x + 8, r.y + 8, T.dim);
+  const cy = r.y + 18;
+  let bx = r.x + 8;
+  bx += button(bx, cy, '-10', { id: 'tmpM10', w: 22, tip: 'Slower by 10', click: () => set(d.d - 10) }) + 2;
+  bx += button(bx, cy, '-1', { id: 'tmpM1', w: 18, tip: 'Slower', click: () => set(d.d - 1) }) + 2;
+  const nw = r.x + r.w - 8 - 22 - 2 - 18 - 2 - bx - 2, n = signed(d.d);
+  frame(bx, cy, nw, 13, T.edge); fill(bx + 1, cy + 1, nw - 2, 11, T.lcd);
+  text(n, bx + ((nw - textWidth(n)) >> 1), cy + 4, T.lcdInk);
+  region(bx, cy, nw, 13, { id: 'tmpNum', tip: 'BPM more / less than the song · wheel to change', wheel: (e) => set(d.d + (e.deltaY < 0 ? 1 : -1) * (e.shiftKey ? 10 : 1)) });
+  bx += nw + 2;
+  bx += button(bx, cy, '+1', { id: 'tmpP1', w: 18, tip: 'Faster', click: () => set(d.d + 1) }) + 2;
+  button(bx, cy, '+10', { id: 'tmpP10', w: 22, tip: 'Faster by 10', click: () => set(d.d + 10) });
+  text(`= ${base + d.d} BPM · THE SONG: ${base}`, r.x + 8, r.y + 38, T.dim);
+  const by = r.y + r.h - 19, wOk = textWidth('SET') + 10, wC = textWidth('CANCEL') + 10;
+  button(r.x + r.w - 8 - wOk, by, 'SET', { id: 'tmpOk', primary: true, click: () => dialogOk(d) });
+  button(r.x + r.w - 8 - wOk - 4 - wC, by, 'CANCEL', { id: 'tmpCancel', click: () => closeDialog() });
+  if (has) button(r.x + 8, by, 'REMOVE', { id: 'tmpDel', tip: 'Back to the tempo before it', click: () => {
+    removeTempoMark(d.s); afterEdit(); d.done = true; closeDialog(); showStatus(`Tempo change at ${barBeat(d.s, true)} removed`);
+  } });
+}
+
+// The tempo at a step as it plays (a beat's average, so a game's swing does not make it jump): the LCD's BPM.
+function bpmNow(st) {
+  const t = S.song.stepTimes, i0 = Math.floor(st) + (S.song.step0 || 0), b = i0 - ((Math.floor(st) % 4) + 4) % 4;
+  if (b < 0 || b + 4 >= t.length) return S.song.bpm;
+  return (RATE * 60) / (t[b + 4] - t[b]);
 }
 // Loop start (the green repeat) at step st, -1 = the song does not loop; works on any grid.
 function setLoopStep(st) {
@@ -748,11 +921,8 @@ function setBpm(bpm, undoable = true) {
   if (!bpm || bpm === S.song.bpm) { updateTimingUI(); return; }
   if (undoable) pushUndo();
   const k = S.song.bpm / bpm, at = timeToStep(S.song, writtenTime(currentPos()));
-  for (const L of S.song.layers) {
-    for (const n of L.notes) { if (n.d != null) n.d = Math.max(1, Math.round(n.d * k)); if (n.n) n.n = Math.round(n.n * k); }
-    for (const x of L.palette || []) if (x.d) x.d = Math.round(x.d * k);
-  }
-  setTiming(bpm, songBars());
+  for (const L of S.song.layers) for (const x of L.palette || []) if (x.d) x.d = Math.round(x.d * k);
+  retime(() => setTiming(bpm, songBars())); // notes (and grace notes) keep their length in steps
   S.pos = Math.max(0, playedTime(stepTime(S.song, at))); S.posAt = performance.now();
   afterEdit();
 }
@@ -1095,9 +1265,10 @@ const yOf = (d) => staffTop + (DIAT_TOP - d) * DSTEP - S.vy;
 const xOf = (s) => GUTTER + Math.round((s - S.scroll) * S.colW);
 const visibleSteps = () => (SW - GUTTER) / S.colW;
 // The grid: how fine notes are placed (song.grid, notes per whole note). A step stays a sixteenth everywhere
-// (bars, tempo, note times); a grid cell is S.cell steps: 1/32 = half a step, 1/24 = a sixteenth triplet.
-// S.zoom is the width of a cell in pixels, so a finer grid makes the song wider. One voice, one note per cell.
-const GRIDS = [{ n: 8, cell: 2 }, { n: 16, cell: 1 }, { n: 24, cell: 2 / 3 }, { n: 32, cell: 0.5 }];
+// (bars, tempo, note times); a grid cell is S.cell steps: 1/32 = half a step, 1/24 = a sixteenth triplet, 1/48 = a
+// 32nd triplet, 1/64 = a quarter step. S.zoom is the width of a cell in pixels, so a finer grid makes the song wider.
+// One voice, one note per cell.
+const GRIDS = [{ n: 8, cell: 2 }, { n: 16, cell: 1 }, { n: 24, cell: 2 / 3 }, { n: 32, cell: 0.5 }, { n: 48, cell: 1 / 3 }, { n: 64, cell: 0.25 }];
 const snapS = (v) => Math.round(Math.round(v / S.cell) * S.cell * 1e4) / 1e4;
 const cellOf = (s) => Math.round(s / S.cell);
 const cellMid = () => S.zoom >> 1;
@@ -1155,6 +1326,7 @@ function drawStaff() {
   drawRepeatRuler();
   drawEndFlag();
   drawLoopFlag();
+  drawTempoMarks(viewTop, bottom);
 
   // the staff scrolls vertically inside its view
   g.save();
@@ -1176,7 +1348,7 @@ function drawStaff() {
   const order = song.layers.map((_, i) => i).filter((i) => i !== S.active && !S.hidden.has(i)).sort((a, b) => layerChosen(a) - layerChosen(b));
   if (activeLayer() && !S.hidden.has(S.active)) order.push(S.active);
   const ge = graceEdit();
-  if (ge) drawLayer(ge.L, true, s0, s1, pos, ge.note); // editing grace notes: only that note and its grace notes
+  if (ge) { if (!isLane(ge.L)) drawLayer(ge.L, true, s0, s1, pos, ge.note); } // editing grace notes: only that note and them
   else for (const i of order) if (!isLane(song.layers[i])) drawLayer(song.layers[i], layerChosen(i), s0, s1, pos);
   g.restore();
   drawKeys();
@@ -1287,10 +1459,11 @@ function closeGraces() { if (S.ge) { S.ge = null; showStatus(''); } }
 const graceOf = (n, i) => graceNote(n, n.g[i]);
 // Grace notes are drawn like notes, with their sound's icon, left of their note at their own pitch, each with its
 // own gap (ms) to the next one (grace note or the note) under it. Not to scale: the gaps are the numbers.
-const GRACE_DX = 14;
+// In a drum lane (one row, low) the number goes right of the icon, so they are further apart.
+const graceDx = (L) => (isLane(L) ? 28 : 14);
 function graceSpots(L, n) {
-  const x0 = xOf(n.s) + cellMid(), k = n.g.length;
-  return n.g.map((x, i) => ({ i, x: x0 - GRACE_DX * (k - i), y: noteY(L, x) })); // x, y: the icon's centre
+  const x0 = xOf(n.s) + cellMid(), k = n.g.length, dx = graceDx(L);
+  return n.g.map((x, i) => ({ i, x: x0 - dx * (k - i), y: noteY(L, graceOf(n, i)) })); // x, y: the icon's centre
 }
 const graceGap = (n, i) => n.g[i].t - (i + 1 < n.g.length ? n.g[i + 1].t : 0);
 function drawGraces(L, n) {
@@ -1300,7 +1473,8 @@ function drawGraces(L, n) {
     if (i === hot) g.drawImage(glowOf(sp, ui.T.ink), x - 7, y - 7);
     g.drawImage(sp, x - 6, y - 6);
     const ms = String(Math.round((graceGap(n, i) * 1000) / RATE));
-    shadowText(ms, x - (textWidth(ms) >> 1), y + 8, i === hot ? ui.T.ink : c);
+    if (isLane(L)) shadowText(ms, x + 7, y - 2, i === hot ? ui.T.ink : c);
+    else shadowText(ms, x - (textWidth(ms) >> 1), y + 8, i === hot ? ui.T.ink : c);
   }
 }
 // The grace note under (x, y) of the note being edited: { note, i }.
@@ -1318,16 +1492,18 @@ function setGraceField(n, i, k, v) {
   n.e = 1;
 }
 const GRACE_MIN = () => Math.round(RATE / 1000); // 1 ms
-// Grace notes go on notes with a pitch (FM, PSG), not on drums or samples.
-const graceable = (L, n) => L.kind !== 'sample' && !fixedPitch(L, n);
+// Grace notes go on any note: on drums (no pitch of their own) they are flams and rolls.
+const graceable = (L) => L.kind !== 'dac';
 // A pen click on a grace note (i) or on its note (i = n.g.length, or no grace notes yet): one more grace note just
-// before it, a quarter step earlier, a whole tone above it; the ones before it move along, so their gaps stay.
+// before it, a quarter step earlier, a whole tone above it (a drum: the same hit); the ones before it move along, so
+// their gaps stay.
 function addGrace(L, n, i) {
   const g = n.g || [], at = i < g.length ? g[i] : { p: n.p, t: 0 };
   const gap = Math.max(GRACE_MIN(), Math.round(S.song.step / 4));
+  const fixed = fixedPitch(L, i < g.length ? graceOf(n, i) : n);
   const [lo, hi] = soundRange(L, soundOfNote(L, n) || L.sel) || [STAFF_LO, STAFF_HI];
   for (let k = 0; k < i; k++) g[k].t += gap;
-  g.splice(i, 0, { p: Math.min(hi, Math.max(lo, at.p + 2)), d: gap, t: at.t + gap });
+  g.splice(i, 0, { p: fixed ? at.p : Math.min(hi, Math.max(lo, at.p + 2)), d: gap, t: at.t + gap });
   n.g = g; n.e = 1;
   indexLayer(L); afterEdit(); previewNote(L, n);
   showStatus(graceText(n, i), 'Drag a grace note: up / down pitch, left / right time · click empty space or Esc: done');
@@ -1381,7 +1557,9 @@ function drawLanes(order, s0, s1, pos) {
     for (let x = GUTTER; x < SW; x += 2) fill(x, top + h - 1, 1, 1, T.staff);
   }
   g.save(); g.beginPath(); g.rect(GUTTER, lanesTop, SW - GUTTER, lanesEnd - lanesTop); g.clip();
-  if (!S.ge) for (const i of order) { const L = S.song.layers[i]; if (isLane(L)) drawLayer(L, layerChosen(i), s0, s1, pos); } // empty while grace notes are edited
+  const ge = graceEdit(); // editing grace notes: only that note and them (a drum's, in its lane)
+  if (ge) { if (isLane(ge.L)) drawLayer(ge.L, true, s0, s1, pos, ge.note); }
+  else for (const i of order) { const L = S.song.layers[i]; if (isLane(L)) drawLayer(L, layerChosen(i), s0, s1, pos); }
   g.restore();
   fill(GUTTER - 1, lanesTop, 1, lanesEnd - lanesTop, T.ink);
   for (const L of S.lanes) {
@@ -1757,7 +1935,9 @@ function drawKeys() {
     if (yc < viewTop - 4 || yc > viewBot + 4) continue;
     if (((d % 7) + 7) % 7 === 0) drawText(g, 'C' + Math.floor(d / 7), 11, yc - 2, T.keys); // no shadow on the keys
   }
-  fill(KEY_LINE, viewTop, 1, viewBot - viewTop, T.ink);
+  fill(KEY_LINE, viewTop, 1, viewBot - viewTop, T.edge); // the line right of the keys: dark like the boxes' outlines
+  if (top > viewTop) fill(0, viewTop, KEY_LINE, top - viewTop, T.face); // above and below the keys: the buttons' face
+  if (bot < viewBot) fill(0, bot, KEY_LINE, viewBot - bot, T.face);
   // a pressed key draws its line across the staff
   if (S.drag?.mode === 'keys') {
     const y = Math.round(keyY(S.drag.p) + (IS_SHARP[S.drag.p % 12] ? -0.5 : 0));
@@ -1911,10 +2091,10 @@ function newNote(L, h) {
   if (h && !fixedPitch(L, n)) {
     n.d = Math.round(stepTime(S.song, n.s + (L.pick?.len || S.cell || 1)) - stepTime(S.song, n.s));
     if (L.pick?.slide && L.kind !== 'sample') n.slide = L.pick.slide;
-    if (L.pick?.g && L.kind !== 'sample') { // the picked note's grace notes, at the same intervals from this one
-      const [lo, hi] = soundRange(L, snd) || [STAFF_LO, STAFF_HI];
-      n.g = L.pick.g.map((x) => ({ ...structuredClone(x), p: Math.max(lo, Math.min(hi, n.p + x.p)) }));
-    }
+  }
+  if (h && L.pick?.g) { // the picked note's grace notes, at the same intervals from this one
+    const [lo, hi] = soundRange(L, snd) || [STAFF_LO, STAFF_HI];
+    n.g = L.pick.g.map((x) => ({ ...structuredClone(x), p: Math.max(lo, Math.min(hi, n.p + x.p)) }));
   }
   return n;
 }
@@ -1934,6 +2114,8 @@ function noteAt(L, x, y) {
 function hitTest(x, y, shift = false) {
   const L = activeLayer();
   if (y < RULER) return { kind: 'ruler', s: S.scroll + (x - GUTTER) / S.colW, x, y };
+  const tag = x >= GUTTER && tempoTagAt(x, y); // a tempo change's callout works like its line on the ruler
+  if (tag) return { kind: 'ruler', s: tag.s, x: xOf(tag.s), y, tag };
   if (!L) return { kind: 'none' };
   if (multiLayer()) { // several tracks: notes of any of them (h.L says which), the keys, the other tracks' lanes
     const inLanes = S.lanes.length && y >= lanesTop - 2;
@@ -2034,6 +2216,7 @@ function staffDown(x, y, e) {
   const L = activeLayer();
   // the ruler works the same with every tool: flags, and Sonic dragged along
   if (h.kind === 'ruler' && e.button === 0) {
+    if (h.tag) { openTempoDialog(h.tag.s); return; }
     if (nearEndFlag(x, y)) { pushUndo(); S.drag = { mode: 'end', moved: false }; return; }
     if (nearLoopFlag(x, y)) { pushUndo(); S.drag = { mode: 'loop', moved: false }; return; }
     S.drag = { mode: 'seek', s: Math.floor(h.s) }; seekToStep(S.drag.s); return;
@@ -2045,6 +2228,7 @@ function staffDown(x, y, e) {
     return;
   }
   if (S.tool === 'repeat' && e.button === 0 && h.kind !== 'ruler') { repeatDown(x, y); return; }
+  if (h.kind === 'ruler' && e.button === 2) { openRulerMenu(x, y, h); return; }
   if (h.kind === 'ruler') return;
   const ge = graceEdit();
   if (ge && BAR_TOOLS[S.tool] && x >= GUTTER && e.button === 0) { // volume / stereo bars of the note and its grace notes
@@ -2061,9 +2245,12 @@ function staffDown(x, y, e) {
     if (e.button === 2 || S.tool === 'erase') { pushUndo(); eraseGrace(M, n, i); afterEdit(); return; }
     if (S.tool === 'fill' && e.button === 0) { // its own sound (the note's again: it follows the note)
       const snd = M.sel;
-      if (!snd || snd.gm != null || snd.smp != null) { showStatus('A grace note needs a sound with a pitch'); return; }
+      if (!snd) return;
       pushUndo();
-      setGraceField(n, i, 'i', snd.i); setGraceField(n, i, 'm', snd.m);
+      const x = { ...graceOf(n, i) };
+      applySound(M, x, snd); // a drum sound also sets its row (p)
+      for (const k of ['i', 'm', 'smp', 'gm']) setGraceField(n, i, k, x[k]);
+      n.g[i].p = x.p;
       indexLayer(M); afterEdit(); previewNote(M, graceOf(n, i));
       showStatus(`Grace ${noteName(n.g[i].p)} → ${snd.name}`);
       return;
@@ -2114,7 +2301,7 @@ function staffDown(x, y, e) {
       if (snd) M.sel = snd;
       // the pen will draw this note as it is: its sound, its length, its slide and its grace notes (as intervals)
       M.pick = { len: Math.max(S.cell, snapS(n._e - n.s)), slide: fixedPitch(M, n) ? 0 : n._slide || 0 };
-      if (n.g?.length && graceable(M, n)) M.pick.g = n.g.map((x) => ({ ...structuredClone(x), p: x.p - n.p }));
+      if (n.g?.length && graceable(M)) M.pick.g = n.g.map((x) => ({ ...structuredClone(x), p: x.p - n.p }));
       previewNote(M, n);
       setTool('pen');
       const extra = (fixedPitch(M, n) ? '' : ` · ${Math.round(M.pick.len / S.cell)}/${S.grid}`) + (M.pick.slide ? ` · slide ${M.pick.slide > 0 ? '+' : ''}${M.pick.slide}` : '') + (M.pick.g ? ` · ${M.pick.g.length} grace note${M.pick.g.length > 1 ? 's' : ''}` : '');
@@ -2240,7 +2427,10 @@ function staffMove(x, y, e) {
   }
   if (d.mode === 'grace') { // the cursor stays on the grace note (drawCursor), only what it says changes
     const { note, L, i } = d, gr = note.g, dx = x - d.x0, dy = y - d.y0;
-    if (!d.axis) { if (Math.max(Math.abs(dx), Math.abs(dy)) < 3) return; d.axis = Math.abs(dx) >= Math.abs(dy) ? 'time' : 'pitch'; }
+    if (!d.axis) { // a drum has no pitch to drag: always its time
+      if (Math.max(Math.abs(dx), Math.abs(dy)) < 3) return;
+      d.axis = Math.abs(dx) >= Math.abs(dy) || fixedPitch(L, graceOf(note, i)) ? 'time' : 'pitch';
+    }
     if (d.axis === 'pitch') {
       const p = placeAt(L, y, e.shiftKey, note).p;
       if (p !== gr[i].p) { gr[i].p = p; note.e = 1; d.moved = true; indexLayer(L); previewNote(L, graceOf(note, i)); }
@@ -2341,7 +2531,7 @@ function staffUp() {
     return;
   }
   if (mode === 'penNote') { // a click on a note: opens its grace notes (a first one if it has none); open, one more
-    if (!graceable(L, note)) { S.undo.pop(); updateDocUI(); return; } // drums and samples: it just plays
+    if (!graceable(L)) { S.undo.pop(); updateDocUI(); return; }
     if (graceEdit()?.note === note) { addGrace(L, note, note.g?.length || 0); return; }
     openGraces(L, note);
     if (!note.g?.length) addGrace(L, note, 0); else { S.undo.pop(); updateDocUI(); }
@@ -2456,7 +2646,8 @@ function barBeat(s, sixteenths = false) {
 function staffHint(h) {
   const L = h?.L || activeLayer();
   if (!h) return '';
-  if (h.kind === 'ruler') return nearEndFlag(h.x, h.y) || nearLoopFlag(h.x, h.y) ? 'Drag: move the flag' : 'Click or drag: move Sonic';
+  if (h.tag) return 'Click: change the tempo · right click: more';
+  if (h.kind === 'ruler') return nearEndFlag(h.x, h.y) || nearLoopFlag(h.x, h.y) ? 'Drag: move the flag' : 'Click or drag: move Sonic · right click: tempo';
   if (h.kind === 'key') return 'Click: play · drag: play along';
   if (h.kind === 'lane') return 'Click: choose this track';
   if (!L || h.x < GUTTER) return '';
@@ -2471,7 +2662,7 @@ function staffHint(h) {
   switch (S.tool) {
     case 'pen':
       if (S.ge) return note ? 'Click: one more grace note · drag sideways: length' : 'Click: done with the grace notes (or Esc)';
-      if (note) return pitched ? `Click: grace notes · drag sideways: length, up / down: slide` : 'Drag sideways: length';
+      if (note) return pitched ? 'Click: grace notes · drag sideways: length, up / down: slide' : 'Click: grace notes (a flam, a roll) · drag sideways: length';
       return h.kind === 'empty' ? 'Click: place a note · right click: erase' : '';
     case 'select':
       if (note) return S.sel.has(note) ? 'Drag: move · Del: delete · Ctrl+C: copy' : 'Click: select · drag: move · Shift: add';
@@ -2499,7 +2690,10 @@ function staffStatus(h) {
   }
   if (h.kind === 'ruler' && nearEndFlag(h.x, h.y)) return 'End of song · drag to change the length';
   if (h.kind === 'ruler' && nearLoopFlag(h.x, h.y)) return 'The song loops from here · drag to move';
-  if (h.kind === 'ruler') return `Bar ${barBeat(Math.floor(h.s))}`;
+  if (h.kind === 'ruler') {
+    const m = h.tag || tempoMarkNear(h.x);
+    return m ? `Tempo from bar ${barBeat(m.s, true)}: ${Math.round(tempoAt(m.s))} BPM (${signed(m.d)})` : `Bar ${barBeat(Math.floor(h.s))}`;
+  }
   if (h.kind === 'key') return noteName(h.p);
   if (h.kind === 'lane') return `Select ${S.song.layers[h.li].name}`;
   if (h.kind === 'grace') return h.note.g?.[h.i] ? `${graceText(h.note, h.i)} · ${barBeat(h.note.s)}` : '';
@@ -2602,7 +2796,7 @@ function closeDialog(result) {
   if (d.kind === 'smpImport') { d.held = null; smpStop(d); }
   blurField();
   S.dlg = d.parent || null; // a dialog opened from another one goes back to it
-  if (d.kind === 'bpm' && !d.done) { // the tempo dialog cancelled: the song as it was (exact, examples have odd tempos)
+  if ((d.kind === 'bpm' || d.kind === 'tempo') && !d.done) { // a tempo dialog cancelled: the song as it was (exact, examples have odd tempos)
     applySnapshot(S.undo.pop());
     updateTimingUI(); rebuildModel(); sendTimeline();
     markDirty();
@@ -2631,7 +2825,7 @@ async function dialogOk(d = S.dlg) {
   else if (d.kind === 'smpImport') await smpSave(d);
   else if (d.kind === 'ask') closeDialog(true);
   else if (d.kind === 'export') await exportSong(d);
-  else if (d.kind === 'bpm') { d.done = true; if (!d.changed) S.undo.pop(); closeDialog(); }
+  else if (d.kind === 'bpm' || d.kind === 'tempo') { d.done = true; if (!d.changed) S.undo.pop(); closeDialog(); }
   else closeDialog();
 }
 
@@ -2714,6 +2908,7 @@ function drawDialog() {
   if (d.kind === 'smpImport') { drawSampleImport(d); return; }
   if (d.kind === 'open') { drawOpenDialog(d); return; }
   if (d.kind === 'bpm') { drawBpmDialog(d); return; }
+  if (d.kind === 'tempo') { drawTempoDialog(d); return; }
   if (d.kind === 'settings') { drawSettingsDialog(d); return; }
   if (d.kind === 'add') { drawAddDialog(d); return; }
   if (d.kind === 'track') drawTrackDialog(d);
@@ -4030,6 +4225,7 @@ function draw() {
     fill(st.x, by, 1, bh, T.edge); fill(st.x + st.w - 1, by, 1, bh, T.edge);
     round(st.x, by, st.w, bh);
   }
+  drawTempoTags();
   drawSonic(lastPosStep);
   drawOverview(sx, st.y + st.h + 2, sw, ovH, lastPosStep);
   if (showLayers) { // the left column: LAYERS, the song's Description (songs from the games), the Playlist in the rest
@@ -4051,6 +4247,7 @@ function draw() {
 
   if (S.flyout) drawFlyout();
   if (S.menu) drawMenu(S.menuX, MARGIN + TB_H - 1);
+  if (S.rulerMenu) popMenu(S.rulerMenu.x, S.rulerMenu.y, rulerMenuItems(), () => { S.rulerMenu = null; });
   if (S.scaleMenu) drawScaleMenu();
   if (S.dlg) { drawDialog(); drawDialogTip(); }
   endFrame();
@@ -4125,7 +4322,7 @@ function drawLcd(x, y, w) {
   const cols = [['BAR', `${bar}.${beat}`, 4], ['TIME', `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}`, 28]];
   for (const [l, v, dx] of cols) { text(l, x + dx, y + 4, T.lcdDim); text(v, x + dx, y + 12, T.lcdInk); }
   text('BPM', x + 52, y + 4, T.lcdDim);
-  text(String(Math.round(S.song.bpm)), x + 52, y + 12, hot('bpm') ? T.white : T.lcdInk);
+  text(String(Math.round(bpmNow(lastPosStep))), x + 52, y + 12, hot('bpm') ? T.white : T.lcdInk); // where it plays: tempo changes show
   region(x + 50, y + 2, 20, h - 4, { id: 'bpm', cursor: 'pointer', tip: 'Tempo · click to change',
     click: () => openBpmDialog(),
     wheel: (e) => setBpm(S.song.bpm + (e.deltaY < 0 ? 1 : -1) * (e.shiftKey ? 10 : 1)) });
@@ -4468,6 +4665,7 @@ function drawPalette(x, y, w) {
     return;
   }
   if (!L) { frame(x, y, w, 14); fill(x + 1, y + 1, w - 2, 12, T.face); shadowText('No tracks', x + 5, y + 5, T.dim); round(x, y, w, 14); return; }
+  if (multiLayer()) { paletteLabel(x, y, w, ''); return; } // several tracks: no one track's sounds to show
   const max = Math.max(1, Math.floor((w - 60) / 13));
   const cells = L.sounds.slice(0, max).map((snd, k) => ({
     id: 'snd-' + k, on: L.sel === snd, tip: snd.name,
@@ -4627,9 +4825,9 @@ window.addEventListener('keydown', (e) => {
     else if (k === 'Enter') { e.preventDefault(); dialogOk(); }
     return;
   }
-  if (S.menu || S.flyout || S.scaleMenu) {
-    if (k === 'Escape') { S.menu = false; S.flyout = false; S.scaleMenu = false; return; }
-    S.menu = false; S.flyout = false; S.scaleMenu = false;
+  if (S.menu || S.flyout || S.scaleMenu || S.rulerMenu) {
+    if (k === 'Escape') { S.menu = false; S.flyout = false; S.scaleMenu = false; S.rulerMenu = null; return; }
+    S.menu = false; S.flyout = false; S.scaleMenu = false; S.rulerMenu = null;
   }
   if (mod && code === 'KeyS') { e.preventDefault(); e.shiftKey ? saveCopyDialog() : save(); return; }
   if (mod && code === 'KeyO') { e.preventDefault(); showOpenDialog(); return; }
