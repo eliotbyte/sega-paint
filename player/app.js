@@ -653,7 +653,7 @@ function computeRange() {
 
 // ---------- edits, undo/redo, persistence ----------
 function snapshot() {
-  const o = { _timing: { bpm: S.song.bpm, bars: songBars(), loop: loopStep(), repeats: S.song.repeats || [], tempos: S.song.tempos || [] } };
+  const o = { _timing: { bpm: S.song.bpm, bars: songLen(), loop: loopStep(), repeats: S.song.repeats || [], tempos: S.song.tempos || [] } };
   for (const L of S.song.layers) if (L.kind !== 'dac') o[L.id] = L.notes;
   return JSON.stringify(o, (k, v) => (k.startsWith('_') && k !== '_timing' ? undefined : v)); // every note field (grace notes g, leg, ...) but the runtime _ ones
 }
@@ -704,6 +704,11 @@ function afterEdit() {
 }
 // ---------- tempo and length: any song (my songs have an even grid, examples the uneven one of the game) ----------
 const songBars = () => Math.max(1, Math.round((timeToStep(S.song, S.song.end) - S.barOffset) / 16));
+// The song's length as setTiming takes it: bars, a fraction when it ends inside a bar (the end flag goes to any cell).
+const timingOffset = () => (S.song.uniform ? (S.song.barOffset || 0) - (S.song.step0 || 0) : S.song.barOffset ?? ((S.barOffset + 8) % 16) - 8);
+const songLen = () => (timeToStep(S.song, S.song.end) - timingOffset()) / 16;
+const lenWhole = () => Math.abs(songLen() - Math.round(songLen())) < 1e-3;
+const barsShown = () => Math.max(1, Math.ceil(songLen() - 1e-3)); // the BARS counter: a started bar counts
 // Loop start in steps (-1: the song does not loop).
 const loopStep = () => (S.song.loopStart < 0 ? -1 : Math.round(timeToStep(S.song, S.song.loopStart) * 1000) / 1000);
 // Every song loops; the green repeat (|: on the staff, flag on the ruler) only shows where the loop starts later
@@ -711,7 +716,7 @@ const loopStep = () => (S.song.loopStart < 0 ? -1 : Math.round(timeToStep(S.song
 // A song with a pickup (bars from song.barOffset) shows it at bar 1 too: the pickup plays only the first time.
 const loopShown = () => loopStep() > (S.song.barOffset ? 0.01 : Math.max(0, S.barOffset) + 0.01);
 function setTiming(bpm, bars, loop = loopStep()) {
-  const steps = bars * 16 + (S.song.barOffset || 0);
+  const steps = Math.round(bars * 16 + (S.song.barOffset || 0));
   if (loop >= steps) loop = Math.max(0, steps - 16); // keep at least the last bar inside the repeat
   if (S.song.uniform) { // each step as long as the tempo there (the song's, or a tempo change's)
     const step = RATE * 60 / (bpm * 4), times = [0];
@@ -737,7 +742,7 @@ function setTiming(bpm, bars, loop = loopStep()) {
 // stretched by how far its tempo now is from the one it was opened with.
 function timingBase() {
   const s = S.song;
-  return (s._base ??= { times: s.stepTimes.slice(), step: s.step, bpm: s.bpm, end: s.end, bars: songBars(), globals: s.globals.map((x) => x.slice()), tempos: tempoMarks().map((m) => ({ ...m })) });
+  return (s._base ??= { times: s.stepTimes.slice(), step: s.step, bpm: s.bpm, end: s.end, bars: songLen(), globals: s.globals.map((x) => x.slice()), tempos: tempoMarks().map((m) => ({ ...m })) });
 }
 function setUnevenTiming(bpm, bars) {
   const s = S.song, b = timingBase();
@@ -758,7 +763,7 @@ function setUnevenTiming(bpm, bars) {
     const i = s.stepTimes.length - 1;
     s.stepTimes.push(Math.round((s.stepTimes.at(-1) + b.step * k(i)) * 10) / 10);
   }
-  s.end = bars === b.bars ? Math.round(map(b.end)) : Math.round(stepTime(s, last));
+  s.end = Math.abs(bars - b.bars) < 1e-6 ? Math.round(map(b.end)) : Math.round(stepTime(s, last));
 }
 
 // ---------- tempo changes ----------
@@ -799,13 +804,13 @@ function setTempoMark(s, d) {
   if (!S.song.uniform) timingBase(); // the grid as it is now goes with the marks as they are now
   const marks = (S.song.tempos ||= []), m = marks.find((x) => x.s === s);
   if (m) m.d = d; else { marks.push({ s, d }); marks.sort((a, b) => a.s - b.s); }
-  retime(() => setTiming(S.song.bpm, songBars()));
+  retime(() => setTiming(S.song.bpm, songLen()));
 }
 function removeTempoMark(s) {
   if (!S.song.uniform) timingBase();
   S.song.tempos = tempoMarks().filter((x) => x.s !== s);
   if (!S.song.tempos.length) delete S.song.tempos;
-  retime(() => setTiming(S.song.bpm, songBars()));
+  retime(() => setTiming(S.song.bpm, songLen()));
 }
 // Tempo changes: a line on the ruler, and under it a callout (a box with a little triangle pointing up at the
 // line, and a shadow) with the change in BPM; a dashed line goes on down through the staff. The callouts are drawn
@@ -922,13 +927,13 @@ function setBpm(bpm, undoable = true) {
   if (undoable) pushUndo();
   const k = S.song.bpm / bpm, at = timeToStep(S.song, writtenTime(currentPos()));
   for (const L of S.song.layers) for (const x of L.palette || []) if (x.d) x.d = Math.round(x.d * k);
-  retime(() => setTiming(bpm, songBars())); // notes (and grace notes) keep their length in steps
+  retime(() => setTiming(bpm, songLen())); // notes (and grace notes) keep their length in steps
   S.pos = Math.max(0, playedTime(stepTime(S.song, at))); S.posAt = performance.now();
   afterEdit();
 }
 function setBars(bars) {
   bars = Math.max(1, Math.min(256, bars));
-  if (bars === songBars()) return;
+  if (Math.abs(bars - songLen()) < 1e-3) return;
   pushUndo();
   setTiming(S.song.bpm, bars);
   afterEdit();
@@ -1658,14 +1663,15 @@ function paintBar(x, y) {
 // Notes only play from the song start (time 0) on, and in reference songs (fixed length) until their end.
 const firstPlayStep = () => Math.ceil(timeToStep(S.song, 0) - 1e-6);
 const lastPlayStep = () => Math.ceil(timeToStep(S.song, S.song.end) - 1e-6) - 1;
-// Finish flag on the ruler at the song end; drag it to change the length of my songs.
+// Finish flag on the ruler at the song end; drag it to change the length (to any cell of the grid).
 const endFlagX = () => xOf(lastPlayStep() + 1);
-const nearEndFlag = (x, y) => y < RULER && Math.abs(x - endFlagX() - 3) <= 5;
+const nearEndFlag = (x, y) => y < RULER && Math.abs(x - endFlagX() + 4) <= 5;
 function drawEndFlag() {
   const x = endFlagX(), T = ui.T, ink = blinks((g) => g.end) ? T.white : T.ink;
   if (x < GUTTER || x > SW) return;
   fill(x, 1, 1, RULER - 2, T.ink);
-  for (let r = 0; r < 3; r++) for (let c = 0; c < 4; c++) fill(x + 1 + c * 2, 1 + r * 2, 2, 2, (r + c) % 2 ? T.paper : ink);
+  // the cloth hangs to the left, inside the song: the pole is where the song ends (like the :| on the staff)
+  for (let r = 0; r < 3; r++) for (let c = 0; c < 4; c++) fill(x - 8 + c * 2, 1 + r * 2, 2, 2, (r + c) % 2 ? T.paper : ink);
 }
 // What the mouse is over that can be dragged: a flag on the ruler, or with the repeat tool a repeat sign or the
 // green |:. It blinks slowly, so it is clear it can be moved.
@@ -1834,7 +1840,7 @@ function repeatMove(x) {
       k = Math.max(lo, Math.min(r.to - 1, k));
       if (k !== r.from) { r.from = k; d.moved = true; S.perf = null; }
     } else {
-      const hi = Math.min(barStart(nb), ...others.filter((o) => o.from >= r.to).map((o) => o.from));
+      const hi = Math.min(Math.floor(endStepQ() + 1e-6), ...others.filter((o) => o.from >= r.to).map((o) => o.from));
       k = Math.min(hi, Math.max(r.from + 1, k));
       if (k !== r.to) { r.to = k; d.moved = true; S.perf = null; }
     }
@@ -2464,9 +2470,12 @@ function staffMove(x, y, e) {
   if (d.mode === 'bars') { paintBarsTo(x, y); return; }
   if (d.mode === 'rep' || d.mode === 'repEdge' || d.mode === 'loop') { repeatMove(x); return; }
   if (d.mode === 'end') {
-    const bars = Math.max(1, Math.min(256, Math.round((S.scroll + (x - GUTTER) / S.colW) / 16)));
-    if (bars !== songBars()) { setTiming(S.song.bpm, bars); updateTimingUI(); d.moved = true; }
-    showStatus(`Song length · ${bars} bar${bars > 1 ? 's' : ''}`);
+    // to the nearest cell of the grid (whole steps), at least one step after the start
+    const c = Math.max(1, S.cell), st = S.scroll + (x - GUTTER) / S.colW;
+    const k = Math.max(firstPlayStep() + 1, Math.min(256 * 16, Math.round(st / c) * c));
+    const len = (k - timingOffset()) / 16;
+    if (Math.abs(k - endStepQ()) > 1e-3) { setTiming(S.song.bpm, len); updateTimingUI(); d.moved = true; }
+    showStatus(`Song ends at ${barBeat(k, true)}`);
     return;
   }
   if (d.mode === 'slide') {
@@ -4693,13 +4702,13 @@ function drawTransport(y) {
     { id: 'loop', icon: 'loop', on: S.loop, tip: 'Loop · L', click: () => setLoop(!S.loop) },
   ]) + 2;
   x += strip(x, y, [
-    { id: 'barMinus', icon: 'minus', disabled: songBars() <= 1, tip: 'Remove the last bar', click: () => setBars(songBars() - 1) },
+    { id: 'barMinus', icon: 'minus', disabled: barsShown() <= 1, tip: 'Remove the last bar', click: () => setBars(barsShown() - 1) },
     { id: 'bars', tip: 'Bars in the song', draw: (cx, cy, cw) => {
       shadowText('BARS', cx + ((cw - textWidth('BARS')) >> 1), cy + 3, T.dim);
-      const n = String(songBars());
+      const n = String(barsShown());
       shadowText(n, cx + ((cw - textWidth(n)) >> 1), cy + 11, T.ink);
     } },
-    { id: 'barPlus', icon: 'plus', disabled: songBars() >= 256, tip: 'Add a bar at the end', click: () => setBars(songBars() + 1) },
+    { id: 'barPlus', icon: 'plus', disabled: songBars() >= 256, tip: 'Add a bar at the end', click: () => setBars(barsShown() + (lenWhole() ? 1 : 0)) }, // a started bar is filled up first
   ]) + 6;
   // volume on the right
   const lcdW = 138, lx = ui.W - MARGIN - lcdW;
