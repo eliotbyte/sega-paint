@@ -15,7 +15,7 @@ import { ui, initScreen, resizeScreen, beginFrame, endFrame, region, hot, presse
 const LAST_KEY = 'segapaint:last', THEME_KEY = 'segapaint:theme', SCALE_KEY = 'segapaint:scale', SOUND_KEY = 'segapaint:sound';
 const VGM_KEY = 'segapaint:vgm'; // the last export's author and DAC choice
 const FOLD_KEY = 'segapaint:fold'; // which left panels are folded
-const VERSION = 'BETA 2';
+const VERSION = 'BETA 3';
 // The art editor saves through tools/serve.py, so it is offered only when the app runs from it (not on the web copy).
 const LOCAL = ['localhost', '127.0.0.1', '[::1]'].includes(location.hostname);
 const SCALES = [2, 3, 4, 5, 6];
@@ -1424,6 +1424,13 @@ function drawLayer(L, active, s0, s1, pos, only = null) {
     const x0 = xOf(n.s) + cellMid(), x1 = xOf(n._e);
     if (n._e - n.s > 1.05 && x1 > x0) paint(x0, noteY(L, n) - 1, x1 - x0, 3, tail);
   }
+  // legato: a slur over the two notes (also while the pen is reaching for the next one)
+  if (!only && L.kind === 'fm') for (let i = Math.max(1, lo); i < notes.length && notes[i - 1].s <= s1; i++) {
+    const n = notes[i];
+    // while the pen draws the tail up to this note, only the touch (it blinks) decides, not the legato it had
+    const pen = S.drag?.mode === 'tail' && S.drag.next === n;
+    if (pen ? S.drag.leg === n : n.leg && tiedTo(notes[i - 1], n)) drawSlur(L, notes[i - 1], n, active);
+  }
   const ps = timeToStep(S.song, pos);
   for (let i = lo; i < notes.length && notes[i].s <= s1; i++) {
     const n = notes[i];
@@ -1438,6 +1445,9 @@ function drawLayer(L, active, s0, s1, pos, only = null) {
     else if (S.playing && pos >= n._t && pos < n._t + Math.min(n._d, RATE * 0.12)) frame = 1;
     const hotNote = S.drag?.note === n || (active && (S.tool === 'erase' || S.tool === 'fill' || S.tool === 'pick') && S.hover?.note === n);
     if (hotNote && !frame) frame = 1;
+    // the note the pen is tying to blinks
+    const legBlink = S.drag?.leg === n && Math.floor(performance.now() / 150) % 2 === 0;
+    if (legBlink && !frame) frame = 1;
     const off = n.s > lastPlayStep();
     const faint = !active || off;
     const sp = noteSprite(name, L.tone, Math.min(frame, nf - 1), faint ? 'ghost' : 'normal', ui.T);
@@ -1445,7 +1455,7 @@ function drawLayer(L, active, s0, s1, pos, only = null) {
     // riding a note with a slide, the icon follows the pitch as it sounds
     const dy = riding && n._slide ? Math.round(slideDy(n, pos - n._t)) : 0;
     // on the staff a note with grace notes glows (its light tone around it); they are shown when it is opened
-    const glow = n.g?.length && !only ? toneInk(L, !active, 0) : null;
+    const glow = legBlink ? ui.T.ink : n.g?.length && !only ? toneInk(L, !active, 0) : null;
     const [x] = drawNoteSprite(sp, at, noteY(L, n) + dy, !active, glow);
     if (n._slide && !riding) drawGliss(L, n, x + 10, active);
     if (only && n.g?.length) drawGraces(L, n);
@@ -1545,6 +1555,23 @@ function drawGliss(L, n, x0, active) {
     fill(x0 + i, y, 1, 2, c);
   }
   fill(x1, y1 - 1, 3, 3, c); // target dot
+}
+
+// Legato (n.leg, engine/song.js): the note goes on from the one before it, no key-off and no new key-on, when that
+// one's tail reaches it. The FM driver plays it so; PSG notes whose tails touch run on anyway, so only FM melody tracks.
+const legable = (L) => L.kind === 'fm' && !isLane(L);
+const tiedTo = (a, b) => a._t + a.d >= b._t - 4;
+// The slur: a pixel arc over both icons, thin at the ends, from one note's head to the other's.
+function drawSlur(L, a, b, active) {
+  const x0 = xOf(a.s) + cellMid(), x1 = xOf(b.s) + cellMid();
+  if (x1 - x0 < 4) return;
+  const ya = noteY(L, a) - 9, yb = noteY(L, b) - 9;
+  const h = Math.max(3, Math.min(8, (x1 - x0) >> 3)), c = active ? ui.T.ink : ui.T.staff;
+  for (let x = x0 + 1; x < x1; x++) {
+    const u = (x - x0) / (x1 - x0), bump = 4 * u * (1 - u);
+    const y = Math.round(ya + (yb - ya) * u - h * bump);
+    fill(x, y, 1, bump > 0.35 ? 2 : 1, c);
+  }
 }
 
 // A rectangle dithered: colour c on every other pixel, the shade of the areas out of play on the rest.
@@ -2469,10 +2496,14 @@ function staffMove(x, y, e) {
   if (d.mode === 'tail') {
     const { note, L } = d;
     const next = L.notes.find((m) => m.s > note.s); // the tail stops at the next note
+    if (d.next === undefined) { d.next = next || null; d.leg0 = !!next?.leg; }
     const endStep = Math.min(next ? next.s : Infinity, Math.max(snapS(note.s + S.cell), snapS(S.scroll + (x - GUTTER) / S.colW)));
-    const dd = Math.round(stepTime(S.song, endStep) - noteTime(S.song, note));
+    // the pen reaching the next note's icon ties them: it blinks, and on release it goes on legato from this one
+    d.leg = next && legable(L) && x >= xOf(next.s) + cellMid() - 6 ? next : null;
+    const dd = d.leg ? Math.round(next._t - note._t) : Math.round(stepTime(S.song, endStep) - noteTime(S.song, note));
     if (dd !== note.d) { note.d = dd; note.e = 1; d.moved = true; indexLayer(L); }
-    showStatus(`${noteName(note.p)} · ${Math.round((endStep - note.s) / S.cell)}/${S.grid}`);
+    if (d.leg) showStatus(`${noteName(note.p)} → ${noteName(next.p)} · legato`, 'Release: tie them, no new key-on · back: just the length');
+    else showStatus(`${noteName(note.p)} · ${Math.round((endStep - note.s) / S.cell)}/${S.grid}`);
     return;
   }
   if (d.mode === 'bars') { paintBarsTo(x, y); return; }
@@ -2559,7 +2590,14 @@ function staffUp() {
     return;
   }
   if (mode === 'tail') {
-    if (moved) { trimOverlaps(L, note); afterEdit(); previewNote(L, note); } else { S.undo.pop(); updateDocUI(); }
+    // legato set or taken off: the next note keeps it only while the tail reaches it
+    const nx = legable(L) ? drag.next : null;
+    const legChanged = !!nx && !!drag.leg !== drag.leg0;
+    if (nx) { if (drag.leg) nx.leg = true; else delete nx.leg; if (legChanged) nx.e = 1; }
+    if (moved || legChanged) {
+      trimOverlaps(L, note); afterEdit(); previewNote(L, note);
+      if (drag.leg) showStatus(`${noteName(note.p)} → ${noteName(nx.p)} · legato`);
+    } else { S.undo.pop(); updateDocUI(); }
     return;
   }
   if (mode === 'slide') {
@@ -2599,7 +2637,7 @@ function copySelection() {
   if (!L || !S.sel.size) return;
   const notes = [...S.sel].sort((a, b) => a.s - b.s);
   const s0 = notes[0].s, own = noteOwners();
-  const pick = ({ s, n, d, md, p, i, m, smp, gm, slide, vol, pan, g }) => ({ s: s - s0, n, d, md, p, i, m, smp, gm, slide, vol, pan, g: g && structuredClone(g) });
+  const pick = ({ s, n, d, md, p, i, m, smp, gm, slide, vol, pan, g, leg }) => ({ s: s - s0, n, d, md, p, i, m, smp, gm, slide, vol, pan, leg, g: g && structuredClone(g) });
   const tracks = new Set(notes.map((n) => own.get(n) || L));
   if (tracks.size > 1) S.clip = { parts: [...tracks].map((M) => ({ id: M.id, notes: notes.filter((n) => own.get(n) === M).map(pick) })) };
   else { const M = [...tracks][0]; S.clip = { kind: M.kind, kit: !!M.kit, voice: M.voice, notes: notes.map(pick) }; }
@@ -2679,7 +2717,7 @@ function staffHint(h) {
   switch (S.tool) {
     case 'pen':
       if (S.ge) return note ? 'Click: one more grace note · drag sideways: length' : 'Click: done with the grace notes (or Esc)';
-      if (note) return pitched ? 'Click: grace notes · drag sideways: length, up / down: slide' : 'Click: grace notes (a flam, a roll) · drag sideways: length';
+      if (note) return pitched ? `Click: grace notes · drag sideways: length${legable(L) ? ' (onto the next note: legato)' : ''}, up / down: slide` :'Click: grace notes (a flam, a roll) · drag sideways: length';
       return h.kind === 'empty' ? 'Click: place a note · right click: erase' : '';
     case 'select':
       if (note) return S.sel.has(note) ? 'Drag: move · Del: delete · Ctrl+C: copy' : 'Click: select · drag: move · Shift: add';
@@ -4267,7 +4305,7 @@ function draw() {
     }
     const colH = trY - 2 - row2, info = songInfo();
     const aboutH = info ? panelShownH('about', ABOUT_H) + 2 : 0;
-    const plMin = S.refs.length ? panelShownH('playlist', PL_MIN) + 2 : 0;
+    const plMin = S.refs.length && S.doc.kind === 'ref' ? panelShownH('playlist', PL_MIN) + 2 : 0;
     const lh = drawLayers(MARGIN, row2, lpw, colH - aboutH - plMin);
     if (info) drawAbout(MARGIN, row2 + lh + 2, lpw, info);
     if (plMin) drawPlaylist(MARGIN, row2 + lh + 2 + aboutH, lpw, colH - lh - 2 - aboutH);
@@ -4777,6 +4815,8 @@ function drawOverview(x, y, w, h, posStep) {
   const iw = w - 2, ih = h - 2, total = S.totalSteps, sx = iw / total;
   const layers = S.song.layers;
   const lane = Math.max(1, Math.floor(ih / Math.max(1, layers.length)));
+  // inside the frame only: the last bar's stripe and notes after the song's end would stick out on the right
+  g.save(); g.beginPath(); g.rect(x + 1, y + 1, iw, ih); g.clip();
   for (let s = S.barOffset; s < total; s += 32) dither(x + 1 + Math.floor(s * sx), y + 1, Math.max(1, Math.ceil(16 * sx)), ih, T.hover);
   const hl = repHighlight();
   if (hl) fill(x + 1 + Math.floor(hl.from * sx), y + 1, Math.max(1, Math.round((hl.to - hl.from) * sx)), ih, repHiColor(hl));
@@ -4791,6 +4831,7 @@ function drawOverview(x, y, w, h, posStep) {
     const x0 = x + 1 + Math.floor(r.from * sx), x1 = x + 1 + Math.floor(r.to * sx);
     fill(x0, y + 1, 1, ih, T.ink); fill(Math.max(x0 + 1, x1 - 1), y + 1, 1, ih, T.ink); fill(x0, y + h - 2, Math.max(1, x1 - x0), 1, T.ink);
   }
+  g.restore();
   const vx = x + 1 + Math.max(0, Math.floor(S.scroll * sx)), vw = Math.max(3, Math.round(visibleSteps() * sx));
   frame(vx, y, Math.min(vw, x + w - vx), h, T.edge);
   fill(x + 1 + Math.floor(posStep * sx), y + 1, 1, ih, T.head);
