@@ -1552,8 +1552,8 @@ function drawLanes(order, s0, s1, pos) {
   if (!S.lanes.length) return;
   const T = ui.T;
   for (const L of S.lanes) {
-    const top = laneTopOf(L), h = laneH(L), active = layerChosen(S.song.layers.indexOf(L));
-    if (active) fill(GUTTER, top, SW - GUTTER, h, T.lane);
+    const top = laneTopOf(L), h = laneH(L);
+    fill(0, top, GUTTER - 1, h, T.face); // the names: the buttons' face, like the space by the keys; the lanes: the staff's paper
     for (let x = GUTTER; x < SW; x += 2) fill(x, top + h - 1, 1, 1, T.staff);
   }
   g.save(); g.beginPath(); g.rect(GUTTER, lanesTop, SW - GUTTER, lanesEnd - lanesTop); g.clip();
@@ -1561,7 +1561,7 @@ function drawLanes(order, s0, s1, pos) {
   if (ge) { if (isLane(ge.L)) drawLayer(ge.L, true, s0, s1, pos, ge.note); }
   else for (const i of order) { const L = S.song.layers[i]; if (isLane(L)) drawLayer(L, layerChosen(i), s0, s1, pos); }
   g.restore();
-  fill(GUTTER - 1, lanesTop, 1, lanesEnd - lanesTop, T.ink);
+  fill(GUTTER - 1, lanesTop, 1, lanesEnd - lanesTop, T.edge); // dark, like the line by the keys
   for (const L of S.lanes) {
     const top = laneTopOf(L), h = laneH(L), active = L === activeLayer();
     fill(1, top + 1, 3, h - 2, toneInk(L, false));
