@@ -62,6 +62,56 @@ const macroLimit = (T, n, end) => (n.md != null && n.d > n.md ? Math.min(end, T 
 
 export const noteTime = (song, n) => stepTime(song, n.s) + (n.n || 0);
 
+// Grace notes: short notes right before a note of the same voice, drawn small next to it, in its cell. They live on
+// that note: n.g = [{ p, d, t, ... }] in the order they play, t = samples before the note. A grace plays the note's
+// sound (GRACE_SOUND fields) unless it says otherwise (a value of its own, or null: none).
+export const GRACE_SOUND = ['i', 'm', 'smp', 'gm', 'vol', 'pan'];
+export function graceNote(main, x) {
+  const n = {};
+  for (const k of GRACE_SOUND) if (main[k] !== undefined) n[k] = main[k];
+  for (const [k, v] of Object.entries(x)) if (k !== 't') { if (v === null) delete n[k]; else n[k] = v; }
+  n.s = main.s; n.n = (main.n || 0) - x.t;
+  return n;
+}
+// The notes of a layer with the grace notes as notes of their own (how they play).
+// mark: the graces get gr: 1 (llm/import.mjs writes them so; foldGraces puts them back).
+export function expandGraces(notes, mark = false) {
+  if (!notes.some((n) => n.g)) return notes;
+  const out = [];
+  for (const n of notes) {
+    if (!n.g?.length) { out.push(n); continue; }
+    const { g, ...main } = n;
+    for (const x of g) out.push(mark ? { ...graceNote(main, x), gr: 1 } : graceNote(main, x));
+    out.push(main);
+  }
+  return out;
+}
+// Back: notes marked gr go onto the next note of the layer.
+export function foldGraces(song, notes) {
+  if (!notes.some((n) => n.gr)) return notes;
+  const byTime = notes.slice().sort((a, b) => noteTime(song, a) - noteTime(song, b));
+  const out = [];
+  let wait = [];
+  for (const n of byTime) {
+    if (n.gr) { wait.push(n); continue; }
+    if (wait.length) {
+      const T = noteTime(song, n);
+      n.g = [...wait.map((a) => {
+        const x = {};
+        for (const [k, v] of Object.entries(a)) if (k !== 's' && k !== 'n' && k !== 'gr' && !(GRACE_SOUND.includes(k) && v === n[k])) x[k] = v;
+        for (const k of GRACE_SOUND) if (n[k] !== undefined && a[k] === undefined) x[k] = null;
+        x.t = Math.round((T - noteTime(song, a)) * 1e6) / 1e6;
+        return x;
+      }), ...(n.g || [])];
+      wait = [];
+    }
+    out.push(n);
+  }
+  return out.concat(wait.map(({ gr, ...a }) => a)).sort((a, b) => a.s - b.s);
+}
+const withGraces = (song) => (song.layers.some((L) => L.notes?.some((n) => n.g))
+  ? { ...song, layers: song.layers.map((L) => (L.notes ? { ...L, notes: expandGraces(L.notes) } : L)) } : song);
+
 // Inverse: real time (samples) -> fractional step
 export function timeToStep(song, t) {
   const st = song.stepTimes;
@@ -231,7 +281,7 @@ export function performSong(song) {
 }
 
 export function buildTimeline(song, pcm, muted = new Set()) {
-  song = performSong(song);
+  song = performSong(withGraces(song));
   // Every song loops: without a loop start of its own (the green repeat) it starts over from the beginning.
   if (song.loopStart < 0) song = { ...song, loopStart: 0 };
   const tb = new TimelineBuilder(1 << 20);

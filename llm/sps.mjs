@@ -3,7 +3,7 @@
 // addCatalogSample, libSound), so the file needs nothing but its base example and the library.
 import fs from 'node:fs';
 import path from 'node:path';
-import { stepTime, timeToStep, MELODIC_VOICE } from '../player/engine/song.js';
+import { stepTime, timeToStep, MELODIC_VOICE, foldGraces } from '../player/engine/song.js';
 import { readSoundFile } from '../player/soundfile.js';
 import { sppSound } from './patch.mjs';
 import { findSound, fetchRef, fetchBank, refList, baseRef, parseNote, voiceSpec, voiceOf, KIT, soundName, spriteName, spritePool, macroPitch, STEPS_PER_BAR, UserError, readText, noBom } from './core.mjs';
@@ -18,7 +18,7 @@ export class SpsError extends UserError {
 // ---------- parsing ----------
 const SCALE_WORDS = { major: 'major', maj: 'major', minor: 'minor', min: 'minor', 'major-pent': 'mpent', 'minor-pent': 'npent', blues: 'blues', dorian: 'dorian', mixolydian: 'mixo', phrygian: 'phryg', 'harmonic-minor': 'harmin' };
 const ATTRS = ['vol', 'pan', 'slide'];
-const EXACT = ['d', 'n', 'm', 'i', 'smp', 'md', 'gm', 'p', 'e', 's', 'S'];
+const EXACT = ['d', 'n', 'm', 'i', 'smp', 'md', 'gm', 'p', 'e', 's', 'S', 'gr', 'leg'];
 
 // Words of a line with their columns (1-based); a quoted string is one word (q: true); # after a space starts a comment.
 function words(text) {
@@ -327,7 +327,7 @@ function songSound(ast, def, song) {
   const type = o.gm != null ? 'drums' : o.i != null ? 'fm' : mac.noise ? 'noise' : 'psg';
   return { type, song: true, snd: { i: o.i, m: o.m, gm: o.gm, p: o.p ?? macroPitch(mac) }, name: def.name };
 }
-const ONLY_EXACT = ['m', 'i', 'smp', 'gm', 'md', 's', 'S', 'e'];
+const ONLY_EXACT = ['m', 'i', 'smp', 'gm', 'md', 's', 'S', 'e', 'gr', 'leg'];
 
 export function buildSong(ast) {
   const file = fileOf(ast);
@@ -505,7 +505,7 @@ export function buildSong(ast) {
             if (a === 'pan' && spec.kind !== 'fm' && !exact) throw E(line.line, col, spec.kind === 'sample' ? 'all samples share one DAC channel: no pan per note' : 'the PSG is mono: no pan', 'only FM voices pan');
             if (a === 'slide' && !exact && (drum || spec.kind === 'sample')) throw E(line.line, col, `${v}: slide works on FM and PSG notes`);
             if (a === 's' || a === 'S') continue;
-            n[a] = val;
+            n[a] = a === 'leg' ? !!val : val; // legato: no new key-on (song.json leg: true)
           }
           list.push({ k, n, line: line.line, col });
         }
@@ -580,6 +580,7 @@ export function buildSong(ast) {
     }
     song.layers.push(L);
   }
+  for (const L of song.layers) if (L.notes) L.notes = foldGraces(song, L.notes); // {gr=1} notes go onto the next one
   // the lowest FM track is the bass (the app opens a song on it)
   if (!exact) {
     const fms = song.layers.filter((L) => L._median != null).sort((a, b) => a._median - b._median);

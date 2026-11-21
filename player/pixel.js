@@ -367,6 +367,21 @@ export function noteSprite(name, tone, frame = 0, variant = 'normal', theme = TH
   return cv;
 }
 
+// A glow for a picture: its shape grown by one pixel all round (corners too), in one colour; the canvas is 2 px wider
+// and higher, so draw it at (x - 1, y - 1) under the picture: a ring of `color` shows around it. Cached.
+const glowCache = new WeakMap();
+export function glowOf(cv, color) {
+  let byColor = glowCache.get(cv);
+  if (!byColor) { byColor = new Map(); glowCache.set(cv, byColor); }
+  if (byColor.has(color)) return byColor.get(color);
+  const w = cv.width, h = cv.height, d = cv.getContext('2d').getImageData(0, 0, w, h).data;
+  const out = newCanvas(w + 2, h + 2), o = out.getContext('2d');
+  o.fillStyle = color;
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) if (d[(y * w + x) * 4 + 3]) o.fillRect(x, y, 3, 3);
+  byColor.set(color, out);
+  return out;
+}
+
 // A picture dithered: every other pixel of it in one flat colour (`gap`, e.g. the shade of the areas out of play), so
 // its shape stays but it greys out. Pass (x + y) & 1 of where it is drawn: the kept pixels then fall on the same screen
 // checkerboard as gui.js dither(), so neighbours line up.

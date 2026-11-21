@@ -128,8 +128,9 @@ Song length in seconds = bars x 4 x 60 / bpm. At 140 bpm a bar is 1.71 s: 16 bar
 The bars are the sum of the pattern lengths as `arrange:` expands them; `build` prints bars and seconds, check them.
 
 **Imported songs**: `sp import` of a game track writes extra things you may leave alone: `{d=..}` (length in
-samples), `{n=..}` (offset in samples), `{m=..}` (a macro), `song:i3/m40` sounds, and an `exact:` JSON block
-at the end. Change the notes, keep the rest; the tempo of such a song cannot be changed in the `.sps`.
+samples), `{n=..}` (offset in samples), `{m=..}` (a macro), `{gr=1}` (a grace note: it goes onto the next note
+of its voice, song.json `g`), `{leg=1}` (legato: the note starts without a new key-on), `song:i3/m40` sounds, and
+an `exact:` JSON block at the end. Change the notes, keep the rest; the tempo of such a song cannot be changed in the `.sps`.
 
 ## The patch notation (.spp)
 

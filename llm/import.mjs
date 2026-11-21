@@ -2,7 +2,7 @@
 // attributes ({d=9625,m=4}) and an exact: block, so that sp build gives back the same chip writes.
 // A song made in Sega Paint from the library's sounds on its even grid comes out without exact: (plain mode).
 import path from 'node:path';
-import { prepareSong, buildTimeline, stepTime, timeToStep } from '../player/engine/song.js';
+import { prepareSong, buildTimeline, stepTime, timeToStep, expandGraces } from '../player/engine/song.js';
 import {
   SONGS, readJson, fetchRef, baseRef, loadSongObject, loadSongFile, catOf, allSounds, voiceOf, noteName, barOffset,
   soundName, STEPS_PER_BAR, fail,
@@ -13,7 +13,7 @@ const BS = STEPS_PER_BAR;
 const fmt = (x) => (Number.isInteger(x) ? String(x) : String(Math.round(x * 10000) / 10000)); // a length
 const most = (xs) => { const c = new Map(); for (const x of xs) c.set(x, (c.get(x) || 0) + 1); let b = null, n = 0; for (const [k, v] of c) if (v > n) { b = k; n = v; } return b; };
 const slug = (t) => (t || 'snd').toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '').replace(/^(\d)/, 's$1').slice(0, 16) || 'snd';
-const ATTR_ORDER = ['vol', 'pan', 'slide', 'm', 'i', 'gm', 'smp', 'n', 'd', 'md', 'p', 's', 'S'];
+const ATTR_ORDER = ['vol', 'pan', 'slide', 'm', 'i', 'gm', 'smp', 'n', 'd', 'md', 'p', 's', 'S', 'gr', 'leg'];
 const LANE_VOICES = (L) => L.kind === 'noise' || L.kit || (L.kind === 'sample' && (L.voice ?? 3) !== 3);
 
 // Where a song file comes from: an example of player/songs (with its meta.json, as the app opens it) or any file.
@@ -88,6 +88,7 @@ function soundsOf(song, plain) {
 export function importSong(file, { plain = 'auto' } = {}) {
   const { raw, base } = source(file);
   const song = prepareSong(structuredClone(raw)); // macro pitches
+  for (const L of song.layers) if (L.notes) L.notes = expandGraces(L.notes, true); // grace notes: own notes with gr=1
   const off = barOffset(song);
   const ref = fetchRef(base);
   const uniform = !!song.uniform && song.step0 === 0 && song.stepTimes.every((t, i) => t === Math.round(i * song.step * 10) / 10)
@@ -181,6 +182,8 @@ function write(song, raw, base, plain, off) {
         for (const a of ['vol', 'pan', 'slide']) if (n[a] != null && common.get(voiceOf(L))[a] == null) attrs[a] = n[a];
         if (n.n) attrs.n = n.n;
         if (n.md != null && n.md !== n.d) attrs.md = n.md;
+        if (n.gr) attrs.gr = 1;
+        if (n.leg) attrs.leg = 1;
         if (!plain) {
           if (L.kind !== 'sample' && n.m !== g.m) attrs.m = n.m;
           if (L.kind !== 'sample' && L.kind !== 'fm' && n.i != null) attrs.i = n.i;

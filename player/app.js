@@ -1,6 +1,6 @@
-import { prepareSong, buildTimeline, noteTime, stepTime, timeToStep, fmHz, psgHz, hzMidi, MELODIC_VOICE, repeatSpans, playedSteps, writtenStep, performSong, sampleStep } from './engine/song.js';
+import { prepareSong, buildTimeline, noteTime, stepTime, timeToStep, fmHz, psgHz, hzMidi, MELODIC_VOICE, repeatSpans, playedSteps, writtenStep, performSong, sampleStep, graceNote, GRACE_SOUND } from './engine/song.js';
 import { boxSprite } from './pixel.js';
-import { THEMES, md, LAYER_TONES, NOTE_NAMES, toneOrder, toneCss, loadArt, hasFrame, frameCount, noteSprite, checkered, smallIcon, pointerIcon, picture, artInfo, clef, textWidth, fitText, rgbCss, snap, drawText } from './pixel.js';
+import { THEMES, md, LAYER_TONES, NOTE_NAMES, toneOrder, toneCss, loadArt, hasFrame, frameCount, noteSprite, checkered, smallIcon, pointerIcon, picture, artInfo, clef, textWidth, fitText, rgbCss, snap, drawText, glowOf } from './pixel.js';
 import { SPRITE_POOL, ROLE_SPRITE, ROLE_SET, spriteName, sonic } from './sprites.js';
 import { SCALE_LIST, findScale, guessScale } from './scales.js';
 import { listRefs, listMine, getMine, putMine, deleteMine, newId, fetchRef, fetchBank, fetchCatalog, listMySounds, putMySound, deleteMySound } from './library.js';
@@ -57,7 +57,7 @@ const DIAT_TOP = 57, DIAT_BOT = -1;
 const S = {
   song: null, pcm: null, modelTl: null,
   active: 0, hidden: new Set(), muted: new Set(), solo: new Set(),
-  scroll: 0, vy: 0, vyMax: 0, lanes: [], colW: 8, follow: true, followHold: false,
+  scroll: 0, vy: 0, vyMax: 0, lanes: [], colW: 8, zoom: 8, grid: 16, cell: 1, follow: true, followHold: false,
   tool: 'select', // the arrow first
   layers: new Set(), // the tracks chosen together (Ctrl / Shift + click); empty or one = just the active track
   repMode: 'x2', // what the repeat tool does: x2 / x3 / x4 (make or set a repeat), loop (the green one), del
@@ -68,7 +68,7 @@ const S = {
   doc: null, // { kind: 'ref', dir } | { kind: 'user', id, base, name }
   dirty: false, refs: [],
   sel: new Set(), clip: null, // selected notes of the active layer; copied notes
-  theme: 'dark', volume: 1.6, status: '',
+  theme: 'dark', volume: 1.6, silent: false, status: '',
   sound: 'clean', // FM chip: clean (no DAC distortion, like a YM3438) or model1 (the first Mega Drive's YM2612)
   flyout: false, menu: false, dlg: null, layerScroll: 0,
   fold: { layers: false, about: false, playlist: false, side: false }, aboutPage: 0, // the left column's panels folded to their title bars (side: the whole column hidden); the Description page shown
@@ -212,6 +212,7 @@ function setupSong(song, bank) {
   assignSampleRows(song);
   assignTones(song.layers);
   for (const L of song.layers) indexLayer(L);
+  applyGrid(GRIDS.find((g) => g.n === song.grid) || GRIDS[1]);
   for (const L of song.layers) {
     L.palette = uniqueSprites((L.palette || layerSounds(L)).map((x) => ({ ...x, sprite: spriteName(x.sprite) })));
     if (L.kind === 'fm' && !L.kit) for (const x of L.palette) { // the song's own FM patches go by their library names
@@ -316,6 +317,7 @@ async function newSongData(base, bpm = 120, bars = 4) {
     end: Math.round(steps * step), loopStart: -1,
   });
   delete ref.ticksPerStep;
+  delete ref.grid; // a new song starts on sixteenths, whatever grid the game's track needed
   return serializeObj(ref);
 }
 
@@ -652,8 +654,8 @@ function computeRange() {
 // ---------- edits, undo/redo, persistence ----------
 function snapshot() {
   const o = { _timing: { bpm: S.song.bpm, bars: songBars(), loop: loopStep(), repeats: S.song.repeats || [] } };
-  for (const L of S.song.layers) if (L.kind !== 'dac') o[L.id] = L.notes.map(({ s, n, d, md, p, i, m, e, smp, gm, slide, vol, pan }) => ({ s, n, d, md, p, i, m, e, smp, gm, slide, vol, pan }));
-  return JSON.stringify(o);
+  for (const L of S.song.layers) if (L.kind !== 'dac') o[L.id] = L.notes;
+  return JSON.stringify(o, (k, v) => (k.startsWith('_') && k !== '_timing' ? undefined : v)); // every note field (grace notes g, leg, ...) but the runtime _ ones
 }
 function applySnapshot(json) {
   const o = JSON.parse(json);
@@ -661,14 +663,16 @@ function applySnapshot(json) {
     S.song.repeats = o._timing.repeats || [];
     setTiming(o._timing.bpm, o._timing.bars, o._timing.loop ?? loopStep());
   }
+  const ge = S.ge && { L: S.ge.L, s: S.ge.note.s };
   for (const L of S.song.layers) if (o[L.id]) { L.notes = o[L.id].map((x) => ({ ...x })); indexLayer(L); }
   S.sel.clear();
+  if (ge) { const n = ge.L.notes.find((m) => m.s === ge.s); S.ge = n ? { L: ge.L, note: n } : null; } // undo keeps the grace notes open
 }
 // Unsaved changes = the song differs from how it was opened or last saved (an edit undone again is no change):
 // notes and timing (as undo keeps them), tracks with their names, colours and sounds, the scale lock.
 function docSig() {
   const tracks = S.song.layers.map((L) => [L.id, L.kind, L.ch, L.voice, L.name, L.tone, (L.palette || []).map((x) => x.key + ':' + x.sprite)]);
-  return snapshot() + JSON.stringify(tracks) + JSON.stringify(S.song.scale || null) + JSON.stringify(S.song.layers.flatMap((L) => (L.palette || []).map((x) => S.song.instruments[x.i]?.regs))); // patches (the FM editor)
+  return snapshot() + JSON.stringify(tracks) + JSON.stringify(S.song.scale || null) + (S.song.grid || 16) + JSON.stringify(S.song.layers.flatMap((L) => (L.palette || []).map((x) => S.song.instruments[x.i]?.regs))); // patches (the FM editor)
 }
 function markDirty() {
   S.dirty = docSig() !== S.cleanSig;
@@ -782,7 +786,7 @@ async function startAudio() {
     else if (m.type === 'ended') { S.playing = false; playNext(); }
   };
   Object.assign(S, { ctx, node, analyser, latency: (ctx.outputLatency || 0) + (ctx.baseLatency || 0) });
-  post({ type: 'gain', gain: S.volume });
+  post({ type: 'gain', gain: outVolume() });
   post({ type: 'loop', on: S.loop });
   post({ type: 'clean', on: S.sound === 'clean' });
   if (S.song) { // a click on the boot splash can come before the song is loaded: setupSong sends it then
@@ -850,7 +854,7 @@ async function togglePlay() {
   await ensureAudio();
   S.ctx.resume();
   S.playing = !S.playing;
-  if (S.playing) S.followHold = false;
+  if (S.playing) { S.followHold = false; closeGraces(); } // play shows the whole song again: grace notes closed
   post({ type: S.playing ? 'play' : 'pause' });
   S.posAt = performance.now();
 }
@@ -891,17 +895,24 @@ async function previewNote(L, n) {
   if (L.kind === 'dac') return;
   await ensureAudio();
   const song = S.song;
-  const t = n._t ?? 0;
+  const t = n._t ?? 0, lead = n.g ? Math.max(...n.g.map((x) => x.t)) : 0; // its grace notes play before it
   const mini = {
     ...song, globals: song.globals.filter((x) => x[0] <= t).map((x) => [0, x[1], x[2], x[3]]),
-    layers: [{ ...L, notes: [{ ...n, s: 0, n: 0, d: Math.min(n.d, RATE * 0.6) }] }],
-    stepTimes: [0, song.step], step0: 0, end: RATE, loopStart: -1, repeats: [],
+    layers: [{ ...L, notes: [{ ...n, s: 0, n: lead, d: Math.min(n.d, RATE * 0.6) }] }],
+    stepTimes: [0, song.step], step0: 0, end: RATE + lead, loopStart: -1, repeats: [],
   };
   post({ type: 'preview', tl: buildTimeline(mini, S.pcm) });
 }
+// What reaches the speakers: the volume, or nothing while muted (the speaker icon); moving the volume unmutes.
+const outVolume = () => (S.silent ? 0 : S.volume);
 function setVolume(v) {
   S.volume = Math.max(0, Math.min(3, v));
-  post({ type: 'gain', gain: S.volume });
+  S.silent = false;
+  post({ type: 'gain', gain: outVolume() });
+}
+function toggleMute() {
+  S.silent = !S.silent;
+  post({ type: 'gain', gain: outVolume() });
 }
 
 // ---------- layers ----------
@@ -1083,7 +1094,14 @@ function staffGeom() {
 const yOf = (d) => staffTop + (DIAT_TOP - d) * DSTEP - S.vy;
 const xOf = (s) => GUTTER + Math.round((s - S.scroll) * S.colW);
 const visibleSteps = () => (SW - GUTTER) / S.colW;
-const stepAt = (x) => Math.floor(S.scroll + (x - GUTTER) / S.colW);
+// The grid: how fine notes are placed (song.grid, notes per whole note). A step stays a sixteenth everywhere
+// (bars, tempo, note times); a grid cell is S.cell steps: 1/32 = half a step, 1/24 = a sixteenth triplet.
+// S.zoom is the width of a cell in pixels, so a finer grid makes the song wider. One voice, one note per cell.
+const GRIDS = [{ n: 8, cell: 2 }, { n: 16, cell: 1 }, { n: 24, cell: 2 / 3 }, { n: 32, cell: 0.5 }];
+const snapS = (v) => Math.round(Math.round(v / S.cell) * S.cell * 1e4) / 1e4;
+const cellOf = (s) => Math.round(s / S.cell);
+const cellMid = () => S.zoom >> 1;
+const stepAt = (x) => snapS(Math.floor((S.scroll + (x - GUTTER) / S.colW) / S.cell + 1e-6) * S.cell);
 const rowAt = (y) => Math.round(DIAT_TOP - (y + S.vy - staffTop) / DSTEP);
 const setVy = (v) => { S.vy = Math.max(0, Math.min(S.vyMax, Math.round(v))); };
 const centerOnRow = (d) => setVy(staffTop + (DIAT_TOP - d) * DSTEP - (viewTop + viewBot) / 2);
@@ -1157,7 +1175,9 @@ function drawStaff() {
   // the other tracks under the chosen ones, the active one on top
   const order = song.layers.map((_, i) => i).filter((i) => i !== S.active && !S.hidden.has(i)).sort((a, b) => layerChosen(a) - layerChosen(b));
   if (activeLayer() && !S.hidden.has(S.active)) order.push(S.active);
-  for (const i of order) if (!isLane(song.layers[i])) drawLayer(song.layers[i], layerChosen(i), s0, s1, pos);
+  const ge = graceEdit();
+  if (ge) drawLayer(ge.L, true, s0, s1, pos, ge.note); // editing grace notes: only that note and its grace notes
+  else for (const i of order) if (!isLane(song.layers[i])) drawLayer(song.layers[i], layerChosen(i), s0, s1, pos);
   g.restore();
   drawKeys();
   drawClefs();
@@ -1198,13 +1218,17 @@ function drawSonic(posStep) {
 
 // A note picture: 12x12 cell whose 8x8 middle sits on the column and the staff row. Dithered (other tracks' notes):
 // every other pixel, on the screen's checkerboard, in the shade of the areas out of play.
-function drawNoteSprite(sp, s, yc, dithered = false) {
-  const x = xOf(s) + (S.colW >> 1) - 6, y = yc - 6;
+function drawNoteSprite(sp, s, yc, dithered = false, glow = null) {
+  const x = xOf(s) + cellMid() - 6, y = yc - 6;
+  if (glow) { // a ring around the icon (a note with grace notes); dithered like the icon on the other tracks
+    const r = glowOf(sp, glow);
+    g.drawImage(dithered ? checkered(r, (x + y) & 1, ui.T.shade) : r, x - 1, y - 1);
+  }
   g.drawImage(dithered ? checkered(sp, (x + y) & 1, ui.T.shade) : sp, x, y);
   return [x, y];
 }
-function drawLayer(L, active, s0, s1, pos) {
-  const notes = L.notes;
+function drawLayer(L, active, s0, s1, pos, only = null) {
+  const notes = only ? [only] : L.notes;
   let lo = 0, hi = notes.length;
   while (lo < hi) { const m = (lo + hi) >> 1; if (notes[m]._e < s0) lo = m + 1; else hi = m; }
   if (L.kind === 'dac') { drawDac(L, active, lo, s1, pos); return; }
@@ -1212,7 +1236,7 @@ function drawLayer(L, active, s0, s1, pos) {
   const tail = toneInk(L, !active), paint = active ? fill : shadeDither;
   for (let i = lo; i < notes.length && notes[i].s <= s1; i++) {
     const n = notes[i];
-    const x0 = xOf(n.s) + (S.colW >> 1), x1 = xOf(n._e);
+    const x0 = xOf(n.s) + cellMid(), x1 = xOf(n._e);
     if (n._e - n.s > 1.05 && x1 > x0) paint(x0, noteY(L, n) - 1, x1 - x0, 3, tail);
   }
   const ps = timeToStep(S.song, pos);
@@ -1235,16 +1259,96 @@ function drawLayer(L, active, s0, s1, pos) {
     const at = riding ? Math.max(n.s, Math.min(ps - 0.5, n._e - 1)) : n.s;
     // riding a note with a slide, the icon follows the pitch as it sounds
     const dy = riding && n._slide ? Math.round(slideDy(n, pos - n._t)) : 0;
-    const [x] = drawNoteSprite(sp, at, noteY(L, n) + dy, !active);
+    // on the staff a note with grace notes glows (its light tone around it); they are shown when it is opened
+    const glow = n.g?.length && !only ? toneInk(L, !active, 0) : null;
+    const [x] = drawNoteSprite(sp, at, noteY(L, n) + dy, !active, glow);
     if (n._slide && !riding) drawGliss(L, n, x + 10, active);
+    if (only && n.g?.length) drawGraces(L, n);
   }
 }
+
+// Grace notes (n.g, engine/song.js expandGraces) are edited one note at a time: a pen click on a note (FM, PSG)
+// opens its grace notes (S.ge); the staff then shows only that note and them, until a click on empty space, Esc,
+// another tool or another track. In it the pen, the fill, the pipette, the eraser and the volume / stereo bars work
+// on single grace notes. Valid S.ge or null.
+const GRACE_TOOLS = new Set(['pen', 'fill', 'pick', 'erase', 'vol', 'pan']);
+function graceEdit() {
+  const ge = S.ge;
+  if (!ge) return null;
+  if (!GRACE_TOOLS.has(S.tool) || multiLayer() || activeLayer() !== ge.L || !ge.L.notes.includes(ge.note)) { S.ge = null; return null; }
+  return ge;
+}
+function openGraces(L, n) {
+  S.ge = { L, note: n };
+  showStatus(`Grace notes of ${noteName(n.p)}`, 'Click the note or a grace note: one more · drag a grace note: pitch / time · click empty space or Esc: done');
+}
+function closeGraces() { if (S.ge) { S.ge = null; showStatus(''); } }
+// Grace note i of n as a note of its own (its sound: its own, else its note's).
+const graceOf = (n, i) => graceNote(n, n.g[i]);
+// Grace notes are drawn like notes, with their sound's icon, left of their note at their own pitch, each with its
+// own gap (ms) to the next one (grace note or the note) under it. Not to scale: the gaps are the numbers.
+const GRACE_DX = 14;
+function graceSpots(L, n) {
+  const x0 = xOf(n.s) + cellMid(), k = n.g.length;
+  return n.g.map((x, i) => ({ i, x: x0 - GRACE_DX * (k - i), y: noteY(L, x) })); // x, y: the icon's centre
+}
+const graceGap = (n, i) => n.g[i].t - (i + 1 < n.g.length ? n.g[i + 1].t : 0);
+function drawGraces(L, n) {
+  const c = toneInk(L, false), hot = S.hover?.kind === 'grace' && S.hover.note === n ? S.hover.i : S.drag?.mode === 'grace' ? S.drag.i : -1;
+  for (const { i, x, y } of graceSpots(L, n)) {
+    const sp = noteSprite(spriteOf(L, graceOf(n, i)), L.tone, i === hot ? 1 : 0, 'normal', ui.T);
+    if (i === hot) g.drawImage(glowOf(sp, ui.T.ink), x - 7, y - 7);
+    g.drawImage(sp, x - 6, y - 6);
+    const ms = String(Math.round((graceGap(n, i) * 1000) / RATE));
+    shadowText(ms, x - (textWidth(ms) >> 1), y + 8, i === hot ? ui.T.ink : c);
+  }
+}
+// The grace note under (x, y) of the note being edited: { note, i }.
+function graceAt(L, x, y) {
+  const ge = graceEdit();
+  if (!ge || ge.L !== L || !ge.note.g?.length) return null;
+  for (const sp of graceSpots(L, ge.note)) if (Math.abs(x - sp.x) <= 6 && y >= sp.y - 6 && y <= sp.y + 13) return { note: ge.note, i: sp.i };
+  return null;
+}
+// Its own value of a sound field (i, m, vol, pan...): kept only where it differs from its note's, so the rest still
+// follows the note.
+function setGraceField(n, i, k, v) {
+  const x = n.g[i], own = v ?? null, main = n[k] ?? null;
+  if (own === main) delete x[k]; else x[k] = own;
+  n.e = 1;
+}
+const GRACE_MIN = () => Math.round(RATE / 1000); // 1 ms
+// Grace notes go on notes with a pitch (FM, PSG), not on drums or samples.
+const graceable = (L, n) => L.kind !== 'sample' && !fixedPitch(L, n);
+// A pen click on a grace note (i) or on its note (i = n.g.length, or no grace notes yet): one more grace note just
+// before it, a quarter step earlier, a whole tone above it; the ones before it move along, so their gaps stay.
+function addGrace(L, n, i) {
+  const g = n.g || [], at = i < g.length ? g[i] : { p: n.p, t: 0 };
+  const gap = Math.max(GRACE_MIN(), Math.round(S.song.step / 4));
+  const [lo, hi] = soundRange(L, soundOfNote(L, n) || L.sel) || [STAFF_LO, STAFF_HI];
+  for (let k = 0; k < i; k++) g[k].t += gap;
+  g.splice(i, 0, { p: Math.min(hi, Math.max(lo, at.p + 2)), d: gap, t: at.t + gap });
+  n.g = g; n.e = 1;
+  indexLayer(L); afterEdit(); previewNote(L, n);
+  showStatus(graceText(n, i), 'Drag a grace note: up / down pitch, left / right time · click empty space or Esc: done');
+}
+// The ones before it move up, so the gaps between the others stay.
+function eraseGrace(L, n, i) {
+  const gap = graceGap(n, i);
+  for (let k = 0; k < i; k++) n.g[k].t -= gap;
+  n.g.splice(i, 1);
+  if (!n.g.length) delete n.g;
+  n.e = 1;
+  indexLayer(L);
+}
+// Its own gap: to the next grace note, or to the note for the last one.
+const graceText = (n, i) => `Grace ${noteName(n.g[i].p)} · ${Math.round((graceGap(n, i) * 1000) / RATE)} ms before ${i + 1 < n.g.length ? 'the next grace ' + noteName(n.g[i + 1].p) : noteName(n.p)}`;
 
 // Glissando: a wavy pixel line from the note head to the slide target.
 function drawGliss(L, n, x0, active) {
   const y0 = yOf(noteDiat(L, n));
   const y1 = yOf(diatOf(n.p + n._slide));
-  const x1 = Math.max(x0 + 6, xOf(Math.min(n._e, n.s + 2)) + (S.colW >> 1));
+  const x1 = Math.max(x0 + 6, xOf(Math.min(n._e, n.s + 2)) + cellMid());
   const c = active ? ui.T.ink : ui.T.staff;
   const len = x1 - x0;
   for (let i = 0; i <= len; i++) {
@@ -1277,7 +1381,7 @@ function drawLanes(order, s0, s1, pos) {
     for (let x = GUTTER; x < SW; x += 2) fill(x, top + h - 1, 1, 1, T.staff);
   }
   g.save(); g.beginPath(); g.rect(GUTTER, lanesTop, SW - GUTTER, lanesEnd - lanesTop); g.clip();
-  for (const i of order) { const L = S.song.layers[i]; if (isLane(L)) drawLayer(L, layerChosen(i), s0, s1, pos); }
+  if (!S.ge) for (const i of order) { const L = S.song.layers[i]; if (isLane(L)) drawLayer(L, layerChosen(i), s0, s1, pos); } // empty while grace notes are edited
   g.restore();
   fill(GUTTER - 1, lanesTop, 1, lanesEnd - lanesTop, T.ink);
   for (const L of S.lanes) {
@@ -1296,14 +1400,14 @@ const PAN_COLOR = { L: md(2, 4, 7), C: md(4, 4, 4), R: md(7, 3, 1) };
 const recordedPan = (n) => PAN_NAME[((S.song.instruments[n.i]?.regs.find(([r]) => r === 0xb4)?.[1] ?? 0xc0) >> 6)] || 'C';
 const BAR_TOOLS = {
   vol: {
-    label: 'VOL', ok: (L) => L.kind === 'fm' || L.kind === 'psg' || L.kind === 'noise',
+    key: 'vol', label: 'VOL', ok: (L) => L.kind === 'fm' || L.kind === 'psg' || L.kind === 'noise',
     why: 'Samples have no volume: the DAC just plays them as they are',
     get: (n) => n.vol ?? 15, height: (v) => v / 15, color: (v, L) => toneInk(L, false), text: (v) => v.toString(16).toUpperCase(),
     at: (f) => Math.max(0, Math.min(15, Math.round(f * 15))), set: (n, v) => { n.vol = v; },
     status: (v) => `Volume ${v.toString(16).toUpperCase()}`, line: 1,
   },
   pan: {
-    label: 'PAN', ok: (L) => L.kind === 'fm',
+    key: 'pan', label: 'PAN', ok: (L) => L.kind === 'fm',
     why: (L) => (L.kind === 'sample' ? 'All samples share one DAC channel: no stereo per note' : 'The PSG is mono on the Mega Drive'),
     get: (n) => n.pan ?? recordedPan(n), height: () => 1, color: (v) => PAN_COLOR[v], text: (v) => v,
     at: (f) => (f > 2 / 3 ? 'L' : f < 1 / 3 ? 'R' : 'C'), set: (n, v) => { n.pan = v; },
@@ -1321,10 +1425,8 @@ function drawBars(Tl, s0, s1) {
   dither(GUTTER, viewTop, SW - GUTTER, viewBot - viewTop, T.paper);
   const ly = base - Math.round(max * Tl.line);
   for (let x = GUTTER; x < SW; x += 4) fill(x, ly, 2, 1, T.loop);
-  for (const n of L.notes) {
-    if (n.s < s0 || n.s > s1) continue;
+  for (const { n, x, w } of barItems(L, s0, s1)) {
     const v = Tl.get(n), h = Math.max(1, Math.round(max * Tl.height(v)));
-    const x = xOf(n.s) + 1, w = Math.max(2, S.colW - 2);
     fill(x, base - h, w, h, Tl.color(v, L));
     frame(x - 1, base - h - 1, w + 2, h + 2, T.edge);
     text(Tl.text(v), x + ((w - textWidth(Tl.text(v))) >> 1), base + 3, T.ink);
@@ -1333,10 +1435,20 @@ function drawBars(Tl, s0, s1) {
   text(Tl.label, 2, base + 3, T.ink);
   if (Tl === BAR_TOOLS.pan) { text('L', GUTTER - 6, base - max); text('R', GUTTER - 6, base - 6); }
 }
+// The bars: one per note in its column; with a note's grace notes open, one under each of them and the note.
+function barItems(L, s0, s1) {
+  const ge = graceEdit();
+  if (ge) {
+    const n = ge.note, cx = xOf(n.s) + cellMid();
+    return [...(n.g ? graceSpots(L, n).map(({ i, x }) => ({ n: graceOf(n, i), x: x - 5, w: 10, i })) : []), { n, x: cx - 5, w: 10 }];
+  }
+  const w = Math.max(2, S.zoom - 2);
+  return L.notes.filter((n) => n.s >= s0 && n.s <= s1).map((n) => ({ n, x: xOf(n.s) + 1, w }));
+}
 // Drag: paint every column between the last mouse position and this one (fast moves skip columns).
 function paintBarsTo(x, y) {
   const [x0, y0] = S.drag.last || [x, y];
-  const cols = Math.max(1, Math.ceil(Math.abs(x - x0) / S.colW));
+  const cols = Math.max(1, Math.ceil(Math.abs(x - x0) / S.zoom));
   for (let k = 1; k <= cols; k++) paintBar(x0 + (x - x0) * k / cols, y0 + (y - y0) * k / cols);
   S.drag.last = [x, y];
 }
@@ -1344,11 +1456,22 @@ function paintBarsTo(x, y) {
 function paintBar(x, y) {
   const L = activeLayer(), Tl = BAR_TOOLS[S.tool];
   if (!L || !Tl?.ok(L)) return null;
-  const s = stepAt(x);
-  const n = L.notes.find((m) => Math.round(m.s) === s);
-  if (!n) return null;
   const { base, max } = barGeom();
   const v = Tl.at((base - y) / max);
+  const ge = graceEdit();
+  if (ge) { // the bar nearest x: a grace note's (its own value, kept only where it differs from its note's) or the note's
+    const it = barItems(L).reduce((a, b) => (Math.abs(b.x + b.w / 2 - x) < Math.abs(a.x + a.w / 2 - x) ? b : a));
+    const n = ge.note;
+    if (Tl.get(it.n) !== v) {
+      if (it.i == null) { Tl.set(n, v); n.e = 1; } else setGraceField(n, it.i, Tl.key, v);
+      S.drag.moved = true;
+    }
+    showStatus(`${Tl.status(v)} · ${it.i == null ? noteName(n.p) : 'grace ' + noteName(n.g[it.i].p)}`);
+    return it.i == null ? n : graceOf(n, it.i);
+  }
+  const s = stepAt(x);
+  const n = L.notes.find((m) => cellOf(m.s) === cellOf(s));
+  if (!n) return null;
   if (Tl.get(n) !== v) { Tl.set(n, v); n.e = 1; S.drag.moved = true; }
   showStatus(`${Tl.status(v)} · ${barBeat(n.s)}`);
   return n;
@@ -1655,7 +1778,7 @@ function drawSelection(s0, s1) {
   if (S.sel.size) {
     for (const [n, L] of noteOwners()) {
       if (!S.sel.has(n) || n.s < s0 || n.s > s1) continue;
-      const x = xOf(n.s) + (S.colW >> 1) - 7, y = noteY(L, n) - 7;
+      const x = xOf(n.s) + cellMid() - 7, y = noteY(L, n) - 7;
       frame(x, y, 14, 14, T.paper);
       ants(x, y, 14, 14, T.ink, phase);
     }
@@ -1786,8 +1909,12 @@ function newNote(L, h) {
   // Pen notes on the staff are one step long (no tail), or as long as the note the pipette took, with its slide.
   // Drums keep their natural length.
   if (h && !fixedPitch(L, n)) {
-    n.d = Math.round(stepTime(S.song, n.s + (L.pick?.len || 1)) - stepTime(S.song, n.s));
+    n.d = Math.round(stepTime(S.song, n.s + (L.pick?.len || S.cell || 1)) - stepTime(S.song, n.s));
     if (L.pick?.slide && L.kind !== 'sample') n.slide = L.pick.slide;
+    if (L.pick?.g && L.kind !== 'sample') { // the picked note's grace notes, at the same intervals from this one
+      const [lo, hi] = soundRange(L, snd) || [STAFF_LO, STAFF_HI];
+      n.g = L.pick.g.map((x) => ({ ...structuredClone(x), p: Math.max(lo, Math.min(hi, n.p + x.p)) }));
+    }
   }
   return n;
 }
@@ -1798,7 +1925,7 @@ function noteAt(L, x, y) {
   let best = null, bd = 1e9;
   for (const n of L.notes) {
     if (n.s < s - 2 || n.s > s + 2) continue;
-    const dx = Math.abs(xOf(n.s) + (S.colW >> 1) - x), dy = Math.abs(noteY(L, n) - y);
+    const dx = Math.abs(xOf(n.s) + cellMid() - x), dy = Math.abs(noteY(L, n) - y);
     if (dx <= 5 && dy <= 5 && dx + dy < bd) { bd = dx + dy; best = n; }
   }
   return best;
@@ -1814,6 +1941,7 @@ function hitTest(x, y, shift = false) {
     if (x < GUTTER) return { kind: 'none' };
     const s = stepAt(x);
     for (const M of selLayers()) { const n = noteAt(M, x, y); if (n) return { kind: 'note', note: n, s, L: M }; }
+    for (const M of selLayers()) { const gr = graceAt(M, x, y); if (gr) return { kind: 'grace', ...gr, s, L: M }; }
     const M = inLanes && laneAt(Math.max(lanesTop, y));
     if (M && !layerChosen(S.song.layers.indexOf(M))) return { kind: 'lane', li: S.song.layers.indexOf(M) };
     return { kind: 'none', s };
@@ -1829,16 +1957,20 @@ function hitTest(x, y, shift = false) {
     if (S.hidden.has(S.active) || x < GUTTER) return { kind: 'none' };
   }
   const s = stepAt(x);
+  const ge = graceEdit(); // editing a note's grace notes: the other notes are not there
   const best = noteAt(L, x, y);
-  if (best) return { kind: 'note', note: best, s };
+  if (best && (!ge || best === ge.note)) return { kind: 'note', note: best, s };
+  const gr = graceAt(L, x, y);
+  if (gr) return { kind: 'grace', ...gr, s };
+  if (ge) return { kind: 'empty', s, ...placeAt(L, y, shift) };
   if (s < firstPlayStep() || s > lastPlayStep() || outOfRange(L, y)) return { kind: 'none' };
   return { kind: 'empty', s, ...placeAt(L, y, shift) };
 }
 
-// One voice plays one note at a time: a note placed in a column replaces any other note there.
+// One voice plays one note at a time: a note placed in a grid cell replaces any other note there.
 function enforceColumn(L, note) {
   const before = L.notes.length;
-  L.notes = L.notes.filter((n) => n === note || Math.round(n.s) !== Math.round(note.s));
+  L.notes = L.notes.filter((n) => n === note || cellOf(n.s) !== cellOf(note.s));
   if (L.notes.length !== before) { indexLayer(L); for (const n of S.sel) if (!L.notes.includes(n)) S.sel.delete(n); }
 }
 
@@ -1854,6 +1986,8 @@ function trimOverlaps(L, note) {
 
 // The eraser at (x, y): removes the note there, or cuts a long note's tail at the column under it.
 function eraseAt(L, x, y) {
+  const gr = graceAt(L, x, y);
+  if (gr && !noteAt(L, x, y)) { eraseGrace(L, gr.note, gr.i); return true; }
   const n = noteAt(L, x, y);
   if (n) {
     L.notes.splice(L.notes.indexOf(n), 1);
@@ -1864,7 +1998,7 @@ function eraseAt(L, x, y) {
   const st = S.scroll + (x - GUTTER) / S.colW;
   const t = L.notes.find((m) => m._e - m.s > 1.05 && st > m.s + 1 && st < m._e && Math.abs(noteY(L, m) - y) <= 2);
   if (!t) return false;
-  const cut = Math.max(Math.round(t.s) + 1, Math.floor(st));
+  const cut = snapS(Math.max(t.s + S.cell, Math.floor(st / S.cell + 1e-6) * S.cell));
   t.d = Math.max(1, Math.round(stepTime(S.song, cut) - t._t)); t.e = 1;
   indexLayer(L);
   return true;
@@ -1896,7 +2030,7 @@ function soundOfNote(L, n) {
 function setScroll(s) { S.scroll = Math.max(-4, Math.min(S.totalSteps, s)); }
 
 function staffDown(x, y, e) {
-  const h = hitTest(x, y, e.shiftKey);
+  let h = hitTest(x, y, e.shiftKey);
   const L = activeLayer();
   // the ruler works the same with every tool: flags, and Sonic dragged along
   if (h.kind === 'ruler' && e.button === 0) {
@@ -1912,6 +2046,45 @@ function staffDown(x, y, e) {
   }
   if (S.tool === 'repeat' && e.button === 0 && h.kind !== 'ruler') { repeatDown(x, y); return; }
   if (h.kind === 'ruler') return;
+  const ge = graceEdit();
+  if (ge && BAR_TOOLS[S.tool] && x >= GUTTER && e.button === 0) { // volume / stereo bars of the note and its grace notes
+    pushUndo();
+    S.drag = { mode: 'bars', L, moved: false, last: [x, y] };
+    const n = paintBar(x, y);
+    if (n) previewNote(L, n);
+    return;
+  }
+  // editing a note's grace notes: a click anywhere but on it, its grace notes or the keys ends that
+  if (ge && h.kind !== 'grace' && h.kind !== 'key' && !(h.kind === 'note' && h.note === ge.note)) { closeGraces(); return; }
+  if (h.kind === 'grace') { // a grace note: the eraser removes it, the pen drags it, the fill / pipette: its sound
+    const M = h.L || L, n = h.note, i = h.i;
+    if (e.button === 2 || S.tool === 'erase') { pushUndo(); eraseGrace(M, n, i); afterEdit(); return; }
+    if (S.tool === 'fill' && e.button === 0) { // its own sound (the note's again: it follows the note)
+      const snd = M.sel;
+      if (!snd || snd.gm != null || snd.smp != null) { showStatus('A grace note needs a sound with a pitch'); return; }
+      pushUndo();
+      setGraceField(n, i, 'i', snd.i); setGraceField(n, i, 'm', snd.m);
+      indexLayer(M); afterEdit(); previewNote(M, graceOf(n, i));
+      showStatus(`Grace ${noteName(n.g[i].p)} → ${snd.name}`);
+      return;
+    }
+    if (S.tool === 'pick' && e.button === 0) { // its sound for the pen
+      const snd = soundOfNote(M, graceOf(n, i));
+      if (snd) { M.sel = snd; M.pick = null; }
+      previewNote(M, graceOf(n, i));
+      setTool('pen');
+      showStatus(`Picked ${snd ? snd.name : M.name}`);
+      return;
+    }
+    if (S.tool === 'pen') { // drag up / down: its pitch; left / right: how early (the first move decides which)
+      pushUndo();
+      const gr = h.note.g, gap0 = gr[h.i].t - (h.i + 1 < gr.length ? gr[h.i + 1].t : 0);
+      S.drag = { mode: 'grace', L: M, note: h.note, i: h.i, x0: x, y0: y, axis: null, gap0, ts0: gr.map((x) => x.t), moved: false };
+      previewNote(M, graceOf(h.note, h.i));
+      return;
+    }
+    h = { kind: 'note', note: h.note, s: h.s, L: h.L };
+  }
   const bars = BAR_TOOLS[S.tool];
   if (bars && x >= GUTTER && e.button === 0) {
     if (!L) return;
@@ -1939,11 +2112,12 @@ function staffDown(x, y, e) {
       const snd = soundOfNote(M, n);
       if (i !== S.active) selectLayer(i);
       if (snd) M.sel = snd;
-      // the pen will draw this note as it is: its sound, its length and its slide
-      M.pick = { len: Math.max(1, Math.round(n._e - n.s)), slide: fixedPitch(M, n) ? 0 : n._slide || 0 };
+      // the pen will draw this note as it is: its sound, its length, its slide and its grace notes (as intervals)
+      M.pick = { len: Math.max(S.cell, snapS(n._e - n.s)), slide: fixedPitch(M, n) ? 0 : n._slide || 0 };
+      if (n.g?.length && graceable(M, n)) M.pick.g = n.g.map((x) => ({ ...structuredClone(x), p: x.p - n.p }));
       previewNote(M, n);
       setTool('pen');
-      const extra = (fixedPitch(M, n) ? '' : ` · ${M.pick.len}/16`) + (M.pick.slide ? ` · slide ${M.pick.slide > 0 ? '+' : ''}${M.pick.slide}` : '');
+      const extra = (fixedPitch(M, n) ? '' : ` · ${Math.round(M.pick.len / S.cell)}/${S.grid}`) + (M.pick.slide ? ` · slide ${M.pick.slide > 0 ? '+' : ''}${M.pick.slide}` : '') + (M.pick.g ? ` · ${M.pick.g.length} grace note${M.pick.g.length > 1 ? 's' : ''}` : '');
       showStatus(`Picked ${snd ? snd.name : M.name}${extra}`);
       return;
     }
@@ -1955,7 +2129,7 @@ function staffDown(x, y, e) {
     const grab = () => { // every selected note remembers where it was and which track it is in
       const own = noteOwners();
       pushUndo();
-      S.drag = { mode: 'move', L, s0: stepAt(x), d0: rowAt(y), orig: new Map([...S.sel].map((m) => [m, { s: m.s, p: m.p, L: own.get(m) || L }])), moved: false };
+      S.drag = { mode: 'move', L, s0: stepAt(x), d0: rowAt(y), orig: new Map([...S.sel].map((m) => [m, { s: m.s, p: m.p, g: m.g?.map((x) => x.p), L: own.get(m) || L }])), moved: false };
     };
     if (n && S.sel.has(n)) { grab(); return; }
     if (n) {
@@ -1973,7 +2147,7 @@ function staffDown(x, y, e) {
     if (h.kind !== 'note') return;
     // the selected notes if this one is selected, otherwise every note of the track with this note's sound
     const from = soundKey(L, h.note), was = soundName(L, h.note);
-    const targets = S.sel.has(h.note) ? [...S.sel] : L.notes.filter((n) => soundKey(L, n) === from);
+    const targets = graceEdit() ? [h.note] : S.sel.has(h.note) ? [...S.sel] : L.notes.filter((n) => soundKey(L, n) === from); // its grace notes open: just it
     pushUndo();
     for (const n of targets) applySound(L, n, L.sel);
     indexLayer(L); afterEdit(); previewNote(L, h.note);
@@ -2047,7 +2221,10 @@ function staffMove(x, y, e) {
         const [lo, hi] = soundRange(L, snd) || [STAFF_LO, STAFF_HI];
         p = Math.max(lo, Math.min(hi, natFromDiat(diatOf(o.p) + dr) + (IS_SHARP[o.p % 12] ? 1 : 0)));
       }
-      if (s !== n.s || p !== n.p) { n.s = s; n.p = p; n.n = 0; n.e = 1; changed = true; touched.add(L); }
+      if (s !== n.s || p !== n.p) {
+        n.s = s; n.p = p; n.n = 0; n.e = 1; changed = true; touched.add(L);
+        if (o.g) n.g.forEach((x, k) => { x.p = o.g[k] + p - o.p; }); // grace notes keep their interval
+      }
     }
     if (changed) { d.moved = true; for (const L of touched) indexLayer(L); }
     // how far: steps sideways, semitones up / down (of the first note that has a pitch; one note also shows its name)
@@ -2061,6 +2238,24 @@ function staffMove(x, y, e) {
     showStatus(`${S.sel.size} note${S.sel.size > 1 ? 's' : ''} · ${sgn(ds)} step${Math.abs(ds) === 1 ? '' : 's'}${up}`);
     return;
   }
+  if (d.mode === 'grace') { // the cursor stays on the grace note (drawCursor), only what it says changes
+    const { note, L, i } = d, gr = note.g, dx = x - d.x0, dy = y - d.y0;
+    if (!d.axis) { if (Math.max(Math.abs(dx), Math.abs(dy)) < 3) return; d.axis = Math.abs(dx) >= Math.abs(dy) ? 'time' : 'pitch'; }
+    if (d.axis === 'pitch') {
+      const p = placeAt(L, y, e.shiftKey, note).p;
+      if (p !== gr[i].p) { gr[i].p = p; note.e = 1; d.moved = true; indexLayer(L); previewNote(L, graceOf(note, i)); }
+      showStatus(`Grace ${noteName(p)} → ${noteName(note.p)}`);
+      return;
+    }
+    // right: a bigger gap, left: a smaller one; x1.03 a pixel, from 1 ms to 2 steps; the earlier grace notes go along
+    const gap = Math.max(GRACE_MIN(), Math.min(Math.round(S.song.step * 2), Math.round(d.gap0 * 1.03 ** dx)));
+    if (gap !== gr[i].t - (i + 1 < gr.length ? gr[i + 1].t : 0)) {
+      for (let k = 0; k <= i; k++) gr[k].t = d.ts0[k] + gap - d.gap0;
+      gr[i].d = gap; note.e = 1; d.moved = true; indexLayer(L);
+    }
+    showStatus(graceText(note, i));
+    return;
+  }
   if (d.mode === 'penNote') {
     const dx = x - d.x0, dy = y - d.y0;
     if (Math.max(Math.abs(dx), Math.abs(dy)) < 3) return;
@@ -2070,10 +2265,10 @@ function staffMove(x, y, e) {
   if (d.mode === 'tail') {
     const { note, L } = d;
     const next = L.notes.find((m) => m.s > note.s); // the tail stops at the next note
-    const endStep = Math.min(next ? Math.round(next.s) : Infinity, Math.max(Math.round(note.s) + 1, Math.round(S.scroll + (x - GUTTER) / S.colW)));
+    const endStep = Math.min(next ? next.s : Infinity, Math.max(snapS(note.s + S.cell), snapS(S.scroll + (x - GUTTER) / S.colW)));
     const dd = Math.round(stepTime(S.song, endStep) - noteTime(S.song, note));
     if (dd !== note.d) { note.d = dd; note.e = 1; d.moved = true; indexLayer(L); }
-    showStatus(`${noteName(note.p)} · ${endStep - Math.round(note.s)}/16`);
+    showStatus(`${noteName(note.p)} · ${Math.round((endStep - note.s) / S.cell)}/${S.grid}`);
     return;
   }
   if (d.mode === 'bars') { paintBarsTo(x, y); return; }
@@ -2121,7 +2316,7 @@ function staffUp() {
   if (mode === 'marquee') {
     const x0 = Math.min(drag.x0, drag.x1), x1 = Math.max(drag.x0, drag.x1), y0 = Math.min(drag.y0, drag.y1), y1 = Math.max(drag.y0, drag.y1);
     for (const M of selLayers()) for (const n of M.notes) { // the box takes notes of every chosen track
-      const cx = xOf(n.s) + (S.colW >> 1), cy = noteY(M, n);
+      const cx = xOf(n.s) + cellMid(), cy = noteY(M, n);
       if (cx >= x0 - 2 && cx <= x1 + 2 && cy >= y0 - 2 && cy <= y1 + 2) S.sel.add(n);
     }
     showStatus(S.sel.size ? `${S.sel.size} note${S.sel.size > 1 ? 's' : ''} selected · drag to move, Del to delete, Ctrl+C / Ctrl+V` : '');
@@ -2145,7 +2340,17 @@ function staffUp() {
     if (moved) afterEdit(); else { S.undo.pop(); updateDocUI(); }
     return;
   }
-  if (mode === 'penNote') { S.undo.pop(); updateDocUI(); return; } // a click on a note just plays it
+  if (mode === 'penNote') { // a click on a note: opens its grace notes (a first one if it has none); open, one more
+    if (!graceable(L, note)) { S.undo.pop(); updateDocUI(); return; } // drums and samples: it just plays
+    if (graceEdit()?.note === note) { addGrace(L, note, note.g?.length || 0); return; }
+    openGraces(L, note);
+    if (!note.g?.length) addGrace(L, note, 0); else { S.undo.pop(); updateDocUI(); }
+    return;
+  }
+  if (mode === 'grace') { // a click on a grace note: one more before it; a drag: its pitch or its time
+    if (moved) afterEdit(); else if (!drag.axis) addGrace(L, note, drag.i); else { S.undo.pop(); updateDocUI(); }
+    return;
+  }
   if (mode === 'tail') {
     if (moved) { trimOverlaps(L, note); afterEdit(); previewNote(L, note); } else { S.undo.pop(); updateDocUI(); }
     return;
@@ -2159,7 +2364,7 @@ function staffUp() {
 // Moved selection: a moved note replaces unselected notes in its column (selected ones keep theirs).
 function enforceColumnSel(L, note) {
   const before = L.notes.length;
-  L.notes = L.notes.filter((n) => n === note || S.sel.has(n) || Math.round(n.s) !== Math.round(note.s));
+  L.notes = L.notes.filter((n) => n === note || S.sel.has(n) || cellOf(n.s) !== cellOf(note.s));
   if (L.notes.length !== before) indexLayer(L);
 }
 
@@ -2187,7 +2392,7 @@ function copySelection() {
   if (!L || !S.sel.size) return;
   const notes = [...S.sel].sort((a, b) => a.s - b.s);
   const s0 = notes[0].s, own = noteOwners();
-  const pick = ({ s, n, d, md, p, i, m, smp, gm, slide, vol, pan }) => ({ s: s - s0, n, d, md, p, i, m, smp, gm, slide, vol, pan });
+  const pick = ({ s, n, d, md, p, i, m, smp, gm, slide, vol, pan, g }) => ({ s: s - s0, n, d, md, p, i, m, smp, gm, slide, vol, pan, g: g && structuredClone(g) });
   const tracks = new Set(notes.map((n) => own.get(n) || L));
   if (tracks.size > 1) S.clip = { parts: [...tracks].map((M) => ({ id: M.id, notes: notes.filter((n) => own.get(n) === M).map(pick) })) };
   else { const M = [...tracks][0]; S.clip = { kind: M.kind, kit: !!M.kit, voice: M.voice, notes: notes.map(pick) }; }
@@ -2198,11 +2403,11 @@ function pasteClip() {
   if (!L || !c) return;
   if (c.parts) { pasteParts(c); return; }
   if (c.kind !== L.kind || c.kit !== !!L.kit) { showStatus(`Copied notes are for a ${c.kind.toUpperCase()} track`); return; }
-  const at = S.hover?.s ?? Math.max(firstPlayStep(), Math.ceil(S.scroll));
+  const at = S.hover?.s ?? Math.max(firstPlayStep(), snapS(Math.ceil(S.scroll)));
   pushUndo();
   S.sel.clear();
   for (const x of c.notes) {
-    const n = { ...x, s: Math.round(at + x.s), e: 1 };
+    const n = { ...x, s: snapS(at + x.s), e: 1, g: x.g && structuredClone(x.g) };
     for (const k of Object.keys(n)) if (n[k] === undefined) delete n[k];
     if (n.s > lastPlayStep()) continue;
     L.notes.push(n);
@@ -2217,7 +2422,7 @@ function pasteClip() {
 }
 
 function pasteParts(c) {
-  const at = S.hover?.s ?? Math.max(firstPlayStep(), Math.ceil(S.scroll));
+  const at = S.hover?.s ?? Math.max(firstPlayStep(), snapS(Math.ceil(S.scroll)));
   const parts = c.parts.map((p) => [S.song.layers.find((M) => M.id === p.id), p]).filter(([M]) => M);
   if (!parts.length) { showStatus('The tracks these notes came from are gone'); return; }
   pushUndo();
@@ -2227,7 +2432,7 @@ function pasteParts(c) {
   for (const [M, p] of parts) {
     const added = [];
     for (const x of p.notes) {
-      const n = { ...x, s: Math.round(at + x.s), e: 1 };
+      const n = { ...x, s: snapS(at + x.s), e: 1, g: x.g && structuredClone(x.g) };
       for (const k of Object.keys(n)) if (n[k] === undefined) delete n[k];
       if (n.s > lastPlayStep()) continue;
       M.notes.push(n); added.push(n); S.sel.add(n);
@@ -2255,11 +2460,18 @@ function staffHint(h) {
   if (h.kind === 'key') return 'Click: play · drag: play along';
   if (h.kind === 'lane') return 'Click: choose this track';
   if (!L || h.x < GUTTER) return '';
+  if (h.kind === 'grace') return ({
+    erase: 'Click: erase the grace note',
+    pen: 'Click: one more grace note · drag up / down: pitch, left / right: time · right click: erase',
+    fill: "Click: give it the chosen sound (its note's sound again: it follows the note)",
+    pick: 'Click: take its sound',
+  })[S.tool] || 'Right click: erase';
   const note = h.kind === 'note' ? h.note : null;
   const pitched = note && !fixedPitch(L, note) && L.kind !== 'sample';
   switch (S.tool) {
     case 'pen':
-      if (note) return `Drag sideways: length${pitched ? ' · up / down: slide' : ''}`;
+      if (S.ge) return note ? 'Click: one more grace note · drag sideways: length' : 'Click: done with the grace notes (or Esc)';
+      if (note) return pitched ? `Click: grace notes · drag sideways: length, up / down: slide` : 'Drag sideways: length';
       return h.kind === 'empty' ? 'Click: place a note · right click: erase' : '';
     case 'select':
       if (note) return S.sel.has(note) ? 'Drag: move · Del: delete · Ctrl+C: copy' : 'Click: select · drag: move · Shift: add';
@@ -2290,6 +2502,7 @@ function staffStatus(h) {
   if (h.kind === 'ruler') return `Bar ${barBeat(Math.floor(h.s))}`;
   if (h.kind === 'key') return noteName(h.p);
   if (h.kind === 'lane') return `Select ${S.song.layers[h.li].name}`;
+  if (h.kind === 'grace') return h.note.g?.[h.i] ? `${graceText(h.note, h.i)} · ${barBeat(h.note.s)}` : '';
   if (h.kind === 'note') {
     const n = h.note, drum = fixedPitch(L, n);
     const what = n.gm != null ? kitOf(n).name : L.kind === 'sample' ? S.song.samples[n.smp].name : soundOfNote(L, n)?.name || L.sel.name;
@@ -2324,16 +2537,40 @@ function setTool(t) {
   if (multiLayer() && ONE_TRACK_TOOLS.has(t)) { showStatus('Pen, fill and pipette work on one track: click a single track'); return; }
   if (BAR_TOOLS[t] && !BAR_TOOLS[t].ok(activeLayer() || {})) return;
   S.tool = t;
+  if (!GRACE_TOOLS.has(t)) S.ge = null; // other tools end editing grace notes
 }
 function setFollow(on) { S.follow = on; S.followHold = false; }
 function setLoop(on) { S.loop = on; post({ type: 'loop', on }); }
 const ZOOMS = [4, 6, 8, 10, 12, 16];
 function zoom(dir) {
-  const i = ZOOMS.indexOf(S.colW);
+  const i = ZOOMS.indexOf(S.zoom);
   const ni = Math.max(0, Math.min(ZOOMS.length - 1, (i < 0 ? 2 : i) + dir));
   const center = S.scroll + visibleSteps() / 2;
-  S.colW = ZOOMS[ni];
+  S.zoom = ZOOMS[ni]; S.colW = S.zoom / S.cell;
   setScroll(center - visibleSteps() / 2);
+}
+function applyGrid(g) {
+  S.grid = g.n; S.cell = g.cell; S.colW = S.zoom / S.cell;
+}
+// A grid fits when no voice would get two notes in one cell.
+function gridFits(g) {
+  return S.song.layers.every((L) => L.kind === 'dac' || new Set(L.notes.map((n) => Math.round(n.s / g.cell))).size === L.notes.length);
+}
+// Click on GRID: the next grid that fits the notes (a coarser one would put two notes in a cell, so it is skipped).
+function cycleGrid(dir = 1) {
+  const i = GRIDS.findIndex((g) => g.n === S.grid);
+  for (let k = 1; k < GRIDS.length; k++) {
+    const g = GRIDS[(i + dir * k + GRIDS.length * 4) % GRIDS.length];
+    if (!gridFits(g)) continue;
+    const center = S.scroll + visibleSteps() / 2;
+    applyGrid(g);
+    if (g.n === 16) delete S.song.grid; else S.song.grid = g.n;
+    setScroll(center - visibleSteps() / 2);
+    markDirty();
+    showStatus(`Grid 1/${g.n}`);
+    return;
+  }
+  showStatus(`Notes here need 1/${S.grid}`);
 }
 function setTheme(name) {
   S.theme = name;
@@ -3194,7 +3431,7 @@ async function smpPlay(d, p = d.base, sec = 10) {
     const node = S.ctx.createBufferSource(), gain = S.ctx.createGain();
     node.buffer = buf; node.playbackRate.value = k;
     if (looped) Object.assign(node, { loop: true, loopStart: (d.o.loop - d.o.start) / rate, loopEnd: before.length / rate });
-    gain.gain.value = BEFORE_GAIN * S.volume / 1.6;
+    gain.gain.value = BEFORE_GAIN * outVolume() / 1.6;
     node.connect(gain).connect(S.ctx.destination);
     node.start();
     d.source = node;
@@ -3851,8 +4088,8 @@ function drawToolbar(y) {
   x += boxes(x + 1, y, [{ id: 'tool-more', icon: 'more', on: !!more || S.flyout, tip: 'More tools', click: () => { S.flyout = !S.flyout; S.menu = false; } }]) + 1 + gap;
   x += boxes(x, y, [{ id: 'gear', icon: 'gear', on: S.dlg?.kind === 'settings', tip: 'Settings', click: () => openDialog({ kind: 'settings' }) }]) + gap;
   x += boxes(x, y, [
-    { id: 'zoomout', icon: 'zoomout', disabled: S.colW === ZOOMS[0], tip: 'Zoom out · −', click: () => zoom(-1) },
-    { id: 'zoomin', icon: 'zoomin', disabled: S.colW === ZOOMS[ZOOMS.length - 1], tip: 'Zoom in · +', click: () => zoom(1) },
+    { id: 'zoomout', icon: 'zoomout', disabled: S.zoom === ZOOMS[0], tip: 'Zoom out · −', click: () => zoom(-1) },
+    { id: 'zoomin', icon: 'zoomin', disabled: S.zoom === ZOOMS[ZOOMS.length - 1], tip: 'Zoom in · +', click: () => zoom(1) },
     { id: 'follow', icon: S.follow ? 'eye' : 'eyeShut', tip: S.follow ? 'Following the playhead · F' : 'Not following the playhead · F', click: () => setFollow(!S.follow) },
   ]) + gap;
   // the song title in the space left
@@ -3892,7 +4129,11 @@ function drawLcd(x, y, w) {
   region(x + 50, y + 2, 20, h - 4, { id: 'bpm', cursor: 'pointer', tip: 'Tempo · click to change',
     click: () => openBpmDialog(),
     wheel: (e) => setBpm(S.song.bpm + (e.deltaY < 0 ? 1 : -1) * (e.shiftKey ? 10 : 1)) });
-  drawScope(x + 72, y + 3, w - 76, h - 6);
+  text('GRID', x + 74, y + 4, T.lcdDim);
+  text(`1/${S.grid}`, x + 74, y + 12, hot('grid') ? T.white : T.lcdInk);
+  region(x + 72, y + 2, 24, h - 4, { id: 'grid', cursor: 'pointer', tip: 'Grid: how fine notes go · click',
+    click: () => cycleGrid(1), wheel: (e) => cycleGrid(e.deltaY < 0 ? 1 : -1) });
+  drawScope(x + 98, y + 3, w - 102, h - 6);
   round(x, y, w, h);
 }
 
@@ -4263,17 +4504,19 @@ function drawTransport(y) {
     { id: 'barPlus', icon: 'plus', disabled: songBars() >= 256, tip: 'Add a bar at the end', click: () => setBars(songBars() + 1) },
   ]) + 6;
   // volume on the right
-  const lcdW = 112, lx = ui.W - MARGIN - lcdW;
+  const lcdW = 138, lx = ui.W - MARGIN - lcdW;
   drawLcd(lx, y, lcdW);
   // the status line and the volume: one box, 2 px from the bar buttons and the LCD
   const bx = x - 4, bw = lx - 2 - bx;
   frame(bx, y, bw, TB_H); fill(bx + 1, y + 1, bw - 2, TB_H - 2, T.face);
-  // drawn from art/pictures: volIcon, volLine (its width is how far the knob goes) and volKnob (frame 2: held or
-  // under the mouse), each with its middle row on the toolbar's middle row
-  const icon = picture('volIcon'), line = picture('volLine');
+  // drawn from art/pictures: volIcon (frames: loud, middle, quiet, muted), volLine (its width is how far the knob
+  // goes) and volKnob (frame 2: held or under the mouse), each with its middle row on the toolbar's middle row
+  const level = S.silent || S.volume <= 0 ? 3 : S.volume > 2 ? 0 : S.volume > 1 ? 1 : 2;
+  const icon = picture('volIcon', Math.min(level, frameCount('pictures', 'volIcon') - 1)), line = picture('volLine');
   const knob = picture('volKnob', hot('vol') || ui.capture?.id === 'vol' ? 1 : 0);
   const vw = line.width, vx = lx - 6 - vw - icon.width - 2, ty = y + 10;
   g.drawImage(icon, vx, ty - (icon.height >> 1));
+  region(vx, y + 2, icon.width, TB_H - 4, { id: 'mute', cursor: 'pointer', tip: S.silent ? 'Sound off · click to turn it on' : 'Click to turn the sound off', click: toggleMute });
   const tx = vx + icon.width + 2;
   g.drawImage(line, tx, ty - (line.height >> 1));
   const kx = tx + Math.round(S.volume / 3 * (vw - 1));
@@ -4343,11 +4586,13 @@ function staffCursor() {
   if (S.tool === 'hand') return 'hand';
   if (S.tool === 'repeat') return h.rep ? 'repeat' : 'arrow';
   if (S.tool === 'select' || BAR_TOOLS[S.tool]) return h.x >= GUTTER ? toolCursor() : 'arrow';
-  return h.kind === 'note' || h.kind === 'empty' ? toolCursor() : 'arrow';
+  return h.kind === 'note' || h.kind === 'empty' || h.kind === 'grace' ? toolCursor() : 'arrow';
 }
 function drawCursor() {
-  const m = ui.mouse;
-  const x = Math.floor(m.x), y = Math.floor(m.y);
+  const m = ui.mouse, d = S.drag;
+  let x = Math.floor(m.x), y = Math.floor(m.y);
+  const sp = d?.mode === 'grace' && d.note.g?.[d.i] && graceSpots(d.L, d.note)[d.i];
+  if (sp) { x = SX + sp.x; y = SY + sp.y; } // a dragged grace note keeps the cursor on it: the mouse sets its time, not its place
   const ink = md(0, 0, 0), halo = md(7, 7, 7);
   const name = staffCursor();
   const c = pointerIcon(name, m.buttons && hasFrame('cursors', name, 1) ? 1 : 0); // frame 2 while a button is down
@@ -4405,7 +4650,7 @@ window.addEventListener('keydown', (e) => {
   else if (mod && code === 'KeyY') { e.preventDefault(); redo(); }
   else if (mod) return;
   else if ((k === 'Delete' || k === 'Backspace') && S.sel.size) { e.preventDefault(); deleteSelection(); }
-  else if (k === 'Escape') { S.sel.clear(); showStatus(''); }
+  else if (k === 'Escape') { if (S.ge) { closeGraces(); return; } S.sel.clear(); showStatus(''); }
   else if (k === 'Home') backToStart();
   else if (/^Digit\d$/.test(code)) {
     const i = (+code.slice(5) + 9) % 10;
