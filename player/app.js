@@ -1,6 +1,6 @@
-import { prepareSong, buildTimeline, noteTime, stepTime, timeToStep, fmHz, psgHz, hzMidi, MELODIC_VOICE, repeatSpans, playedSteps, writtenStep, performSong, sampleStep, graceNote, GRACE_SOUND } from './engine/song.js';
+import { prepareSong, buildTimeline, noteTime, stepTime, timeToStep, fmHz, psgHz, hzMidi, MELODIC_VOICE, repeatSpans, playedSteps, writtenStep, performSong, sampleStep, graceNote, GRACE_SOUND, startTime, fromStart } from './engine/song.js';
 import { boxSprite } from './pixel.js';
-import { THEMES, md, LAYER_TONES, NOTE_NAMES, toneOrder, toneCss, loadArt, hasFrame, frameCount, noteSprite, checkered, smallIcon, pointerIcon, picture, artInfo, clef, textWidth, fitText, rgbCss, snap, drawText, glowOf } from './pixel.js';
+import { THEMES, md, LAYER_TONES, NOTE_NAMES, toneOrder, toneCss, loadArt, hasFrame, frameCount, noteSprite, tailParts, NOTE_PAL, checkered, smallIcon, pointerIcon, picture, artInfo, clef, textWidth, fitText, rgbCss, snap, drawText, glowOf } from './pixel.js';
 import { SPRITE_POOL, ROLE_SPRITE, ROLE_SET, spriteName, sonic } from './sprites.js';
 import { SCALE_LIST, findScale, guessScale } from './scales.js';
 import { listRefs, listMine, getMine, putMine, deleteMine, newId, fetchRef, fetchBank, fetchCatalog, listMySounds, putMySound, deleteMySound } from './library.js';
@@ -15,7 +15,7 @@ import { ui, initScreen, resizeScreen, beginFrame, endFrame, region, hot, presse
 const LAST_KEY = 'segapaint:last', THEME_KEY = 'segapaint:theme', SCALE_KEY = 'segapaint:scale', SOUND_KEY = 'segapaint:sound';
 const VGM_KEY = 'segapaint:vgm'; // the last export's author and DAC choice
 const FOLD_KEY = 'segapaint:fold'; // which left panels are folded
-const VERSION = 'BETA 3';
+const VERSION = 'BETA 4';
 // The art editor saves through tools/serve.py, so it is offered only when the app runs from it (not on the web copy).
 const LOCAL = ['localhost', '127.0.0.1', '[::1]'].includes(location.hostname);
 const SCALES = [2, 3, 4, 5, 6];
@@ -57,7 +57,7 @@ const DIAT_TOP = 57, DIAT_BOT = -1;
 const S = {
   song: null, pcm: null, modelTl: null,
   active: 0, hidden: new Set(), muted: new Set(), solo: new Set(),
-  scroll: 0, vy: 0, vyMax: 0, lanes: [], colW: 8, zoom: 8, grid: 16, cell: 1, follow: true, followHold: false,
+  scroll: 0, vy: 0, vyMax: 0, runFrom: 0, lanes: [], colW: 8, zoom: 8, grid: 16, cell: 1, follow: true, followHold: false,
   tool: 'select', // the arrow first
   layers: new Set(), // the tracks chosen together (Ctrl / Shift + click); empty or one = just the active track
   repMode: 'x2', // what the repeat tool does: x2 / x3 / x4 (make or set a repeat), loop (the green one), del
@@ -209,6 +209,7 @@ function setupSong(song, bank) {
   for (const L of song.layers) if (L.kind === 'fm' || L.kind === 'psg' || L.kind === 'noise') for (const n of L.notes) if (n.m != null && n.md == null && n.slide == null) n.md = n.d;
   S.song = prepareSong(song);
   S.pcm = bank;
+  S.start0 = null;
   // bar 1 starts at song.barOffset (a game song with a pickup before it), else at step 0 (game songs, new songs)
   S.barOffset = song.barOffset ?? (song.ticksPerStep || song.uniform ? 0 : firstStep(song.layers.find((l) => l.role === 'bass') || song.layers[0]) % 16);
   assignSampleRows(song);
@@ -235,10 +236,11 @@ function setupSong(song, bank) {
   rebuildModel();
   staffGeom();
   centerOnRow((S.contentTop + S.contentBot) / 2);
-  S.scroll = S.barOffset - 2;
+  S.scroll = startStep() - 2; // a pickup: the view opens at it (and Sonic, at the start flag), not at the empty bar 1
   updateDocUI();
   S.cleanSig = docSig();
-  S.pos = S.song.stepTimes[S.song.step0]; S.posAt = performance.now(); // a song opens at its start
+  S.pos = startTime(S.song); S.posAt = performance.now(); // a song opens at its start (the start flag)
+  S.runFrom = S.pos;
   if (S.node) {
     post({ type: 'pause' }); S.playing = false;
     sendTimeline(S.pos); sendMute();
@@ -415,7 +417,7 @@ async function exportSong(d) {
   try { localStorage.setItem(VGM_KEY, JSON.stringify({ author, dac: d.dac, fmt: d.fmt })); } catch (e) { /* ignore */ }
   if (d.fmt === 'json') { exportJson(title); return; }
   const now = new Date(), date = `${now.getFullYear()}/${String(now.getMonth() + 1).padStart(2, '0')}/${String(now.getDate()).padStart(2, '0')}`;
-  const res = writeVGM(buildTimeline(S.song, S.pcm), { title, author, date }, { dac: d.dac });
+  const res = writeVGM(fromStart(buildTimeline(S.song, S.pcm)), { title, author, date }, { dac: d.dac });
   const bytes = d.fmt === 'vgz' ? await gzipBytes(res.bytes) : res.bytes;
   const name = `${fileStem(title)}.${d.fmt}`;
   downloadBytes(name, bytes);
@@ -655,7 +657,7 @@ function computeRange() {
 
 // ---------- edits, undo/redo, persistence ----------
 function snapshot() {
-  const o = { _timing: { bpm: S.song.bpm, bars: songLen(), loop: loopStep(), repeats: S.song.repeats || [], tempos: S.song.tempos || [] } };
+  const o = { _timing: { bpm: S.song.bpm, bars: songLen(), loop: loopStep(), repeats: S.song.repeats || [], tempos: S.song.tempos || [], start: S.song.start ?? null } };
   for (const L of S.song.layers) if (L.kind !== 'dac') o[L.id] = L.notes;
   return JSON.stringify(o, (k, v) => (k.startsWith('_') && k !== '_timing' ? undefined : v)); // every note field (grace notes g, leg, ...) but the runtime _ ones
 }
@@ -664,6 +666,7 @@ function applySnapshot(json) {
   if (o._timing) {
     S.song.repeats = o._timing.repeats || [];
     if (o._timing.tempos?.length) S.song.tempos = o._timing.tempos; else delete S.song.tempos;
+    if (o._timing.start != null) S.song.start = o._timing.start; else delete S.song.start;
     setTiming(o._timing.bpm, o._timing.bars, o._timing.loop ?? loopStep());
   }
   const ge = S.ge && { L: S.ge.L, s: S.ge.note.s };
@@ -699,6 +702,7 @@ function redo() {
   afterEdit();
 }
 function afterEdit() {
+  S.start0 = null; // the first note may have moved
   updateTimingUI();
   rebuildModel();
   markDirty();
@@ -867,6 +871,9 @@ function rulerMenuItems() {
     { label: mark ? 'Change tempo here…' : 'Tempo from here…', click: () => openTempoDialog(s) },
     { label: 'Remove tempo change', disabled: !mark, click: () => { pushUndo(); removeTempoMark(s); afterEdit(); showStatus(`Tempo change at ${barBeat(s, true)} removed`); } },
     null,
+    { label: 'Start the song here', disabled: s >= 16 - 1e-6 || s >= lastPlayStep(), click: () => { pushUndo(); setStart(s); afterEdit(); showStatus(`Song starts at ${barBeat(startStep(), true)}`); } },
+    { label: 'End the song here', disabled: s <= startStep() + 1e-6, click: () => { pushUndo(); setTiming(S.song.bpm, (s - timingOffset()) / 16); afterEdit(); showStatus(`Song ends at ${barBeat(s, true)}`); } },
+    null,
     { label: 'Song tempo…', click: openBpmDialog },
   ];
 }
@@ -967,7 +974,7 @@ async function startAudio() {
   sendLoop();
   post({ type: 'clean', on: S.sound === 'clean' });
   if (S.song) { // a click on the boot splash can come before the song is loaded: setupSong sends it then
-    sendTimeline(S.song.stepTimes[S.song.step0]);
+    sendTimeline(startTime(S.song));
     sendMute();
   }
 }
@@ -1037,7 +1044,7 @@ async function togglePlay() {
   await ensureAudio();
   S.ctx.resume();
   S.playing = !S.playing;
-  if (S.playing) { S.followHold = false; closeGraces(); } // play shows the whole song again: grace notes closed
+  if (S.playing) { S.followHold = false; closeGraces(); S.runFrom = currentPos(); } // play shows the whole song again: grace notes closed; icons played from here stay put
   post({ type: S.playing ? 'play' : 'pause' });
   S.posAt = performance.now();
 }
@@ -1048,8 +1055,8 @@ const PREV_GRACE = 3; // seconds
 const refIndex = () => (S.doc.kind === 'ref' ? S.refs.findIndex((r) => r.dir === S.doc.dir) : -1);
 function backToStart() {
   const i = refIndex();
-  if (i > 0 && currentPos() < S.song.stepTimes[S.song.step0] + PREV_GRACE * RATE) { switchRef(i - 1); return; }
-  seekToStep(0); setScroll(-2);
+  if (i > 0 && currentPos() < startTime(S.song) + PREV_GRACE * RATE) { switchRef(i - 1); return; }
+  seekToStep(startStep()); setScroll(startStep() - 2);
 }
 async function switchRef(i) {
   const ref = S.refs[i];
@@ -1071,6 +1078,7 @@ function seekToStep(s) {
   const pos = Math.max(0, playedTime(stepTime(S.song, s)));
   S.followHold = false;
   S.pos = pos; S.jumps = 0; S.posAt = performance.now(); // a seek starts the repeats over (the renderer's too)
+  S.runFrom = pos; // the icons played before go back
   post({ type: 'seek', pos });
 }
 
@@ -1323,13 +1331,14 @@ function drawStaff() {
   // ruler: bar numbers, ticks, flags
   const bars = [];
   g.save(); g.beginPath(); g.rect(GUTTER, 0, SW - GUTTER, SH); g.clip();
-  for (let st = s0; st <= s1; st++) {
-    const x = xOf(st), rel = st - S.barOffset, bar = Math.floor(rel / 16);
-    if (((rel % 16) + 16) % 16 === 0) {
+  // beats counted from bar 1, which may start between two steps (a song whose pickup is not whole sixteenths)
+  for (let j = Math.floor((s0 - S.barOffset) / 4); j <= Math.ceil((s1 - S.barOffset) / 4); j++) {
+    const x = xOf(S.barOffset + 4 * j), bar = Math.floor(j / 4);
+    if (((j % 4) + 4) % 4 === 0) {
       bars.push(x);
       fill(x, RULER - 4, 1, 3, T.ink);
       if (bar >= 0) text(bar + 1, x + 2, 3, T.ink);
-    } else if (((rel % 4) + 4) % 4 === 0) {
+    } else {
       fill(x, RULER - 2, 1, 1, T.dim);
       for (let y = viewTop + 1; y < bottom; y += 2) fill(x, y, 1, 1, T.beat);
     }
@@ -1338,6 +1347,7 @@ function drawStaff() {
   fill(0, RULER - 1, SW, 1, T.ink);
   drawRepeatRuler();
   drawEndFlag();
+  drawStartFlag();
   drawLoopFlag();
   drawTempoMarks(viewTop, bottom);
 
@@ -1371,6 +1381,9 @@ function drawStaff() {
   g.restore();
 
   drawLanes(order, s0, s1, pos);
+  g.save(); g.beginPath(); g.rect(GUTTER, viewTop, SW - GUTTER, bottom - viewTop); g.clip();
+  drawSparks();
+  g.restore();
   drawTimeShade(bottom);
   if (BAR_TOOLS[S.tool]) drawBars(BAR_TOOLS[S.tool], s0, s1);
 
@@ -1418,11 +1431,18 @@ function drawLayer(L, active, s0, s1, pos, only = null) {
   while (lo < hi) { const m = (lo + hi) >> 1; if (notes[m]._e < s0) lo = m + 1; else hi = m; }
   if (L.kind === 'dac') { drawDac(L, active, lo, s1, pos); return; }
   // other tracks are drawn dithered: every other pixel in the shade, so the chosen one stands out over them
-  const tail = toneInk(L, !active), paint = active ? fill : shadeDither;
+  const ps = timeToStep(S.song, pos);
   for (let i = lo; i < notes.length && notes[i].s <= s1; i++) {
     const n = notes[i];
     const x0 = xOf(n.s) + cellMid(), x1 = xOf(n._e);
-    if (n._e - n.s > 1.05 && x1 > x0) paint(x0, noteY(L, n) - 1, x1 - x0, 3, tail);
+    if (n._e - n.s <= 1.05 || x1 <= x0) continue;
+    // while it plays the tail turns the shade of its icon up to where the icon is; played through it stays so
+    const r = rideOf(n, pos, ps);
+    const px = r.riding ? x0 + Math.round((x1 - x0) * r.prog) : r.rested ? x1 : x0;
+    // the rest of a sounding tail blinks light on every other eighth note, with its icon's frames
+    const lit = r.riding && Math.floor((ps - n.s) / 2) % 2 === 0;
+    drawTail(L, x0, x1, noteY(L, n), active, px, lit);
+    if (S.playing && active && !only && (r.riding || r.rested)) crumble(L, n, x0, px, noteY(L, n));
   }
   // legato: a slur over the two notes (also while the pen is reaching for the next one)
   if (!only && L.kind === 'fm') for (let i = Math.max(1, lo); i < notes.length && notes[i - 1].s <= s1; i++) {
@@ -1431,12 +1451,9 @@ function drawLayer(L, active, s0, s1, pos, only = null) {
     const pen = S.drag?.mode === 'tail' && S.drag.next === n;
     if (pen ? S.drag.leg === n : n.leg && tiedTo(notes[i - 1], n)) drawSlur(L, notes[i - 1], n, active);
   }
-  const ps = timeToStep(S.song, pos);
   for (let i = lo; i < notes.length && notes[i].s <= s1; i++) {
     const n = notes[i];
-    // a long note's icon rides along its tail with the playhead, lit, until the note ends
-    const long = n._e - n.s > 1.05;
-    const riding = long && S.playing && pos >= n._t && ps < n._e;
+    const { riding, rested, prog } = rideOf(n, pos, ps);
     // frame 0 is the still note, the others play while it sounds. Riding, it moves on every eighth note (2 steps), so
     // it keeps time with the tempo: with 2 frames it blinks lit / still, with more it runs through the sounding ones.
     const name = spriteOf(L, n), nf = frameCount('notes', name) || 1;
@@ -1448,16 +1465,27 @@ function drawLayer(L, active, s0, s1, pos, only = null) {
     // the note the pen is tying to blinks
     const legBlink = S.drag?.leg === n && Math.floor(performance.now() / 150) % 2 === 0;
     if (legBlink && !frame) frame = 1;
-    const off = n.s > lastPlayStep();
+    const off = n.s > lastPlayStep() || n.s < startStep() - 1e-6; // not played: after the end, before the start
     const faint = !active || off;
     const sp = noteSprite(name, L.tone, Math.min(frame, nf - 1), faint ? 'ghost' : 'normal', ui.T);
-    const at = riding ? Math.max(n.s, Math.min(ps - 0.5, n._e - 1)) : n.s;
-    // riding a note with a slide, the icon follows the pitch as it sounds
-    const dy = riding && n._slide ? Math.round(slideDy(n, pos - n._t)) : 0;
+    // Where the icon rides to: right after its line (its 8 px picture, drawn in the middle of its 12 px, starts where
+    // the line ends). It gets there evenly over the note, so it arrives as the note ends and stays (no jump). Where the
+    // next note of its row stands on that spot, it rides onto that one and is not drawn once it has arrived (merged).
+    const nx = notes[i + 1], nxRow = nx && Math.abs(noteY(L, nx) - noteY(L, n)) < 8;
+    let goal = n._e - (cellMid() - 4) / S.colW;
+    const merged = nxRow && nx.s < goal + 8 / S.colW;
+    if (merged) goal = Math.max(n.s, nx.s);
+    // hidden under the next one while that one stands there: until it starts and rides away (a short one never does)
+    if (rested && merged && (pos < nx._t || nx._e - nx.s <= 1.05)) continue;
+    const at = riding ? n.s + (goal - n.s) * prog : rested ? goal : n.s;
+    // riding a note with a slide, the icon follows the pitch as it sounds (and stays at the pitch it slid to)
+    const dy = (riding || rested) && n._slide ? Math.round(slideDy(n, rested ? n._d : pos - n._t)) : 0;
+    const bounce = S.playing && pos >= n._t ? hopDy(n, (pos - n._t) * 1000 / RATE, riding) : 0;
     // on the staff a note with grace notes glows (its light tone around it); they are shown when it is opened
     const glow = legBlink ? ui.T.ink : n.g?.length && !only ? toneInk(L, !active, 0) : null;
-    const [x] = drawNoteSprite(sp, at, noteY(L, n) + dy, !active, glow);
-    if (n._slide && !riding) drawGliss(L, n, x + 10, active);
+    const [x] = drawNoteSprite(sp, at, noteY(L, n) + dy + bounce, !active, glow);
+    if (S.playing && active && !off && !only && pos >= n._t) sparkFor(L, n, at, noteY(L, n) + dy + bounce, riding, pos, ps);
+    if (n._slide && !riding && !rested) drawGliss(L, n, x + 10, active);
     if (only && n.g?.length) drawGraces(L, n);
   }
 }
@@ -1542,6 +1570,117 @@ function eraseGrace(L, n, i) {
 }
 // Its own gap: to the next grace note, or to the note for the last one.
 const graceText = (n, i) => `Grace ${noteName(n.g[i].p)} · ${Math.round((graceGap(n, i) * 1000) / RATE)} ms before ${i + 1 < n.g.length ? 'the next grace ' + noteName(n.g[i + 1].p) : noteName(n.p)}`;
+
+// Sparks: a few pixels that hop out of a note's icon as it starts, and specks that crumble off its line where the icon
+// is erasing it (crumble), in the track's light and body colours; they hop up, fall back and are gone in half a second.
+// A fixed pool, a fillRect each: cheap. Only while playing: a pause, a seek or another song clears them.
+const SPARKS = [], SPARK_MAX = 120, SPARK_G = 420; // px/s²
+const SPARK_START = 2, CRUMBLE = 0.15; // sparks as a note starts; the share of erased line pixels that become specks
+let sparkAt = 0;
+function spark(L, s, y, n) {
+  for (let k = 0; k < n && SPARKS.length < SPARK_MAX; k++) {
+    const life = 0.35 + Math.random() * 0.25;
+    SPARKS.push({ s, dx: (Math.random() - 0.5) * 6, y: y - 3 - Math.random() * 3, vx: (Math.random() - 0.5) * 50,
+      vy: -(70 + Math.random() * 60), life, max: life, c: toneInk(L, false, Math.random() < 0.6 ? 0 : 1) });
+  }
+}
+// The line erased since the last frame (x0 + n._ex .. px, screen px) sheds specks: CRUMBLE of its pixels, from its
+// height, hopping lower and shorter than the sparks. A note already playing when it comes into play (Play mid-note, a
+// seek) starts from where it is, not with all it has played.
+function crumble(L, n, x0, px, y) {
+  const pass = S.runFrom + ':' + (S.jumps || 0);
+  if (n._cpass !== pass) { n._cpass = pass; n._ex = px - x0; return; }
+  const from = x0 + n._ex;
+  n._ex = Math.max(n._ex, px - x0);
+  for (let x = from; x < px && SPARKS.length < SPARK_MAX; x++) {
+    if (Math.random() > CRUMBLE) continue;
+    const life = 0.25 + Math.random() * 0.25;
+    SPARKS.push({ s: n.s + (x - (xOf(n.s) + cellMid())) / S.colW, dx: 0, y: y - 1 + Math.floor(Math.random() * 3),
+      vx: (Math.random() - 0.5) * 30, vy: -(25 + Math.random() * 55), life, max: life,
+      c: toneInk(L, false, Math.random() < 0.5 ? 0 : 1) });
+  }
+}
+// Where a playing note sparks: once as it starts (each pass of the song: a repeat sparks again).
+function sparkFor(L, n, at, y, riding, pos, ps) {
+  const pass = S.runFrom + ':' + (S.jumps || 0);
+  if (n._spark !== pass) { n._spark = pass; if (pos < n._t + RATE * 0.15) spark(L, at, y, SPARK_START); }
+}
+function drawSparks() {
+  const now = performance.now(), dt = Math.min(0.05, Math.max(0, (now - sparkAt) / 1000));
+  sparkAt = now;
+  if (!S.playing) { SPARKS.length = 0; return; }
+  for (let i = SPARKS.length - 1; i >= 0; i--) {
+    const p = SPARKS[i];
+    p.life -= dt;
+    if (p.life <= 0) { SPARKS[i] = SPARKS[SPARKS.length - 1]; SPARKS.pop(); continue; }
+    p.dx += p.vx * dt; p.y += p.vy * dt; p.vy += SPARK_G * dt;
+    if (p.life < p.max * 0.3 && (i + (now >> 6)) & 1) continue; // fading: it flickers out
+    fill(xOf(p.s) + cellMid() + Math.round(p.dx), Math.round(p.y), 1, 1, p.c);
+  }
+}
+
+// A long note while the song plays: riding (its icon goes along its tail; prog 0..1 of the way), or rested (it sounded
+// since Play or the last seek, one that began before still sounds on from there, and has ended: it stays at the end
+// of its tail until a pause, a seek, another song).
+function rideOf(n, pos, ps) {
+  const long = n._e - n.s > 1.05;
+  const riding = long && S.playing && pos >= n._t && ps < n._e;
+  const rested = long && S.playing && !riding && n._t + n._d > S.runFrom + 1 && ps >= n._e;
+  return { riding, rested, prog: Math.max(0, Math.min(1, (pos - n._t) / Math.max(1, n._d))) };
+}
+// A tail from x0 to x1 on row y, from pictures/noteTail (start, middle repeated, end) in the track's colours; other
+// tracks dithered like their icons. Up to px (the icon riding along it) it is drawn played: in the shade; lit: the
+// rest a shade lighter (a beat while it sounds).
+function drawTail(L, x0, x1, y, active, px, lit = false) {
+  const parts = tailParts(L.tone, active ? 'normal' : 'ghost', ui.T);
+  if (!parts) { (active ? fill : shadeDither)(x0, y - 1, x1 - x0, 3, toneInk(L, !active)); return; } // no picture
+  tailRun(parts, x0, x1, y, active ? null : ui.T.shade);
+  if (lit && active && px < x1) {
+    g.save(); g.beginPath(); g.rect(px, y - parts.h, x1 - px, parts.h * 2); g.clip();
+    tailRun(tailParts(L.tone, 'lit', ui.T), x0, x1, y, null);
+    g.restore();
+  }
+  if (px > x0) {
+    g.save(); g.beginPath(); g.rect(x0, y - parts.h, px - x0, parts.h * 2); g.clip();
+    // played: the shade with every other pixel in the icons' outline colour, darker still
+    tailRun(tailParts(L.tone, active ? 'played' : 'ghost', ui.T), x0, x1, y, active ? rgbCss(NOTE_PAL.outline) : ui.T.shade);
+    g.restore();
+  }
+}
+function tailRun(p, x0, x1, y, gap) {
+  const top = y - (p.h >> 1), w = x1 - x0;
+  // columns sx.. of a part drawn at x; gap: every other pixel in that colour, on the screen's checkerboard (the
+  // part's origin is at x - sx)
+  const put = (cv, x, sx, sw) => {
+    if (sw <= 0) return;
+    const src = gap ? checkered(cv, (x - sx + top) & 1, gap) : cv;
+    g.drawImage(src, sx, 0, sw, p.h, x, top, sw, p.h);
+  };
+  const lw = p.l?.width || 0, rw = p.r?.width || 0;
+  if (w < lw + rw) { // too short for both ends: the start's left half and the end's right half
+    const a = Math.min(lw, Math.ceil(w / 2)), b = Math.min(rw, w - a);
+    if (p.l) put(p.l, x0, 0, a);
+    if (p.r) put(p.r, x1 - b, rw - b, b);
+    return;
+  }
+  if (p.l) put(p.l, x0, 0, lw);
+  const mw = p.m.width;
+  for (let x = x0 + lw; x < x1 - rw; x += mw) put(p.m, x, 0, Math.min(mw, x1 - rw - x));
+  if (p.r) put(p.r, x1 - rw, 0, rw);
+}
+
+// A note that starts playing squats and jumps: pixels down (+) / up (-) by milliseconds since its start, a few
+// frames like a sprite. A note with a slide winds up the other way first; a long one then rides its glide (slideDy),
+// a short one hops the way it slides.
+const HOP = [[40, 1], [80, 2], [105, 0], [140, -2], [185, -3], [220, -2], [250, -1]];
+const WIND = [[40, 1], [80, 2], [100, 1]];
+const HOP_SLIDE = [[40, 1], [80, 2], [105, 0], [140, -2], [185, -3], [230, -2], [260, -1]];
+const keyAt = (keys, ms) => (keys.find(([t]) => ms < t) || [0, 0])[1];
+function hopDy(n, ms, riding) {
+  if (!n._slide) return keyAt(HOP, ms);
+  const up = n._slide > 0 ? 1 : -1; // up the staff: a squat first; down: a lift first
+  return (riding ? keyAt(WIND, ms) : keyAt(HOP_SLIDE, ms)) * up;
+}
 
 // Glissando: a wavy pixel line from the note head to the slide target.
 function drawGliss(L, n, x0, active) {
@@ -1696,11 +1835,36 @@ function paintBar(x, y) {
 }
 
 // Notes only play from the song start (time 0) on, and in reference songs (fixed length) until their end.
-const firstPlayStep = () => Math.ceil(timeToStep(S.song, 0) - 1e-6);
+// the first cell of the grid that plays (a song whose step 0 is before its start, Bad to the Bone: its pickup is on
+// a cell between two steps)
+const firstPlayStep = () => snapS(Math.ceil((timeToStep(S.song, 0) - 1e-6) / S.cell) * S.cell);
+// The start flag: where the song starts playing (song.start, a cell of bar 1: a pickup before bar 2). Notes left of
+// it stay on the staff but are not played. Without it: step 0, or the song's first sound if that comes later.
+// The first note's cell when it is before that (a pickup that sounds a moment after its cell: Bad to the Bone).
+const defaultStart = () => (S.start0 ??= Math.max(0, Math.min(firstPlayStep(), ...S.song.layers.flatMap((L) => (L.notes.length ? [L.notes[0].s] : [])))));
+const startStep = () => S.song.start ?? defaultStart();
+const startLimits = () => [defaultStart(), Math.min(16 - S.cell, lastPlayStep())];
+function setStart(s) {
+  const [lo, hi] = startLimits();
+  s = snapS(Math.max(lo, Math.min(hi, s)));
+  if (Math.abs(s - defaultStart()) < 1e-6) delete S.song.start; else S.song.start = s;
+}
+const startFlagX = () => xOf(startStep());
+const nearStartFlag = (x, y) => y < RULER && Math.abs(x - startFlagX() - 4) <= 5;
 const lastPlayStep = () => Math.ceil(timeToStep(S.song, S.song.end) - 1e-6) - 1;
 // Finish flag on the ruler at the song end; drag it to change the length (to any cell of the grid).
 const endFlagX = () => xOf(lastPlayStep() + 1);
 const nearEndFlag = (x, y) => y < RULER && Math.abs(x - endFlagX() + 4) <= 5;
+// The start flag (only where the song does not start at step 0): a solid flag to the right, into the song.
+const startShown = () => startStep() > 1e-6;
+function drawStartFlag() {
+  if (!startShown()) return;
+  const x = startFlagX(), T = ui.T, ink = blinks((g) => g.start) ? T.white : T.ink;
+  if (x < GUTTER || x > SW) return;
+  fill(x, 1, 1, RULER - 2, T.ink);
+  fill(x + 1, 1, 6, 5, ink);
+  fill(x + 7, 2, 1, 3, ink);
+}
 function drawEndFlag() {
   const x = endFlagX(), T = ui.T, ink = blinks((g) => g.end) ? T.white : T.ink;
   if (x < GUTTER || x > SW) return;
@@ -1714,6 +1878,7 @@ function grabTarget() {
   if (S.drag || S.dlg || ui.hover?.id !== 'staff' || !S.song) return null;
   const x = ui.mouse.x - SX, y = ui.mouse.y - SY;
   if (nearEndFlag(x, y)) return { end: true };
+  if (startShown() && nearStartFlag(x, y)) return { start: true };
   if (nearLoopFlag(x, y)) return { loop: true };
   if (S.tool !== 'repeat') return null;
   const t = repTarget(x, y);
@@ -1892,7 +2057,7 @@ function repeatMove(x) {
 function drawTimeShade(bottom) {
   if (S.tool !== 'pen') return;
   const c = ui.T.shade;
-  const x0 = Math.max(GUTTER, xOf(firstPlayStep()));
+  const x0 = Math.max(GUTTER, xOf(startStep()));
   if (x0 > GUTTER) dither(GUTTER, viewTop, x0 - GUTTER, bottom - viewTop, c);
   const x1 = Math.max(GUTTER, xOf(lastPlayStep() + 1));
   if (x1 < SW) dither(x1, viewTop, SW - x1, bottom - viewTop, c);
@@ -2259,6 +2424,7 @@ function staffDown(x, y, e) {
   if (h.kind === 'ruler' && e.button === 0) {
     if (h.tag) { openTempoDialog(h.tag.s); return; }
     if (nearEndFlag(x, y)) { pushUndo(); S.drag = { mode: 'end', moved: false }; return; }
+    if (startShown() && nearStartFlag(x, y)) { pushUndo(); S.drag = { mode: 'start', moved: false }; return; }
     if (nearLoopFlag(x, y)) { pushUndo(); S.drag = { mode: 'loop', moved: false }; return; }
     S.drag = { mode: 'seek', s: Math.floor(h.s) }; seekToStep(S.drag.s); return;
   }
@@ -2511,10 +2677,17 @@ function staffMove(x, y, e) {
   if (d.mode === 'end') {
     // to the nearest cell of the grid (whole steps), at least one step after the start
     const c = Math.max(1, S.cell), st = S.scroll + (x - GUTTER) / S.colW;
-    const k = Math.max(firstPlayStep() + 1, Math.min(256 * 16, Math.round(st / c) * c));
+    const k = Math.max(startStep() + 1, Math.min(256 * 16, Math.round(st / c) * c));
     const len = (k - timingOffset()) / 16;
     if (Math.abs(k - endStepQ()) > 1e-3) { setTiming(S.song.bpm, len); updateTimingUI(); d.moved = true; }
     showStatus(`Song ends at ${barBeat(k, true)}`);
+    return;
+  }
+  if (d.mode === 'start') { // to a cell of bar 1, before the end
+    const was = startStep();
+    setStart(snapS(S.scroll + (x - GUTTER) / S.colW));
+    if (Math.abs(startStep() - was) > 1e-6) d.moved = true;
+    showStatus(`Song starts at ${barBeat(startStep(), true)}`, 'The flag stays inside bar 1');
     return;
   }
   if (d.mode === 'slide') {
@@ -2574,7 +2747,7 @@ function staffUp() {
     afterEdit();
     return;
   }
-  if (mode === 'end' || mode === 'loop' || mode === 'repEdge' || mode === 'bars') {
+  if (mode === 'end' || mode === 'start' || mode === 'loop' || mode === 'repEdge' || mode === 'bars') {
     if (moved) afterEdit(); else { S.undo.pop(); updateDocUI(); }
     return;
   }
@@ -2702,7 +2875,7 @@ function staffHint(h) {
   const L = h?.L || activeLayer();
   if (!h) return '';
   if (h.tag) return 'Click: change the tempo · right click: more';
-  if (h.kind === 'ruler') return nearEndFlag(h.x, h.y) || nearLoopFlag(h.x, h.y) ? 'Drag: move the flag' : 'Click or drag: move Sonic · right click: tempo';
+  if (h.kind === 'ruler') return nearEndFlag(h.x, h.y) || nearLoopFlag(h.x, h.y) || (startShown() && nearStartFlag(h.x, h.y)) ? 'Drag: move the flag' : 'Click or drag: move Sonic · right click: tempo, start, end';
   if (h.kind === 'key') return 'Click: play · drag: play along';
   if (h.kind === 'lane') return 'Click: choose this track';
   if (!L || h.x < GUTTER) return '';
@@ -2744,6 +2917,7 @@ function staffStatus(h) {
     if (t.kind === 'setLoop') return t.at >= 0 ? `Click: loop from ${loopName(t.at)}` : 'Click: loop from the start (no green repeat)';
   }
   if (h.kind === 'ruler' && nearEndFlag(h.x, h.y)) return 'End of song · drag to change the length';
+  if (h.kind === 'ruler' && startShown() && nearStartFlag(h.x, h.y)) return 'Start of song · drag it inside bar 1';
   if (h.kind === 'ruler' && nearLoopFlag(h.x, h.y)) return 'The song loops from here · drag to move';
   if (h.kind === 'ruler') {
     const m = h.tag || tempoMarkNear(h.x);
@@ -2814,7 +2988,7 @@ function zoom(dir) {
   setScroll(center - visibleSteps() / 2);
 }
 function applyGrid(g) {
-  S.grid = g.n; S.cell = g.cell; S.colW = S.zoom / S.cell;
+  S.grid = g.n; S.cell = g.cell; S.colW = S.zoom / S.cell; S.start0 = null;
 }
 // A grid fits when no voice would get two notes in one cell.
 function gridFits(g) {
@@ -4386,7 +4560,7 @@ function drawLcd(x, y, w) {
   const T = ui.T, h = TB_H;
   frame(x, y, w, h, T.edge);
   fill(x + 1, y + 1, w - 2, h - 2, T.lcd);
-  const rel = Math.floor(lastPosStep) - S.barOffset;
+  const rel = lastPosStep - S.barOffset; // bar 1 may start between two steps
   const bar = Math.floor(rel / 16) + 1, beat = Math.floor((((rel % 16) + 16) % 16) / 4) + 1;
   const sec = Math.floor(playedSeconds());
   const cols = [['BAR', `${bar}.${beat}`, 4], ['TIME', `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}`, 28]];
@@ -4851,7 +5025,7 @@ const toolCursor = () => CURSOR_PIC[S.tool] || 'pen'; // the arrow tool stays th
 function staffCursor() {
   const d = S.drag, h = S.hover;
   // dragging something (the score, a flag, Sonic, a repeat sign): the closed hand
-  if (d) return ['pan', 'seek', 'end', 'loop', 'repEdge'].includes(d.mode) ? 'fist' : d.mode === 'keys' ? 'pointer' : toolCursor();
+  if (d) return ['pan', 'seek', 'end', 'start', 'loop', 'repEdge'].includes(d.mode) ? 'fist' : d.mode === 'keys' ? 'pointer' : toolCursor();
   if (!h) return 'arrow';
   if (h.kind === 'ruler' || h.kind === 'key' || h.kind === 'lane') return 'pointer';
   if (S.tool === 'hand') return 'hand';

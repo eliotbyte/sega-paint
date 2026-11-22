@@ -367,6 +367,47 @@ export function noteSprite(name, tone, frame = 0, variant = 'normal', theme = TH
   return cv;
 }
 
+// ---------- note tails: pictures/noteTail, drawn like the notes (black + the three yellows) and painted in a track's
+// colours; its slice (art.json, set with the red lines in the art editor) cuts it into the start, the middle (repeated
+// along the tail) and the end. variant: 'normal' | 'ghost' (other tracks) | 'played' (its played part: all the shade)
+// | 'lit' (the rest of a sounding tail on its beats: light and body instead of body and shade).
+// { l, m, r, h } canvases, or null without the picture. ----------
+const tailCache = new Map();
+export function tailParts(tone, variant = 'normal', theme = THEMES.dark) {
+  const key = `${tone}|${variant}|${theme.paper}`;
+  if (tailCache.has(key)) return tailCache.get(key);
+  const d = pic('pictures', 'noteTail');
+  let res = null;
+  if (d) {
+    const t = LAYER_TONES[tone] || LAYER_TONES[0];
+    let pal = ['', rgbCss(NOTE_PAL.outline), rgbCss(t[0]), rgbCss(t[1]), rgbCss(t[2])];
+    if (variant === 'played') pal = ['', pal[1], pal[4], pal[4], pal[4]];
+    if (variant === 'lit') pal = ['', pal[1], pal[2], pal[2], pal[3]]; // a beat of a sounding tail: a shade lighter
+    if (variant === 'ghost') {
+      const own = NOTE_PAL.ghost?.[tone], to = theme.ghostTo;
+      const ol = NOTE_PAL.ghostOutline ? rgbCss(NOTE_PAL.ghostOutline) : theme.ghostOutline;
+      const body = own ? rgbCss(own) : rgbCss(snap(mixRgb(t[1], to, 0.62)));
+      pal = ['', ol, body, body, ol];
+    }
+    const sl = ART.man?.pictures?.noteTail?.slice || [Math.floor(d.w / 3), 0, Math.floor(d.w / 3), 0];
+    const lw = Math.max(0, Math.min(d.w - 1, sl[0])), rw = Math.max(0, Math.min(d.w - 1 - lw, sl[2]));
+    const part = (x0, w) => {
+      const cv = newCanvas(Math.max(1, w), d.h), c = cv.getContext('2d');
+      for (let y = 0; y < d.h; y++) for (let x = 0; x < w; x++) {
+        const p = pxOf(d, y * d.w + x0 + x);
+        if (p[3] < 128 || isWhite(p)) continue;
+        let k = 1;
+        if (!isBlack(p)) { let bd = 1e9; NOTE_INKS.forEach((n, i) => { const dd = n.reduce((a, v, j) => a + Math.abs(v - p[j]), 0); if (dd < bd) { bd = dd; k = 2 + i; } }); }
+        c.fillStyle = pal[k]; c.fillRect(x, y, 1, 1);
+      }
+      return cv;
+    };
+    res = { l: lw ? part(0, lw) : null, m: part(lw, d.w - lw - rw), r: rw ? part(d.w - rw, rw) : null, h: d.h };
+  }
+  tailCache.set(key, res);
+  return res;
+}
+
 // A glow for a picture: its shape grown by one pixel all round (corners too), in one colour; the canvas is 2 px wider
 // and higher, so draw it at (x - 1, y - 1) under the picture: a ring of `color` shows around it. Cached.
 const glowCache = new WeakMap();

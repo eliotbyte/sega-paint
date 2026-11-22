@@ -280,7 +280,21 @@ export function performSong(song) {
   return out;
 }
 
+// Where the song starts (song.start, steps, inside bar 1: a pickup): the notes before it are not played and the song
+// starts over there. Without it: step 0 (or the song's first sound, when step 0 comes before it).
+export function startTime(song) {
+  if (song.start == null) return Math.max(0, stepTime(song, 0));
+  return Math.max(0, Math.round(stepTime(performSong(song), playedSteps(song, song.start)[0])));
+}
 export function buildTimeline(song, pcm, muted = new Set()) {
+  const start = startTime(song);
+  if (song.start != null) {
+    const st = song.start;
+    song = {
+      ...song, layers: song.layers.map((L) => ({ ...L, notes: L.notes.filter((n) => n.s >= st - 1e-6) })),
+      loopStart: song.loopStart < 0 ? stepTime(song, st) : Math.max(song.loopStart, stepTime(song, st)),
+    };
+  }
   song = performSong(withGraces(song));
   // Every song loops: without a loop start of its own (the green repeat) it starts over from the beginning.
   if (song.loopStart < 0) song = { ...song, loopStart: 0 };
@@ -403,5 +417,15 @@ export function buildTimeline(song, pcm, muted = new Set()) {
       }
     }
   }
-  return tb.finish(song.end, song.loopStart);
+  const tl = tb.finish(song.end, song.loopStart);
+  tl.start = start;
+  return tl;
+}
+// The timeline from its start on, for a file: what comes before is only the chips' setup (its notes are not
+// played), written at time 0; the rest moves up.
+export function fromStart(tl) {
+  const s = tl.start || 0;
+  if (!s) return tl;
+  const t = tl.t.map((x) => Math.max(0, x - s));
+  return { ...tl, t, end: tl.end - s, loopStart: tl.loopStart < 0 ? -1 : Math.max(0, tl.loopStart - s), start: 0 };
 }

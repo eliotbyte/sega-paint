@@ -14,7 +14,7 @@ const KINDS = [
   ['notes', 'Notes', 'Note, 8×8. Black outline and the three note yellows (light, body, shade): the player paints them in the track colour.'],
   ['cursors', 'Cursors', 'Mouse pointer, 16×16, drawn as it looks (any colour; empty is see-through). The pivot (red) is the point that clicks: set it with the Pivot tool.'],
   ['clefs', 'Clefs', 'Clef. Black is the clef; the player draws it in the staff colour, at its place on the staff.'],
-  ['pictures', 'Pictures', 'A picture drawn as it is (Sonic on the playhead: sonicIdle, sonicWalk). button: the sprite boxes are drawn with, listItem: the rows of lists (a smaller corner); sliced in 9 by the red lines (Slices…): the corners as drawn, the edges and the middle repeat. Transparent = outside, black = the frame, white = the fill, a light grey = the light edge (theme: bevel), a dark grey = the shadow (theme: boxShade). keys: one octave of the piano keys (B at the top, C at the bottom), frame 1 = as they are, 2 = pressed, 3 = keys the pen cannot use. volIcon, volLine, volKnob: the volume control (the line’s width is how far the knob goes; knob frame 2 = held or under the mouse).'],
+  ['pictures', 'Pictures', 'A picture drawn as it is (Sonic on the playhead: sonicIdle, sonicWalk). button: the sprite boxes are drawn with, listItem: the rows of lists (a smaller corner); sliced in 9 by the red lines (Slices…): the corners as drawn, the edges and the middle repeat. Transparent = outside, black = the frame, white = the fill, a light grey = the light edge (theme: bevel), a dark grey = the shadow (theme: boxShade). keys: one octave of the piano keys (B at the top, C at the bottom), frame 1 = as they are, 2 = pressed, 3 = keys the pen cannot use. volIcon, volLine, volKnob: the volume control (the line’s width is how far the knob goes; knob frame 2 = held or under the mouse). noteTail: the line after a long note, drawn like the notes (black and the three yellows, painted in each track colour); the red lines (Slices…) cut it into the start, the middle (repeated along the line) and the end. While a note plays, its line turns the shade colour up to the note.'],
 ];
 // what the frames of each kind do in the player
 const FRAME_HINT = {
@@ -106,6 +106,7 @@ function defaultGhost() {
 const MODES = [['active', 'Active'], ['inactive', 'Inactive']];
 // [outline, light, body, shade] of a track colour, active or inactive, 0..255
 const notePal = (tone, mode) => (mode === 'active' ? [st.outline, ...st.tones[tone]]
+  : mode === 'played' ? [st.outline, st.tones[tone][2], st.tones[tone][2], st.tones[tone][2]] // a played tail: the shade
   : [st.ghostOutline, st.ghost[tone], st.ghost[tone], st.ghostOutline]).map(lv);
 // the paper the notes are shown on: the chosen theme's
 const modeBg = () => THEMES.dark.paper;
@@ -210,6 +211,16 @@ function buildBar() {
     pick(st.kind, st.art[st.kind].keys().next().value);
   }));
   if (!SIZES[st.kind]) bar.append(btn('Size…', () => resizePicture(a))); // pictures and clefs: any size
+  if (isTail()) { // the note tail: the start and the end (the middle repeats)
+    bar.append(btn('Slices…', () => {
+      const v = (prompt('Start and end widths (red lines): start end', [sliceOf(a)[0], sliceOf(a)[2]].join(' ')) || '').trim().split(/[\s,]+/).map(Number);
+      if (v.length !== 2 || v.some((n) => !(n >= 0))) return;
+      if (v[0] + v[1] >= a.frames[0].width) { alert('The start and the end must leave at least one column in the middle.'); return; }
+      a.info.slice = [v[0], 0, v[1], 0]; dirty(); buildBar(); renderPreview(); render();
+    }));
+    const sl = document.createElement('span'); sl.className = 'hint'; sl.textContent = `start ${sliceOf(a)[0]} · end ${sliceOf(a)[2]}`;
+    bar.append(sl);
+  }
   if (isBoxSprite()) {
     bar.append(btn('Slices…', () => {
       const v = (prompt('Border widths (red lines): left top right bottom', sliceOf(a).join(' ')) || '').trim().split(/[\s,]+/).map(Number);
@@ -408,6 +419,11 @@ function render() {
     c.strokeStyle = '#fff'; c.lineDashOffset = 0; c.strokeRect(...r);
     c.strokeStyle = '#000'; c.lineDashOffset = 4; c.strokeRect(...r);
     c.setLineDash([]);
+  }
+  if (isTail()) { // the start and the end of the note tail
+    const [l, , r] = sliceOf(cur());
+    c.fillStyle = '#ff0000';
+    for (const x of [l, cv.width - r]) c.fillRect(x0 + x * z - 1, y0 - 6, 2, cv.height * z + 12);
   }
   if (isBoxSprite()) { // the 9-slice borders, as in Unity's sprite editor
     const [l, t, r, b] = sliceOf(cur());
@@ -695,6 +711,27 @@ function iconState(a, theme, state) { // a button with this icon, as the player 
 // The box sprites (pictures/button, pictures/listItem): 9-slice pictures the player's boxes are drawn with (gui.js round)
 const BOX_SPRITES = ['button', 'listItem']; // listItem: rows of lists and the buttons on them
 const isBoxSprite = () => st.tab === 'pictures' && st.kind === 'pictures' && BOX_SPRITES.includes(st.name);
+// The note tail (pictures/noteTail): sliced by two red lines into the start, the middle (repeated) and the end.
+const isTail = () => st.tab === 'pictures' && st.kind === 'pictures' && st.name === 'noteTail';
+// A tail w px long as the player draws it (app.js tailRun) in tone k, mode 'active' | 'played' | 'ghost'.
+function tailSample(a, w, k, mode) {
+  const src = noteCv(a.frames[0], k, mode === 'ghost' ? 'ghost' : mode), [l, , r] = sliceOf(a), h = src.height, mw = src.width - l - r;
+  const out = newCv(w, h), o = out.getContext('2d');
+  if (w < l + r) {
+    const lh = Math.min(l, Math.ceil(w / 2)), rh = Math.min(r, w - lh);
+    o.drawImage(src, 0, 0, lh, h, 0, 0, lh, h); o.drawImage(src, src.width - rh, 0, rh, h, w - rh, 0, rh, h);
+    return out;
+  }
+  o.drawImage(src, 0, 0, l, h, 0, 0, l, h);
+  for (let x = l; x < w - r; x += mw) { const cw = Math.min(mw, w - r - x); o.drawImage(src, l, 0, cw, h, x, 0, cw, h); }
+  o.drawImage(src, src.width - r, 0, r, h, w - r, 0, r, h);
+  if (mode === 'played') { // the player's checkerboard: every other pixel in the icons' outline colour
+    const img = o.getImageData(0, 0, w, h), d = img.data, ol = lv(st.outline);
+    for (let i = 0; i < w * h; i++) if (d[i * 4 + 3] && ((i % w) + ((i / w) | 0)) & 1) for (let j = 0; j < 3; j++) d[i * 4 + j] = ol[j];
+    o.putImageData(img, 0, 0);
+  }
+  return out;
+}
 const sliceOf = (a) => a.info.slice || [Math.floor(a.frames[0].width / 3), Math.floor(a.frames[0].height / 3), Math.floor(a.frames[0].width / 3), Math.floor(a.frames[0].height / 3)];
 // A few boxes as the player draws them with the box sprite cv sliced at sl (gui.js nineSlice): transparent = what is
 // under the box, black = the frame, white = the box's fill, another light colour = the light edge (theme colour bevel),
@@ -760,6 +797,16 @@ function renderPreview() {
       label('actual size, ×3');
       a.frames.forEach((cv) => { add(scaled(cv, 1, T(th).face), 'actual size'); add(scaled(cv, 3, T(th).face), '×3'); });
     }
+  } else if (isTail()) {
+    // the tail in every track colour: long and short, as it is and played (the shade), then on another track
+    label('In every track colour: long, short, played; under it on another track (×2)');
+    st.tones.forEach((_, k) => {
+      const h = a.frames[0].height, row = newCv(80, h * 2 + 6), o = row.getContext('2d');
+      o.drawImage(tailSample(a, 32, k, 'active'), 2, 2); o.drawImage(tailSample(a, 8, k, 'active'), 38, 2);
+      o.drawImage(tailSample(a, 32, k, 'played'), 48, 2);
+      o.drawImage(tailSample(a, 32, k, 'ghost'), 2, h + 4);
+      add(scaled(row, 2, modeBg()), TONE_NAMES[k]);
+    });
   } else if (isBoxSprite()) {
     // the box sprite: boxes of the player drawn with it, as it is being drawn
     for (const th of ['dark']) { label('a panel bar and buttons (×2)'); add(scaled(boxSample(a.frames[st.frame] || a.frames[0], sliceOf(a), th), 2), th); }

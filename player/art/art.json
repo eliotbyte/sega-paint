@@ -1,5 +1,5 @@
 {
- "version": 237,
+ "version": 238,
  "tools": {
   "undo": {
    "frames": 1
@@ -440,6 +440,15 @@
   },
   "volKnob": {
    "frames": 2
+  },
+  "noteTail": {
+   "frames": 1,
+   "slice": [
+    2,
+    0,
+    2,
+    0
+   ]
   }
  }
 }

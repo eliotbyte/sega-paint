@@ -4,7 +4,7 @@ A Mario Paint–style music toy for the Sega Mega Drive / Genesis sound: sprite 
 
 **Play online:** https://eliotbyte.github.io/sega-paint/
 
-Version: beta 3.
+Version: beta 4.
 
 ## Run locally
 
